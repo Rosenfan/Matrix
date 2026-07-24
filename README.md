@@ -167,6 +167,28 @@ python .claude/skills/matrix/scripts/matrix_state.py transition design
 
 ---
 
+## Optional: Claude Code Handoff
+
+After the **design** phase completes and its guard passes, you can choose:
+
+| Option | Path | When to Use |
+|--------|------|-------------|
+| **A: Codex** (default) | design → build → verify → archive | Standard flow, implement in current session |
+| **B: Claude Code** | design → claude → verify → archive | Want Claude Code to implement instead |
+
+### How It Works
+
+1. Design guard passes → decision point
+2. Run `$matrix-claude` → exports frozen design as `artifacts/claude-task.md`
+3. Claude Code implements using the task package
+4. Claude Code produces evidence in `artifacts/verification.md`
+5. Run build guard → transition to verify
+6. Continue with normal verify → archive flow
+
+The sidecar does NOT change Matrix state. The phase remains `design` until you explicitly transition.
+
+---
+
 ## Integration with Matt Pocock's Skills
 
 Matrix is designed to work **on top of** Matt Pocock's skills, not replace them. Here's how they map:

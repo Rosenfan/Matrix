@@ -168,6 +168,28 @@ python .claude/skills/matrix/scripts/matrix_state.py transition design
 
 ---
 
+## 可选：Claude Code 交接
+
+在 **design** 阶段完成且守卫通过后，你可以选择：
+
+| 选项 | 路径 | 使用场景 |
+|------|------|----------|
+| **A: Codex**（默认） | design → build → verify → archive | 标准流程，在当前会话中实现 |
+| **B: Claude Code** | design → claude → verify → archive | 希望用 Claude Code 实现 |
+
+### 工作原理
+
+1. 设计守卫通过 → 决策点
+2. 运行 `$matrix-claude` → 导出冻结的设计为 `artifacts/claude-task.md`
+3. Claude Code 使用任务包实现
+4. Claude Code 在 `artifacts/verification.md` 中产生证据
+5. 运行构建守卫 → 转换到验证
+6. 继续正常的验证 → 归档流程
+
+此 sidecar 不会改变 Matrix 状态。阶段保持 `design`，直到你明确转换。
+
+---
+
 ## 与 Matt Pocock Skills 的集成
 
 Matrix 设计为**在 Matt Pocock 的 skills 之上工作**，而非替代它们。以下是各阶段的详细映射：
