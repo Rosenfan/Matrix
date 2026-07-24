@@ -168,25 +168,31 @@ python .claude/skills/matrix/scripts/matrix_state.py transition design
 
 ---
 
-## 可选：Claude Code 交接
+## 特别功能：matrix-claude
 
-在 **design** 阶段完成且守卫通过后，你可以选择：
+**默认用法**：直接使用主流程即可。无论你用 Codex 还是 Claude Code，标准流程都适用：
 
-| 选项 | 路径 | 使用场景 |
-|------|------|----------|
-| **A: Codex**（默认） | design → build → verify → archive | 标准流程，在当前会话中实现 |
-| **B: Claude Code** | design → claude → verify → archive | 希望用 Claude Code 实现 |
+```
+$matrix → open → design → build → verify → archive
+```
 
-### 工作原理
+**何时使用 `$matrix-claude`**：仅当你想**跨工具拆分工作**时 —— 用 Codex 设计，然后交给 Claude Code 实现。
 
-1. 设计守卫通过 → 决策点
+| 场景 | 操作 |
+|------|------|
+| 一个工具完成所有工作（默认） | 直接用 `$matrix`，无需额外步骤 |
+| Codex 设计 + Codex 实现 | 标准流程：design → build → verify |
+| Codex 设计 + Claude Code 实现 | design → `$matrix-claude` → Claude Code → verify |
+
+### matrix-claude 工作原理
+
+1. 设计阶段完成，守卫通过
 2. 运行 `$matrix-claude` → 导出冻结的设计为 `artifacts/claude-task.md`
-3. Claude Code 使用任务包实现
+3. Claude Code 读取任务包并实现
 4. Claude Code 在 `artifacts/verification.md` 中产生证据
-5. 运行构建守卫 → 转换到验证
-6. 继续正常的验证 → 归档流程
+5. 返回 Matrix：构建守卫 → 验证 → 归档
 
-此 sidecar 不会改变 Matrix 状态。阶段保持 `design`，直到你明确转换。
+此 sidecar 不会改变 Matrix 状态。它只是纯粹的导出 —— 就像为另一个工具拍一张设计快照。
 
 ---
 

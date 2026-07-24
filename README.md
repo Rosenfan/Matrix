@@ -167,25 +167,31 @@ python .claude/skills/matrix/scripts/matrix_state.py transition design
 
 ---
 
-## Optional: Claude Code Handoff
+## Special Feature: matrix-claude
 
-After the **design** phase completes and its guard passes, you can choose:
+**Default usage**: Just use the main workflow (`$matrix`). Whether you're using Codex or Claude Code, the standard flow works for both:
 
-| Option | Path | When to Use |
-|--------|------|-------------|
-| **A: Codex** (default) | design → build → verify → archive | Standard flow, implement in current session |
-| **B: Claude Code** | design → claude → verify → archive | Want Claude Code to implement instead |
+```
+$matrix → open → design → build → verify → archive
+```
 
-### How It Works
+**When to use `$matrix-claude`**: Only when you want to **split the work across tools** — use Codex for design, then hand off to Claude Code for implementation.
 
-1. Design guard passes → decision point
+| Scenario | What to Do |
+|----------|------------|
+| Use one tool for everything (default) | Just use `$matrix`, no extra steps |
+| Codex designs + Codex implements | Standard flow: design → build → verify |
+| Codex designs + Claude Code implements | design → `$matrix-claude` → Claude Code → verify |
+
+### How matrix-claude Works
+
+1. Design phase completes, guard passes
 2. Run `$matrix-claude` → exports frozen design as `artifacts/claude-task.md`
-3. Claude Code implements using the task package
+3. Claude Code reads the task package and implements
 4. Claude Code produces evidence in `artifacts/verification.md`
-5. Run build guard → transition to verify
-6. Continue with normal verify → archive flow
+5. Return to Matrix: build guard → verify → archive
 
-The sidecar does NOT change Matrix state. The phase remains `design` until you explicitly transition.
+The sidecar does NOT change Matrix state. It's a pure export — like taking a snapshot of the design for another tool to consume.
 
 ---
 
