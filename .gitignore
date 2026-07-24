@@ -1,0 +1,58 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Matrix runtime state (user-specific, not for version control)
+.codex/matrix/active.json
+.codex/matrix/changes/*/run-state.json
+.codex/matrix/changes/*/events.jsonl
+.codex/matrix/changes/*/artifacts/handoff.md
+
+# Complementary skills from Matt Pocock (install separately)
+.claude/skills/code-review/
+.claude/skills/codebase-design/
+.claude/skills/diagnosing-bugs/
+.claude/skills/domain-modeling/
+.claude/skills/grill-with-docs/
+.claude/skills/grilling/
+.claude/skills/handoff/
+.claude/skills/implement/
+.claude/skills/improve-codebase-architecture/
+.claude/skills/prototype/
+.claude/skills/research/
+.claude/skills/tdd/
