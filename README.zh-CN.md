@@ -115,12 +115,12 @@ Matrix 将会：
 
 ## 工作流阶段
 
-| 阶段 | 使用的 Matt Pocock Skill | 交付物 | 守卫条件 |
-|------|--------------------------|--------|----------|
-| **open** | `/grill-with-docs`、`/grill-me` | `proposal.md` | 目标、范围、验收标准、风险存在 |
-| **design** | `/prototype`、`/research`、`/domain-modeling` | `design.md`、`plan.md` | 决策、测试点、步骤已记录 |
-| **build** | `/implement`、`/tdd`、`/diagnosing-bugs` | 代码、`verification.md` | 计划存在，构建证据已记录 |
-| **verify** | `/code-review`、`/improve-codebase-architecture` | 测试和审查证据 | 测试和审查证据存在 |
+| 阶段 | 使用的 Matt Pocock Skills | 交付物 | 守卫条件 |
+|------|---------------------------|--------|----------|
+| **open** | `/grill-with-docs`（自动调用 `/grilling` + `/domain-modeling`） | `proposal.md`、`CONTEXT.md`、ADRs | 目标、范围、验收标准、风险存在 |
+| **design** | `/domain-modeling` → `/research` → `/wayfinder` → `/prototype` → `/codebase-design` | `design.md`、`plan.md` | 决策、测试点、步骤已记录 |
+| **build** | `/implement`（自动调用 `/tdd` + `/code-review`）、`/diagnosing-bugs`、`/resolving-merge-conflicts` | 代码、`verification.md` | 计划存在，构建证据已记录 |
+| **verify** | `/code-review`（双轴：Standards + Spec）、`/improve-codebase-architecture` | 测试和审查证据 | 测试和审查证据存在 |
 | **archive** | — | Git commit | 验证守卫通过 |
 
 ---
@@ -170,18 +170,43 @@ python .claude/skills/matrix/scripts/matrix_state.py transition design
 
 ## 与 Matt Pocock Skills 的集成
 
-Matrix 设计为**在 Matt Pocock 的 skills 之上工作**，而非替代它们。以下是映射关系：
+Matrix 设计为**在 Matt Pocock 的 skills 之上工作**，而非替代它们。以下是各阶段的详细映射：
 
-| Matrix 阶段 | Matt Pocock Skill | Matrix 如何使用 |
-|-------------|-------------------|-----------------|
-| `open` | `/grill-with-docs` | 将需求澄清为 `proposal.md` |
-| `design` | `/prototype` | 用可运行的实验验证设计问题 |
-| `design` | `/research` | 调查外部 API 和规范 |
-| `build` | `/implement` | 执行实现任务 |
-| `build` | `/tdd` | 在确认的接缝处进行红绿重构循环 |
-| `build` | `/diagnosing-bugs` | 系统性调试失败 |
-| `verify` | `/code-review` | 基于基线审查代码 |
-| `verify` | `/improve-codebase-architecture` | 可选：发现浅模块机会 |
+### open 阶段
+
+| Skill | Matrix 如何使用 |
+|-------|-----------------|
+| `/grill-with-docs` | 主技能：运行 `/grilling` + `/domain-modeling` 澄清需求 |
+| `/grilling` | 通过连续提问压力测试计划 |
+| `/domain-modeling` | 建立共享词汇，创建 `CONTEXT.md` 和 ADRs |
+
+### design 阶段（推荐顺序）
+
+| 顺序 | Skill | Matrix 如何使用 |
+|------|-------|-----------------|
+| 1 | `/domain-modeling` | 从提案中建立或精炼领域词汇 |
+| 2 | `/research` | 调查外部 API、文档、规范（后台运行） |
+| 3 | `/wayfinder` | 探索复杂代码库结构和依赖 |
+| 4 | `/prototype` | 用一次性实验验证设计问题 |
+| 5 | `/codebase-design` | 定义模块边界、接口、测试点 |
+
+### build 阶段
+
+| Skill | Matrix 如何使用 |
+|-------|-----------------|
+| `/implement` | 主技能：执行计划，使用 TDD，运行代码审查，然后提交 |
+| `/tdd` | 由 `/implement` 自动调用：在确认的接缝处进行红绿重构 |
+| `/diagnosing-bugs` | 遇到失败时：先构建紧凑的反馈循环再修复 |
+| `/resolving-merge-conflicts` | 遇到合并冲突时：系统性解决 |
+
+### verify 阶段
+
+| Skill | Matrix 如何使用 |
+|-------|-----------------|
+| `/code-review` | 双轴审查：**Standards**（编码规范）+ **Spec**（需求忠实度） |
+| `/improve-codebase-architecture` | 可选：扫描浅模块深化机会 |
+
+---
 
 **关键区别**：Matt Pocock 的 skills 是独立工具。Matrix 增加了：
 - **状态持久化**：可承受上下文丢失

@@ -114,12 +114,12 @@ Matrix will:
 
 ## Workflow Phases
 
-| Phase | Matt Pocock Skill Used | Deliverables | Guard Condition |
-|-------|------------------------|--------------|-----------------|
-| **open** | `/grill-with-docs`, `/grill-me` | `proposal.md` | Goal, Scope, Acceptance, Risks present |
-| **design** | `/prototype`, `/research`, `/domain-modeling` | `design.md`, `plan.md` | Decisions, Test seams, Steps documented |
-| **build** | `/implement`, `/tdd`, `/diagnosing-bugs` | Code, `verification.md` | Plan exists, build evidence recorded |
-| **verify** | `/code-review`, `/improve-codebase-architecture` | Test & review evidence | Test and review evidence present |
+| Phase | Matt Pocock Skills Used | Deliverables | Guard Condition |
+|-------|-------------------------|--------------|-----------------|
+| **open** | `/grill-with-docs` (auto-invokes `/grilling` + `/domain-modeling`) | `proposal.md`, `CONTEXT.md`, ADRs | Goal, Scope, Acceptance, Risks present |
+| **design** | `/domain-modeling` → `/research` → `/wayfinder` → `/prototype` → `/codebase-design` | `design.md`, `plan.md` | Decisions, Test seams, Steps documented |
+| **build** | `/implement` (auto-invokes `/tdd` + `/code-review`), `/diagnosing-bugs`, `/resolving-merge-conflicts` | Code, `verification.md` | Plan exists, build evidence recorded |
+| **verify** | `/code-review` (two-axis: Standards + Spec), `/improve-codebase-architecture` | Test & review evidence | Test and review evidence present |
 | **archive** | — | Git commit | Verify guard passed |
 
 ---
@@ -171,16 +171,41 @@ python .claude/skills/matrix/scripts/matrix_state.py transition design
 
 Matrix is designed to work **on top of** Matt Pocock's skills, not replace them. Here's how they map:
 
-| Matrix Phase | Matt Pocock Skill | How Matrix Uses It |
-|--------------|-------------------|-------------------|
-| `open` | `/grill-with-docs` | Clarifies requirements into `proposal.md` |
-| `design` | `/prototype` | Validates design questions with runnable experiments |
-| `design` | `/research` | Investigates external APIs and specs |
-| `build` | `/implement` | Executes implementation tasks |
-| `build` | `/tdd` | Red-green-refactor loop at confirmed seams |
-| `build` | `/diagnosing-bugs` | Debug failures systematically |
-| `verify` | `/code-review` | Reviews code against baseline |
-| `verify` | `/improve-codebase-architecture` | Optional: find shallow-module opportunities |
+### open Phase
+
+| Skill | How Matrix Uses It |
+|-------|-------------------|
+| `/grill-with-docs` | Main skill: runs `/grilling` + `/domain-modeling` to clarify requirements |
+| `/grilling` | Stress-tests the plan through relentless Q&A |
+| `/domain-modeling` | Establishes shared vocabulary, creates `CONTEXT.md` and ADRs |
+
+### design Phase (Recommended Order)
+
+| Order | Skill | How Matrix Uses It |
+|-------|-------|-------------------|
+| 1 | `/domain-modeling` | Establish or refine domain vocabulary from the proposal |
+| 2 | `/research` | Investigate external APIs, docs, specs (runs in background) |
+| 3 | `/wayfinder` | Explore complex codebase structure and dependencies |
+| 4 | `/prototype` | Validate design questions with throwaway experiments |
+| 5 | `/codebase-design` | Define module boundaries, interfaces, test seams |
+
+### build Phase
+
+| Skill | How Matrix Uses It |
+|-------|-------------------|
+| `/implement` | Main skill: executes plan with TDD, then runs code review, then commits |
+| `/tdd` | Auto-invoked by `/implement`: red-green-refactor at pre-agreed seams |
+| `/diagnosing-bugs` | On failure: builds tight feedback loop before fixing |
+| `/resolving-merge-conflicts` | On merge conflicts: systematic resolution |
+
+### verify Phase
+
+| Skill | How Matrix Uses It |
+|-------|-------------------|
+| `/code-review` | Two-axis review: **Standards** (coding conventions) + **Spec** (requirements fidelity) |
+| `/improve-codebase-architecture` | Optional: scan for shallow-module deepening opportunities |
+
+---
 
 **Key difference**: Matt Pocock's skills are individual tools. Matrix adds:
 - **State persistence**: Survives context loss
