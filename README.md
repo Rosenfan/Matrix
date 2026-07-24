@@ -2,6 +2,10 @@
 
 A structured development workflow for Claude Code that enforces evidence-based phase transitions through proposal, design, build, verify, and archive stages.
 
+English | **[中文](./README.zh-CN.md)**
+
+---
+
 ## What is Matrix?
 
 Matrix is a Claude Code skill set that manages software development as a deterministic state machine. Every change goes through five phases, each with explicit guard conditions that must pass before advancing:
