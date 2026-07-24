@@ -30,10 +30,39 @@ Read the active proposal. Write `artifacts/design.md` with `## Decisions`, `## B
 5. Use `codebase-design` to finalize module boundaries
 6. Confirm material architecture choices with the user before freezing
 7. Run the guard
-8. If guard passes, run transition to advance to build phase
-9. **Then enter `$matrix-build` to continue the workflow**
+8. If guard passes, ask the user to choose implementation method:
 
 ```powershell
 python .claude/skills/matrix/scripts/matrix_state.py guard design
+```
+
+## Implementation Decision Point
+
+After the design guard passes, the user chooses:
+
+### Option A: Continue with Codex (default)
+
+Run transition and enter `$matrix-build`:
+
+```powershell
 python .claude/skills/matrix/scripts/matrix_state.py transition build
 ```
+
+Then enter `$matrix-build` to implement directly in this session.
+
+### Option B: Use Claude Code for implementation
+
+Run `$matrix-claude` to export the frozen design as a bounded task package. This:
+- Does NOT change Matrix phase or state
+- Creates `artifacts/claude-task.md` with all implementation details
+- Includes acceptance criteria, test seams, and required commands
+
+After Claude Code completes and returns results, run the transition and enter `$matrix-verify`:
+
+```powershell
+python .claude/skills/matrix/scripts/matrix_state.py transition build
+python .claude/skills/matrix/scripts/matrix_state.py guard build
+python .claude/skills/matrix/scripts/matrix_state.py transition verify
+```
+
+Then enter `$matrix-verify` to verify the implementation.
