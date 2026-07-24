@@ -1,111 +1,140 @@
 # Matrix Workflow
 
-A structured development workflow for Claude Code that enforces evidence-based phase transitions through proposal, design, build, verify, and archive stages.
+A structured workflow orchestrator for [Matt Pocock's Claude Code skills](https://github.com/mattpocock/skills), inspired by [Comet](https://github.com/anthropics/comet). It enforces evidence-based phase transitions to standardize your development process when using these skills.
 
 English | **[中文](./README.zh-CN.md)**
 
 ---
 
-## What is Matrix?
+## Table of Contents
 
-Matrix is a Claude Code skill set that manages software development as a deterministic state machine. Every change goes through five phases, each with explicit guard conditions that must pass before advancing:
+- [Why Matrix?](#why-matrix)
+- [What It Does](#what-it-does)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Workflow Phases](#workflow-phases)
+- [How It Works](#how-it-works)
+- [Workflow Types](#workflow-types)
+- [Integration with Matt Pocock's Skills](#integration-with-matt-pococks-skills)
+- [License](#license)
+
+---
+
+## Why Matrix
+
+[Matt Pocock's skills](https://github.com/mattpocock/skills) are excellent individual tools — `/grill-with-docs` for requirements, `/tdd` for test-driven development, `/implement` for execution. But using them in isolation leads to common problems:
+
+- **No process memory**: You grill, then implement, but there's no record of what was decided
+- **Phase confusion**: Did we finish design? Are we in build? Hard to tell after context loss
+- **Silent scope creep**: Requirements change mid-build without returning to design
+- **Missing evidence**: "Looks done" without verification proof
+
+Matrix solves this by wrapping these skills into a deterministic state machine with explicit phases, guard conditions, and artifact tracking — inspired by [Comet](https://github.com/anthropics/comet)'s phase-based approach.
+
+---
+
+## What It Does
+
+Matrix orchestrates Matt Pocock's skills into a structured workflow:
 
 ```
 open → design → build → verify → archive
+  ↓       ↓        ↓        ↓        ↓
+grill   plan    implement  tdd    commit
+        design            review
 ```
 
-No phase can be skipped. No transition happens without evidence. This prevents "looks done to me" and forces rigorous completion tracking.
+Each phase:
+- Has specific deliverables (artifacts)
+- Has guard conditions that must pass
+- Logs all transitions
+- Survives context loss (state on disk)
+
+---
+
+## Prerequisites
+
+- [Claude Code](https://docs.anthropic.com/claude-code) installed
+- [Matt Pocock's skills](https://github.com/mattpocock/skills) installed in your project
+- Python 3.8+ in PATH
+
+---
 
 ## Installation
 
-### Prerequisites
-
-- [Claude Code](https://docs.anthropic.com/claude-code) installed and configured
-- Python 3.8+ available in your PATH
-
-### Install the Skills
-
-Copy the `.claude/skills/matrix*` directories into your project's `.claude/skills/` directory:
+### 1. Install Matt Pocock's Skills First
 
 ```bash
-# From your project root
-cp -r /path/to/matrix-workflow/.claude/skills/matrix* .claude/skills/
+npx skills@latest add mattpocock/skills
 ```
 
-This will install:
-- `matrix/` — Main entry point and state management scripts
-- `matrix-open/` — Open phase: clarify requirements into a proposal
-- `matrix-design/` — Design phase: freeze architecture and plan
-- `matrix-build/` — Build phase: implement with test-first slices
-- `matrix-verify/` — Verify phase: run tests and review
-- `matrix-archive/` — Archive phase: close and archive the change
-- `matrix-hotfix/` — Shortcut for small bug fixes
-- `matrix-tweak/` — Shortcut for bounded small changes
-- `matrix-status/` — Inspect current workflow state
-- `matrix-claude/` — Optional: export design for Claude Code implementation
+### 2. Install Matrix Workflow
 
-## Usage
+Copy the matrix skills into your project's `.claude/skills/` directory:
 
-### Start a New Change
+```bash
+# Clone this repo
+git clone https://github.com/yourusername/matrix-workflow.git /tmp/matrix-workflow
 
-In Claude Code, invoke the matrix skill:
-
-```
-$matrix
+# Copy matrix skills to your project
+cp -r /tmp/matrix-workflow/.claude/skills/matrix* /path/to/your/project/.claude/skills/
 ```
 
-Or describe your request and let Claude route it:
+This installs:
+- `matrix/` — Entry point and state management
+- `matrix-open/` — Open phase (uses `/grill-with-docs`)
+- `matrix-design/` — Design phase (uses `/prototype`, `/research`)
+- `matrix-build/` — Build phase (uses `/implement`, `/tdd`)
+- `matrix-verify/` — Verify phase (uses `/code-review`)
+- `matrix-archive/` — Archive phase
+- `matrix-hotfix/` — Shortcut for small bugs
+- `matrix-tweak/` — Shortcut for bounded changes
+- `matrix-status/` — Check current state
+- `matrix-claude/` — Optional: export for Claude Code
+
+---
+
+## Quick Start
+
+In Claude Code:
 
 ```
-I want to add user authentication to the API
+$matrix I want to add user authentication
 ```
 
 Matrix will:
-1. Classify your request (full workflow, hotfix, or tweak)
-2. Initialize a change with a unique ID
-3. Enter the `open` phase to clarify requirements
+1. Initialize a change with workflow type `full`
+2. Enter `open` phase → invokes `/grill-with-docs` to clarify requirements
+3. Create `proposal.md` with Goal, Scope, Acceptance, Risks
+4. Guard check: are all sections substantive?
+5. If pass → transition to `design`
 
-### Phase Workflow
+---
 
-Each phase has specific deliverables and guard conditions:
+## Workflow Phases
 
-| Phase | Deliverables | Guard Condition |
-|-------|--------------|-----------------|
-| **open** | `proposal.md` with Goal, Scope, Acceptance, Risks | All sections present and substantive |
-| **design** | `design.md` with Decisions, Test seams; `plan.md` with Steps | Documents exist with required sections |
-| **build** | Implementation code, `verification.md` with Build evidence | Plan exists, build evidence recorded |
-| **verify** | Test results, code review in `verification.md` | Test and review evidence present |
-| **archive** | Final summary, git commit | Verify guard passed |
+| Phase | Matt Pocock Skill Used | Deliverables | Guard Condition |
+|-------|------------------------|--------------|-----------------|
+| **open** | `/grill-with-docs`, `/grill-me` | `proposal.md` | Goal, Scope, Acceptance, Risks present |
+| **design** | `/prototype`, `/research`, `/domain-modeling` | `design.md`, `plan.md` | Decisions, Test seams, Steps documented |
+| **build** | `/implement`, `/tdd`, `/diagnosing-bugs` | Code, `verification.md` | Plan exists, build evidence recorded |
+| **verify** | `/code-review`, `/improve-codebase-architecture` | Test & review evidence | Test and review evidence present |
+| **archive** | — | Git commit | Verify guard passed |
 
-### Check Status
-
-```
-$matrix-status
-```
-
-Reports the current phase, guard result, and next step.
-
-### Resume Interrupted Work
-
-If context is lost or you return to a project later:
-
-```
-$matrix
-```
-
-Matrix reads the state file and resumes from the current phase.
+---
 
 ## How It Works
 
-Matrix stores state in `.codex/matrix/` within your project:
+State is stored in `.codex/matrix/`:
 
 ```
 .codex/matrix/
-├── active.json          # Current change ID
-├── config.yaml          # Workflow configuration
+├── active.json              # Current change ID
+├── config.yaml
 ├── changes/
 │   └── <change-id>/
-│       ├── matrix.yaml  # Phase, workflow, timestamps
+│       ├── matrix.yaml      # Phase, workflow, timestamps
 │       ├── run-state.json
 │       ├── events.jsonl
 │       └── artifacts/
@@ -113,60 +142,54 @@ Matrix stores state in `.codex/matrix/` within your project:
 │           ├── design.md
 │           ├── plan.md
 │           └── verification.md
-└── archive/             # Completed changes
+└── archive/
 ```
 
-The `matrix_state.py` script enforces transitions:
+The state machine enforces transitions:
 
 ```bash
-# Check if current phase guard passes
+# Check guard
 python .claude/skills/matrix/scripts/matrix_state.py guard open
 
-# Advance to next phase (only if guard passes)
+# Advance (only if guard passes)
 python .claude/skills/matrix/scripts/matrix_state.py transition design
 ```
 
+---
+
 ## Workflow Types
 
-| Type | Use Case | Phases |
-|------|----------|--------|
+| Type | When to Use | Phases |
+|------|-------------|--------|
 | **full** | New features, architecture changes | All 5 phases |
-| **hotfix** | Reproducible small bugs | Simplified open → build → verify → archive |
-| **tweak** | Bounded changes, no API/schema impact | Simplified open → build → verify → archive |
+| **hotfix** | Reproducible small bugs | Simplified: open → build → verify → archive |
+| **tweak** | Bounded changes, no API/schema impact | Simplified: open → build → verify → archive |
 
-## Optional: Claude Code Handoff
+---
 
-The `matrix-claude` skill exports a frozen design as a Claude Code task package. Use when you want Codex to design and Claude Code to implement:
+## Integration with Matt Pocock's Skills
 
-```
-$matrix-claude
-```
+Matrix is designed to work **on top of** Matt Pocock's skills, not replace them. Here's how they map:
 
-This creates a bounded task specification without changing Matrix state.
+| Matrix Phase | Matt Pocock Skill | How Matrix Uses It |
+|--------------|-------------------|-------------------|
+| `open` | `/grill-with-docs` | Clarifies requirements into `proposal.md` |
+| `design` | `/prototype` | Validates design questions with runnable experiments |
+| `design` | `/research` | Investigates external APIs and specs |
+| `build` | `/implement` | Executes implementation tasks |
+| `build` | `/tdd` | Red-green-refactor loop at confirmed seams |
+| `build` | `/diagnosing-bugs` | Debug failures systematically |
+| `verify` | `/code-review` | Reviews code against baseline |
+| `verify` | `/improve-codebase-architecture` | Optional: find shallow-module opportunities |
 
-## Complementary Skills
+**Key difference**: Matt Pocock's skills are individual tools. Matrix adds:
+- **State persistence**: Survives context loss
+- **Phase enforcement**: Can't skip design and jump to build
+- **Evidence requirements**: Guards check for artifacts, not assertions
+- **Transition logging**: Full audit trail of phase changes
 
-The following skills from [Matt Pocock's skill collection](https://github.com/mattpocock/claude-code-skills) work well with Matrix:
-
-- `grilling` — Stress-test plans through relentless Q&A
-- `implement` — Execute implementation tasks
-- `tdd` — Test-driven development loop
-- `code-review` — Review code against baseline
-- `diagnose` — Debug failures systematically
-- `prototype` — Build UI prototypes
-
-**These skills are NOT included** in this repository. Install them separately from [Matt Pocock's repository](https://github.com/mattpocock/claude-code-skills). Matrix will reference them when needed, but functions without them using built-in alternatives.
-
-## Philosophy
-
-Matrix enforces several engineering discipline principles:
-
-1. **Evidence over assertion** — "Done" means guard conditions pass, not someone said so
-2. **No silent scope creep** — Scope changes return to design phase
-3. **Explicit transitions** — Every phase change is logged and deterministic
-4. **Frozen plans** — Build implements what was designed, nothing more
-5. **Context resilience** — State persists on disk, survives session interruptions
+---
 
 ## License
 
-MIT
+[MIT](./LICENSE)
