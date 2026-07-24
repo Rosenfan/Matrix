@@ -4,6 +4,10 @@ A structured workflow orchestrator for [Matt Pocock's Claude Code skills](https:
 
 English | **[中文](./README.zh-CN.md)**
 
+<p align="center">
+  <img src="./assets/matrix-workflow-poster-en.svg" alt="Matrix Workflow" width="100%">
+</p>
+
 ---
 
 ## Table of Contents

@@ -4,6 +4,10 @@
 
 **[English](./README.md)** | 中文
 
+<p align="center">
+  <img src="./assets/matrix-workflow-poster-zh.svg" alt="Matrix Workflow" width="100%">
+</p>
+
 ---
 
 ## 目录

@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title description">
+  <title id="title">Matrix 工作流海报</title>
+  <desc id="description">Matrix Workflow 中文产品海报，使用连续五阶段证据链与 Codex、Claude Code 的交接带展示开发流程。</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#020806"/><stop offset=".56" stop-color="#09271b"/><stop offset="1" stop-color="#020a07"/></linearGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#22ff9f" stop-opacity="0"/><stop offset=".5" stop-color="#22ff9f" stop-opacity=".16"/><stop offset="1" stop-color="#22ff9f" stop-opacity="0"/></linearGradient>
+    <linearGradient id="stageSurface" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#103c29"/><stop offset="1" stop-color="#092719"/></linearGradient>
+    <radialGradient id="heroLight" cx="78%" cy="18%" r="72%"><stop stop-color="#1d7c51" stop-opacity=".38"/><stop offset=".48" stop-color="#0b2d20" stop-opacity=".16"/><stop offset="1" stop-color="#020806" stop-opacity="0"/></radialGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#70ffb4" stroke-opacity=".014"/></pattern>
+    <filter id="glow"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <style>
+      .zh{font-family:'Microsoft YaHei','Noto Sans CJK SC',Arial,sans-serif}.mono{font-family:Consolas,'SFMono-Regular',monospace}.eyebrow{font-size:16px;font-weight:700;letter-spacing:2.2px;fill:#78fbb7}.title{font-size:86px;font-weight:700;letter-spacing:-1px;fill:#f5fff9}.subtitle{font-size:25px;fill:#c8e6d7}.copy{font-size:18px;fill:#bed9ca}.label{font-size:15px;font-weight:700;letter-spacing:1.6px;fill:#82ffc0}.tiny{font-size:14px;fill:#9bc3ae}.stageEn{font-size:15px;font-weight:700;letter-spacing:1.5px;fill:#8cffc6}.stageCn{font-size:31px;font-weight:700;fill:#f1fff8}.stageBody{font-size:18px;font-weight:700;fill:#e4fff0}.stageMeta{font-size:15px;fill:#accdbb}.featureTitle{font-size:20px;font-weight:700;fill:#f1fff8}.featureText{font-size:15px;fill:#b6d6c4}.footer{font-size:23px;font-weight:700;fill:#effff7}.panel{fill:#071a12;fill-opacity:.34;stroke:#70ffb4;stroke-opacity:.1;stroke-width:1}.stage{fill:url(#stageSurface);stroke:#a4ffd0;stroke-opacity:.18;stroke-width:1}.handoff{fill:#153c2b;fill-opacity:.7;stroke:#a4ffd0;stroke-opacity:.16;stroke-width:1}.feature{fill:#0d2b1e;fill-opacity:.56;stroke:#a4ffd0;stroke-opacity:.12;stroke-width:1}.rail{stroke:#9dffd0;stroke-opacity:.52;stroke-width:2;fill:none}.divider{stroke:#a4ffd0;stroke-opacity:.16;stroke-width:1}.soft{stroke:#a4ffd0;stroke-opacity:.2;stroke-width:1}.arrow{fill:#9dffd0}.chev{fill:none;stroke:#9dffd0;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+    </style>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#bg)"/><rect width="1920" height="1080" fill="url(#heroLight)"/><rect width="1920" height="1080" fill="url(#grid)"/>
+  <path d="M1080 56H1812" stroke="url(#beam)" stroke-width="2"/><path d="M108 264H1812" stroke="url(#beam)" stroke-width="2"/>
+  <g class="zh">
+    <text x="108" y="94" class="eyebrow">&#x5F00;&#x6E90; &#xB7; AI &#x5DE5;&#x7A0B;&#x5DE5;&#x4F5C;&#x6D41;</text><text x="108" y="181" class="title">Matrix &#x5DE5;&#x4F5C;&#x6D41;</text><text x="108" y="226" class="subtitle">&#x9762;&#x5411; Claude Code / Codex &#x7684;&#x8BC1;&#x636E;&#x9A71;&#x52A8;&#x5F00;&#x53D1;&#x5DE5;&#x4F5C;&#x6D41;</text><text x="108" y="261" class="copy">&#x8BA9;&#x9700;&#x6C42;&#x3001;&#x8BBE;&#x8BA1;&#x3001;&#x6784;&#x5EFA;&#x3001;&#x9A8C;&#x8BC1;&#x4E0E;&#x5F52;&#x6863;&#xFF0C;&#x59CB;&#x7EC8;&#x6CBF;&#x7740;&#x53EF;&#x6062;&#x590D;&#x3001;&#x53EF;&#x5BA1;&#x8BA1;&#x7684;&#x8DEF;&#x5F84;&#x63A8;&#x8FDB;&#x3002;</text>
+    <g transform="translate(1280 92)"><text x="0" y="22" class="label">FOR MATT POCOCK SKILLS POWER USERS</text><path d="M0 38H504" class="soft"/><text x="0" y="66" class="copy">&#x6DF1;&#x5EA6;&#x4F7F;&#x7528; mattpocock/skills</text><text x="0" y="92" class="tiny">Matrix &#x5C06;&#x539F;&#x5B50;&#x6280;&#x80FD;&#x7F16;&#x6392;&#x4E3A;&#x53EF;&#x5BA1;&#x8BA1;&#x5DE5;&#x4F5C;&#x6D41;</text></g>
+
+    <rect x="108" y="316" width="1704" height="438" rx="18" class="panel"/>
+    <text x="148" y="360" class="label">&#x5F00;&#x53D1;&#x63A7;&#x5236;&#x5E73;&#x9762; &#xB7; &#x4E94;&#x9636;&#x6BB5;&#x8BC1;&#x636E;&#x94FE;</text><text x="1772" y="360" class="tiny" text-anchor="end">OPEN &#x2192; DESIGN &#x2192; BUILD &#x2192; VERIFY &#x2192; ARCHIVE</text>
+    <path d="M174 404H1746" class="rail" filter="url(#glow)"/>
+    <g>
+      <g transform="translate(148 386)"><rect width="296" height="190" rx="10" class="stage"/><text x="28" y="35" class="stageEn">01 &#xB7; OPEN</text><text x="28" y="77" class="stageCn">&#x6F84;&#x6E05;</text><text x="28" y="111" class="stageBody">&#x6F84;&#x6E05;&#x9700;&#x6C42;</text><text x="28" y="145" class="stageMeta">&#x76EE;&#x6807; &#xB7; &#x8303;&#x56F4; &#xB7; &#x9A8C;&#x6536;</text></g>
+      <g transform="translate(466 386)"><rect width="296" height="190" rx="10" class="stage"/><text x="28" y="35" class="stageEn">02 &#xB7; DESIGN</text><text x="28" y="77" class="stageCn">&#x8BBE;&#x8BA1;</text><text x="28" y="111" class="stageBody">&#x8BBE;&#x5B9A;&#x8FB9;&#x754C;</text><text x="28" y="145" class="stageMeta">&#x51B3;&#x7B56; &#xB7; &#x8BA1;&#x5212; &#xB7; &#x6D4B;&#x8BD5;&#x70B9;</text></g>
+      <g transform="translate(784 386)"><rect width="296" height="190" rx="10" class="stage"/><text x="28" y="35" class="stageEn">03 &#xB7; BUILD</text><text x="28" y="77" class="stageCn">&#x6784;&#x5EFA;</text><text x="28" y="111" class="stageBody">&#x6784;&#x5EFA;&#x5B9E;&#x73B0;</text><text x="28" y="145" class="stageMeta">TDD &#xB7; &#x6784;&#x5EFA;&#x8BC1;&#x636E;</text></g>
+      <g transform="translate(1102 386)"><rect width="296" height="190" rx="10" class="stage"/><text x="28" y="35" class="stageEn">04 &#xB7; VERIFY</text><text x="28" y="77" class="stageCn">&#x9A8C;&#x8BC1;</text><text x="28" y="111" class="stageBody">&#x9A8C;&#x8BC1;&#x8D28;&#x91CF;</text><text x="28" y="145" class="stageMeta">&#x6D4B;&#x8BD5; &#xB7; &#x89C4;&#x683C;&#x5BA1;&#x67E5;</text></g>
+      <g transform="translate(1420 386)"><rect width="296" height="190" rx="10" class="stage"/><text x="28" y="35" class="stageEn">05 &#xB7; ARCHIVE</text><text x="28" y="77" class="stageCn">&#x5F52;&#x6863;</text><text x="28" y="111" class="stageBody">&#x63D0;&#x4EA4;&#x5F52;&#x6863;</text><text x="28" y="145" class="stageMeta">&#x63D0;&#x4EA4; &#xB7; &#x65E5;&#x5FD7; &#xB7; &#x8FFD;&#x6EAF;</text></g>
+    </g>
+    <path d="M451 473l8 8-8 8M769 473l8 8-8 8M1087 473l8 8-8 8M1405 473l8 8-8 8" class="chev"/>
+    <path d="M148 614H1772" class="soft"/>
+    <text x="148" y="647" class="label">&#x8DE8;&#x5DE5;&#x5177;&#x4EA4;&#x63A5;&#xFF1A;&#x4FDD;&#x7559;&#x8BBE;&#x8BA1;&#x4E0A;&#x4E0B;&#x6587;&#x4E0E;&#x9A8C;&#x8BC1;&#x8D23;&#x4EFB;</text>
+    <g transform="translate(108 669)">
+      <rect width="420" height="56" rx="8" class="handoff"/><text x="24" y="24" class="label">CODEX</text><text x="24" y="46" class="tiny">&#x8BBE;&#x8BA1;&#x4E0E;&#x89C4;&#x5212;</text>
+      <path d="M432 28H586" class="rail"/><path d="M586 28l-12-7v14z" class="arrow"/>
+      <rect x="598" width="508" height="56" rx="8" class="handoff"/><text x="622" y="24" class="label">FROZEN DESIGN PACKAGE</text><text x="622" y="46" class="tiny">artifacts/claude-task.md</text>
+      <path d="M1118 28H1272" class="rail"/><path d="M1272 28l-12-7v14z" class="arrow"/>
+      <rect x="1284" width="420" height="56" rx="8" class="handoff"/><text x="1308" y="24" class="label">CLAUDE CODE</text><text x="1308" y="46" class="tiny">&#x5B9E;&#x73B0;&#x4E0E;&#x9A8C;&#x8BC1;&#x56DE;&#x586B;</text>
+    </g>
+
+    <g>
+      <g transform="translate(108 790)"><rect width="398" height="114" rx="10" class="feature"/><text x="26" y="38" class="featureTitle">&#x9636;&#x6BB5;&#x5B88;&#x536B;</text><text x="26" y="73" class="featureText">&#x53EA;&#x6709;&#x6EE1;&#x8DB3;&#x4EA7;&#x7269;&#x5B88;&#x536B;&#xFF0C;&#x6D41;&#x7A0B;&#x624D;&#x4F1A;&#x5411;&#x524D;&#x63A8;&#x8FDB;&#x3002;</text></g>
+      <g transform="translate(540 790)"><rect width="398" height="114" rx="10" class="feature"/><text x="26" y="38" class="featureTitle">&#x6301;&#x4E45;&#x5316;&#x72B6;&#x6001;</text><text x="26" y="73" class="featureText">&#x53D8;&#x66F4;&#x4E0E;&#x8BC1;&#x636E;&#x843D;&#x76D8;&#xFF0C;&#x968F;&#x65F6;&#x6062;&#x590D;&#x4E0A;&#x4E0B;&#x6587;&#x3002;</text></g>
+      <g transform="translate(972 790)"><rect width="398" height="114" rx="10" class="feature"/><text x="26" y="38" class="featureTitle">&#x6280;&#x80FD;&#x7F16;&#x6392;</text><text x="26" y="73" class="featureText">&#x628A;&#x9700;&#x6C42;&#x3001;&#x8BBE;&#x8BA1;&#x3001;TDD&#x3001;&#x5BA1;&#x67E5;&#x63A5;&#x6210;&#x5B8C;&#x6574;&#x8DEF;&#x5F84;&#x3002;</text></g>
+      <g transform="translate(1404 790)"><rect width="408" height="114" rx="10" class="feature"/><text x="26" y="38" class="featureTitle">&#x534F;&#x4F5C;&#x6A21;&#x5F0F;</text><text x="26" y="73" class="featureText">full / hotfix / tweak &#xB7; Codex &#x2194; Claude Code</text></g>
+    </g>
+    <path d="M108 960H1812" class="divider"/><text x="108" y="1021" class="footer">&#x8BA9;&#x9AD8;&#x5F3A;&#x5EA6; AI &#x8F85;&#x52A9;&#x5F00;&#x53D1;&#xFF0C;&#x6210;&#x4E3A;&#x53EF;&#x91CD;&#x590D;&#x7684;&#x4EA4;&#x4ED8;&#x7CFB;&#x7EDF;&#x3002;</text><text x="1812" y="994" class="label" text-anchor="end">&#x9879;&#x76EE;&#x4ED3;&#x5E93;</text><text x="1812" y="1034" class="mono" font-size="27" font-weight="700" fill="#effff6" text-anchor="end">github.com/Rosenfan/Matrix</text>
+  </g>
+</svg>
