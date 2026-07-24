@@ -1,6 +1,6 @@
 # Matrix Workflow
 
-一个基于 [Matt Pocock 的 Claude Code skills](https://github.com/mattpocock/skills) 的结构化工作流编排器，灵感来自 [Comet](https://github.com/anthropics/comet)。它通过强制执行基于证据的阶段转换，规范使用这些 skills 时的开发流程。
+一个基于 [Matt Pocock 的 Claude Code skills](https://github.com/mattpocock/skills) 的结构化工作流编排器，灵感来自 [Comet](https://github.com/rpamis/comet)。它通过强制执行基于证据的阶段转换，规范使用这些 skills 时的开发流程。
 
 **[English](./README.md)** | 中文
 
@@ -30,7 +30,7 @@
 - **静默范围蔓延**：需求在构建过程中变更，却没有返回设计阶段
 - **缺少证据**："看起来完成了"却没有验证证明
 
-Matrix 通过将这些 skills 封装到确定性状态机中来解决这些问题 —— 包含明确的阶段、守卫条件和产物追踪。灵感来自 [Comet](https://github.com/anthropics/comet) 的阶段式方法。
+Matrix 通过将这些 skills 封装到确定性状态机中来解决这些问题 —— 包含明确的阶段、守卫条件和产物追踪。灵感来自 [Comet](https://github.com/rpamis/comet) 的阶段式方法。
 
 ---
 
