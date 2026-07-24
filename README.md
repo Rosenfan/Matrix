@@ -1,6 +1,6 @@
 # Matrix Workflow
 
-A structured workflow orchestrator for [Matt Pocock's Claude Code skills](https://github.com/mattpocock/skills), inspired by [Comet](https://github.com/anthropics/comet). It enforces evidence-based phase transitions to standardize your development process when using these skills.
+A structured workflow orchestrator for [Matt Pocock's Claude Code skills](https://github.com/mattpocock/skills), inspired by [Comet](https://github.com/rpamis/comet). It enforces evidence-based phase transitions to standardize your development process when using these skills.
 
 English | **[中文](./README.zh-CN.md)**
 
@@ -30,7 +30,7 @@ English | **[中文](./README.zh-CN.md)**
 - **Silent scope creep**: Requirements change mid-build without returning to design
 - **Missing evidence**: "Looks done" without verification proof
 
-Matrix solves this by wrapping these skills into a deterministic state machine with explicit phases, guard conditions, and artifact tracking — inspired by [Comet](https://github.com/anthropics/comet)'s phase-based approach.
+Matrix solves this by wrapping these skills into a deterministic state machine with explicit phases, guard conditions, and artifact tracking — inspired by [Comet](https://github.com/rpamis/comet)'s phase-based approach.
 
 ---
 
