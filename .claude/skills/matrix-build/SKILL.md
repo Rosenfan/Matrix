@@ -45,7 +45,9 @@ If implementation exposes a scope or design change, **stop and return to `$matri
 3. On failure: load `diagnosing-bugs` skill
 4. On merge conflicts: load `resolving-merge-conflicts` skill
 5. Record concrete commands and outcomes under `## Build evidence` in `artifacts/verification.md`
-6. Run the guard and advance only if it passes
+6. Run the guard
+7. If guard passes, run transition to advance to verify phase
+8. **Then enter `$matrix-verify` to continue the workflow**
 
 ```powershell
 python .claude/skills/matrix/scripts/matrix_state.py guard build

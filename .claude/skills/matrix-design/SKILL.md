@@ -29,7 +29,9 @@ Read the active proposal. Write `artifacts/design.md` with `## Decisions`, `## B
 4. Use `prototype` to validate key design questions
 5. Use `codebase-design` to finalize module boundaries
 6. Confirm material architecture choices with the user before freezing
-7. Run the guard and advance only if it passes
+7. Run the guard
+8. If guard passes, run transition to advance to build phase
+9. **Then enter `$matrix-build` to continue the workflow**
 
 ```powershell
 python .claude/skills/matrix/scripts/matrix_state.py guard design

@@ -40,7 +40,9 @@ If documents or public behavior changed, record the required synchronization wor
 4. Run both axes (Standards + Spec) in parallel
 5. Record findings under `## Review evidence`
 6. Optionally run `improve-codebase-architecture`
-7. Run the guard and advance only if it passes
+7. Run the guard
+8. If guard passes, run transition to advance to archive phase
+9. **Then enter `$matrix-archive` to continue the workflow**
 
 ```powershell
 python .claude/skills/matrix/scripts/matrix_state.py guard verify

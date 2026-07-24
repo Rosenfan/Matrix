@@ -23,7 +23,9 @@ For **hotfix/tweak**, use `grilling` directly (without docs) — keep it concise
 1. Run `grill-with-docs` (or `grilling` for hotfix/tweak)
 2. Write `proposal.md` with all required sections
 3. Ask the user to confirm when scope or risk is material
-4. Run the guard and advance only if it passes
+4. Run the guard
+5. If guard passes, run transition to advance to design phase
+6. **Then enter `$matrix-design` to continue the workflow**
 
 ```powershell
 python .claude/skills/matrix/scripts/matrix_state.py guard open
