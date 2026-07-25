@@ -23,4 +23,4 @@ Do not archive if the verify guard fails.
 
 ## After Archive
 
-The change is moved to `.codex/matrix/archive/`. To start a new change, run `$matrix` again.
+The change is moved to `.matrix/archive/`. To start a new change, run `$matrix` again.

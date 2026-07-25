@@ -15,7 +15,7 @@ NEXT = {"open": "design", "design": "build", "build": "verify", "verify": "archi
 SKILLS = {phase: f"$matrix-{phase}" for phase in PHASES}
 
 def now(): return datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-def root(): return Path.cwd() / ".codex" / "matrix"
+def root(): return Path.cwd() / ".matrix"
 def active_path(): return root() / "active.json"
 def fail(message): print(f"MATRIX ERROR: {message}", file=sys.stderr); raise SystemExit(2)
 def write_json(path, value): path.write_text(json.dumps(value, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")

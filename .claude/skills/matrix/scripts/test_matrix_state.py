@@ -10,8 +10,10 @@ class MatrixStateTests(unittest.TestCase):
     def test_phase_guard_and_recovery(self):
         with tempfile.TemporaryDirectory() as temp:
             cwd = Path(temp); result = self.invoke("init", "sample", "--title", "Sample", cwd=cwd); self.assertEqual(result.returncode, 0)
+            self.assertTrue((cwd / ".matrix" / "active.json").exists())
+            self.assertFalse((cwd / ".codex").exists())
             self.assertNotEqual(self.invoke("transition", "design", cwd=cwd).returncode, 0)
-            p = cwd / ".codex/matrix/changes/sample/artifacts"
+            p = cwd / ".matrix/changes/sample/artifacts"
             (p / "proposal.md").write_text("## Goal\nx\n\n## Scope\nx\n\n## Acceptance\nx\n" * 4)
             self.assertEqual(self.invoke("transition", "design", cwd=cwd).returncode, 0)
             self.assertIn('"phase": "design"', self.invoke("inspect", cwd=cwd).stdout)
@@ -19,7 +21,7 @@ class MatrixStateTests(unittest.TestCase):
     def test_full_lifecycle_requires_evidence(self):
         with tempfile.TemporaryDirectory() as temp:
             cwd = Path(temp); self.assertEqual(self.invoke("init", "full", "--title", "Full", cwd=cwd).returncode, 0)
-            p = cwd / ".codex/matrix/changes/full/artifacts"
+            p = cwd / ".matrix/changes/full/artifacts"
             (p / "proposal.md").write_text("## Goal\nx\n\n## Scope\nx\n\n## Acceptance\nx\n" * 4)
             self.assertEqual(self.invoke("transition", "design", cwd=cwd).returncode, 0)
             self.assertNotEqual(self.invoke("transition", "build", cwd=cwd).returncode, 0)
@@ -32,5 +34,5 @@ class MatrixStateTests(unittest.TestCase):
             (p / "verification.md").write_text("## Build evidence\nThe focused implementation test command completed successfully with an expected result.\n\n## Test evidence\nThe acceptance command passed and its output was reviewed for the requested behavior.\n\n## Review evidence\nThe fixed-baseline standards and specification review found no blocking issue.\n")
             self.assertEqual(self.invoke("transition", "archive", cwd=cwd).returncode, 0)
             self.assertEqual(self.invoke("archive", cwd=cwd).returncode, 0)
-            self.assertTrue((cwd / ".codex/matrix/archive/full/matrix.yaml").exists())
+            self.assertTrue((cwd / ".matrix/archive/full/matrix.yaml").exists())
 if __name__ == "__main__": unittest.main()

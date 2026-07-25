@@ -131,10 +131,10 @@ Matrix 将会：
 
 ## 工作原理
 
-状态存储在 `.codex/matrix/` 目录：
+状态存储在 `.matrix/` 目录：
 
 ```
-.codex/matrix/
+.matrix/
 ├── active.json              # 当前变更 ID
 ├── config.yaml
 ├── changes/

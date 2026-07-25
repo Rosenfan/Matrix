@@ -5,7 +5,7 @@ description: Route, initialize, resume, and govern a persistent Matrix developme
 
 # Matrix
 
-Use Matrix as the development-workflow entrypoint. Its source of truth is the current repository's `.codex/matrix/`; never infer a phase from chat history.
+Use Matrix as the development-workflow entrypoint. Its source of truth is the current repository's `.matrix/`; never infer a phase from chat history.
 
 ## Route
 

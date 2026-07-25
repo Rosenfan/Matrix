@@ -13,7 +13,7 @@ class MatrixClaudeTests(unittest.TestCase):
 
     def make_design_change(self, cwd):
         self.assertEqual(self.invoke(STATE, "init", "bridge", "--title", "Bridge", cwd=cwd).returncode, 0)
-        p = cwd / ".codex/matrix/changes/bridge/artifacts"
+        p = cwd / ".matrix/changes/bridge/artifacts"
         (p / "proposal.md").write_text("## Goal\nBuild a bounded feature.\n\n## Scope\nOne module only.\n\n## Acceptance\nA focused test passes.\n")
         self.assertEqual(self.invoke(STATE, "transition", "design", cwd=cwd).returncode, 0)
         (p / "design.md").write_text("## Decisions\nKeep one public seam.\n\n## Test seams\nUse the public interface.\n")
@@ -24,7 +24,7 @@ class MatrixClaudeTests(unittest.TestCase):
             cwd = Path(temp); self.make_design_change(cwd)
             result = self.invoke(CLAUDE, "export", "--task-id", "GEN-001", cwd=cwd)
             self.assertEqual(result.returncode, 0, result.stderr)
-            task = cwd / ".codex/matrix/changes/bridge/artifacts/claude-task.md"
+            task = cwd / ".matrix/changes/bridge/artifacts/claude-task.md"
             self.assertIn("## 禁止事项", task.read_text(encoding="utf-8"))
             self.assertIn('"phase": "design"', self.invoke(STATE, "inspect", cwd=cwd).stdout)
 

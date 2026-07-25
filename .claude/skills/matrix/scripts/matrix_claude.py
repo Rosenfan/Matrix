@@ -106,7 +106,7 @@ def active_board(task_id: str, task_path: str, result_path: str, change: str) ->
 | 状态 | CLAUDE_QUEUED |
 | 执行主体 | Claude Code（由用户通过 `$matrix-claude` 明确选择） |
 | 目标 | 执行 Matrix Change `{change}` 的冻结任务包。 |
-| 冻结设计 | `.codex/matrix/changes/{change}/artifacts/{{proposal,design,plan}}.md` |
+| 冻结设计 | `.matrix/changes/{change}/artifacts/{{proposal,design,plan}}.md` |
 | 任务包 | `{task_path}` |
 | 回执 | `{result_path}` |
 | 完成条件 | 任务包验收命令通过、Claude 回执齐全，并经 Codex 审查实际 diff 和证据。 |

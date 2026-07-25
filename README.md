@@ -130,10 +130,10 @@ Matrix will:
 
 ## How It Works
 
-State is stored in `.codex/matrix/`:
+State is stored in `.matrix/`:
 
 ```
-.codex/matrix/
+.matrix/
 ├── active.json              # Current change ID
 ├── config.yaml
 ├── changes/
