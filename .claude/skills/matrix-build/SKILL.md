@@ -50,6 +50,6 @@ If implementation exposes a scope or design change, **stop and return to `$matri
 8. **Then enter `$matrix-verify` to continue the workflow**
 
 ```powershell
-python .claude/skills/matrix/scripts/matrix_state.py guard build
-python .claude/skills/matrix/scripts/matrix_state.py transition verify
+python .matrix/scripts/matrix_state.py guard build
+python .matrix/scripts/matrix_state.py transition verify
 ```

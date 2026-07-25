@@ -38,6 +38,20 @@ env/
 Thumbs.db
 
 # Matrix runtime state (user-specific, not for version control)
+# .matrix/ is the primary location — shared by all AI coding agents.
+# Legacy patterns (agent-specific) are kept for backward compatibility
+# until migration is complete.
+.matrix/state/active.json
+.matrix/state/changes/*/run-state.json
+.matrix/state/changes/*/events.jsonl
+.matrix/state/changes/*/artifacts/handoff.md
+.matrix/archive/*/run-state.json
+.matrix/archive/*/events.jsonl
+.matrix/archive/*/artifacts/handoff.md
+.claude/matrix/active.json
+.claude/matrix/changes/*/run-state.json
+.claude/matrix/changes/*/events.jsonl
+.claude/matrix/changes/*/artifacts/handoff.md
 .codex/matrix/active.json
 .codex/matrix/changes/*/run-state.json
 .codex/matrix/changes/*/events.jsonl

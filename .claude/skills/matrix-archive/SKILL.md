@@ -16,11 +16,11 @@ This is the **final phase** of the Matrix workflow. After archiving, the workflo
 5. **Workflow complete** — no further phase transitions needed
 
 ```powershell
-python .claude/skills/matrix/scripts/matrix_state.py archive
+python .matrix/scripts/matrix_state.py archive
 ```
 
 Do not archive if the verify guard fails.
 
 ## After Archive
 
-The change is moved to `.codex/matrix/archive/`. To start a new change, run `$matrix` again.
+The change is moved to the Matrix archive directory (`.matrix/archive/`). To start a new change, run `$matrix` again.

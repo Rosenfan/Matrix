@@ -7,7 +7,14 @@ import re
 import sys
 from pathlib import Path
 
-from matrix_state import active_path, artifact, get_active, guard, parse_flow, root
+from matrix_state import (
+    artifact,
+    flow_path,
+    get_active,
+    guard,
+    parse_flow,
+    resolve_for_read,
+)
 
 
 def fail(message: str) -> None:
@@ -15,14 +22,19 @@ def fail(message: str) -> None:
     raise SystemExit(2)
 
 
-def read_artifact(change: str, name: str) -> str:
-    path = artifact(change, name)
+def read_artifact(change: str, name: str, project_root: Path) -> str:
+    path = artifact(change, name, project_root)
     if not path.exists():
         fail(f"Required Matrix artifact is missing: {path}")
     return path.read_text(encoding="utf-8").strip()
 
 
-def task_content(change: str, task_id: str, proposal: str, design: str, plan: str, result_path: str) -> str:
+def task_content(
+    change: str, task_id: str, proposal: str, design: str, plan: str,
+    result_path: str, project_root: Path,
+) -> str:
+    # .matrix/ is the fixed, agent-agnostic path — every agent uses the same one.
+    matrix_rel = ".matrix"
     return f"""# Claude Code 执行任务包：{task_id}
 
 ## 元数据
@@ -30,8 +42,8 @@ def task_content(change: str, task_id: str, proposal: str, design: str, plan: st
 | 字段 | 内容 |
 | --- | --- |
 | 状态 | CLAUDE_QUEUED |
-| Codex 决策人 | Codex |
-| Claude Code 执行人 | Claude Code |
+| 决策人 | Codex |
+| 执行人 | Claude Code |
 | Matrix Change | `{change}` |
 | 回执 | `{result_path}` |
 
@@ -71,7 +83,7 @@ def task_content(change: str, task_id: str, proposal: str, design: str, plan: st
 
 - 执行 `plan.md` 中的全部验证命令。
 - 为每项行为变化提供测试或可复现验证证据。
-- 完成后保留可供 Codex 固定基线审查的 diff。
+- 完成后保留可供审查的 diff。
 
 ## 停止并上报的条件
 
@@ -88,12 +100,13 @@ def task_content(change: str, task_id: str, proposal: str, design: str, plan: st
 - `## 测试结果`：命令与输出摘要。
 - `## 边界确认`：未越界声明，或 `NEEDS_DECISION`。
 - `## 未解决项`：如有。
-
-Codex 才能验收；Claude Code 不得自行宣告任务已接受或完成。
 """
 
 
-def active_board(task_id: str, task_path: str, result_path: str, change: str) -> str:
+def active_board(
+    task_id: str, task_path: str, result_path: str, change: str, project_root: Path,
+) -> str:
+    artifacts_url = f".matrix/state/changes/{change}/artifacts/{{proposal,design,plan}}.md"
     return f"""# 活跃任务看板
 
 > 这里是唯一实时任务面板：只放当前任务的状态、执行主体、范围、完成条件和下一步。
@@ -106,32 +119,44 @@ def active_board(task_id: str, task_path: str, result_path: str, change: str) ->
 | 状态 | CLAUDE_QUEUED |
 | 执行主体 | Claude Code（由用户通过 `$matrix-claude` 明确选择） |
 | 目标 | 执行 Matrix Change `{change}` 的冻结任务包。 |
-| 冻结设计 | `.codex/matrix/changes/{change}/artifacts/{{proposal,design,plan}}.md` |
+| 冻结设计 | `{artifacts_url}` |
 | 任务包 | `{task_path}` |
 | 回执 | `{result_path}` |
-| 完成条件 | 任务包验收命令通过、Claude 回执齐全，并经 Codex 审查实际 diff 和证据。 |
+| 完成条件 | 任务包验收命令通过、Claude 回执齐全，并经审查实际 diff 和证据。 |
 | 下一步 | Claude Code 按冻结任务包实施；范围冲突时写 `NEEDS_DECISION`。 |
 """
 
 
 def export(args: argparse.Namespace) -> None:
-    change = get_active()
-    flow = parse_flow(root() / "changes" / change / "matrix.yaml")
+    project_root = resolve_for_read()
+    change = get_active(project_root)
+    flow = parse_flow(flow_path(change, project_root))
     if flow.get("phase") != "design":
         fail(f"Matrix change '{change}' is in phase '{flow.get('phase')}', not design.")
-    if not guard(change, "design", output=True):
+    if not guard(change, "design", project_root, output=True):
         fail("Design guard failed; no Claude task package was written.")
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9-]*", args.task_id):
         fail("Task id must use letters, digits, and hyphens.")
-    proposal, design, plan = (read_artifact(change, n) for n in ("proposal.md", "design.md", "plan.md"))
+
+    proposal, design, plan = (
+        read_artifact(change, n, project_root)
+        for n in ("proposal.md", "design.md", "plan.md")
+    )
 
     if args.target == "generic":
-        output = artifact(change, "claude-task.md")
-        result = artifact(change, "claude-result.md")
-        output.write_text(task_content(change, args.task_id, proposal, design, plan, str(result.relative_to(Path.cwd())).replace("\\", "/")), encoding="utf-8")
+        output = artifact(change, "claude-task.md", project_root)
+        result = artifact(change, "claude-result.md", project_root)
+        result_rel = str(
+            result.relative_to(Path.cwd())
+        ).replace("\\", "/") if result.is_relative_to(Path.cwd()) else ".matrix/state/changes/" + change + "/artifacts/claude-result.md"
+        output.write_text(
+            task_content(change, args.task_id, proposal, design, plan, result_rel, project_root),
+            encoding="utf-8",
+        )
         print(output)
         return
 
+    # FnSec target
     tasks = Path.cwd() / "docs" / "tasks"
     if not tasks.is_dir() or not (tasks / "active.md").is_file():
         fail("FnSec target requires docs/tasks/active.md in the current project.")
@@ -139,14 +164,27 @@ def export(args: argparse.Namespace) -> None:
     result = tasks / f"claude-result-{args.task_id}.md"
     if output.exists() or result.exists():
         fail(f"FnSec task or result path already exists for {args.task_id}.")
-    output.write_text(task_content(change, args.task_id, proposal, design, plan, str(result.relative_to(Path.cwd())).replace("\\", "/")), encoding="utf-8")
+    result_rel = str(result.relative_to(Path.cwd())).replace("\\", "/")
+    output.write_text(
+        task_content(change, args.task_id, proposal, design, plan, result_rel, project_root),
+        encoding="utf-8",
+    )
     if args.apply_fnsec_board:
         board = tasks / "active.md"
         current = board.read_text(encoding="utf-8")
         if "NO_ACTIVE_OBJECTIVE" not in current:
             output.unlink()
             fail("FnSec active.md already has an objective; refused to overwrite it.")
-        board.write_text(active_board(args.task_id, str(output.relative_to(Path.cwd())).replace("\\", "/"), str(result.relative_to(Path.cwd())).replace("\\", "/"), change), encoding="utf-8")
+        board.write_text(
+            active_board(
+                args.task_id,
+                str(output.relative_to(Path.cwd())).replace("\\", "/"),
+                result_rel,
+                change,
+                project_root,
+            ),
+            encoding="utf-8",
+        )
     print(output)
 
 
