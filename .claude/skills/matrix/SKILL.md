@@ -5,14 +5,14 @@ description: Route, initialize, resume, and govern a persistent Matrix developme
 
 # Matrix
 
-Use Matrix as the development-workflow entrypoint. Its source of truth is the current repository's `.matrix/` directory — shared by every AI coding agent; never infer a phase from chat history.
+Use Matrix as the development-workflow entrypoint. Its source of truth is the current repository's `.codex/matrix/`; never infer a phase from chat history.
 
 ## Route
 
 First run:
 
 ```powershell
-python .matrix/scripts/matrix_state.py inspect
+python .claude/skills/matrix/scripts/matrix_state.py inspect
 ```
 
 - If an active change exists, show its phase and enter the returned `next_skill`.
@@ -21,7 +21,7 @@ python .matrix/scripts/matrix_state.py inspect
 - Before `init`, derive a short kebab-case change id and an accurate title. Start with `full` unless a shortcut clearly applies.
 
 ```powershell
-python .matrix/scripts/matrix_state.py init <change-id> --workflow <full|hotfix|tweak> --title "<title>"
+python .claude/skills/matrix/scripts/matrix_state.py init <change-id> --workflow <full|hotfix|tweak> --title "<title>"
 ```
 
 Then enter `$matrix-open`. State initialization creates tracked design artifacts and ignores machine-only state without changing the repository's existing `.gitignore`.

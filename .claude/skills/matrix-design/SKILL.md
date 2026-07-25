@@ -33,7 +33,7 @@ Read the active proposal. Write `artifacts/design.md` with `## Decisions`, `## B
 8. If guard passes, ask the user to choose implementation method:
 
 ```powershell
-python .matrix/scripts/matrix_state.py guard design
+python .claude/skills/matrix/scripts/matrix_state.py guard design
 ```
 
 ## Implementation Decision Point
@@ -45,7 +45,7 @@ After the design guard passes, the user chooses:
 Run transition and enter `$matrix-build`:
 
 ```powershell
-python .matrix/scripts/matrix_state.py transition build
+python .claude/skills/matrix/scripts/matrix_state.py transition build
 ```
 
 Then enter `$matrix-build` to implement directly in this session.
@@ -60,9 +60,9 @@ Run `$matrix-claude` to export the frozen design as a bounded task package. This
 After Claude Code completes and returns results, run the transition and enter `$matrix-verify`:
 
 ```powershell
-python .matrix/scripts/matrix_state.py transition build
-python .matrix/scripts/matrix_state.py guard build
-python .matrix/scripts/matrix_state.py transition verify
+python .claude/skills/matrix/scripts/matrix_state.py transition build
+python .claude/skills/matrix/scripts/matrix_state.py guard build
+python .claude/skills/matrix/scripts/matrix_state.py transition verify
 ```
 
 Then enter `$matrix-verify` to verify the implementation.

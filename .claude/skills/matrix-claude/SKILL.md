@@ -19,7 +19,7 @@ Use `$matrix-claude` when:
 The exporter performs this read-only check before writing anything:
 
 ```powershell
-python .matrix/scripts/matrix_state.py guard design
+python .claude/skills/matrix/scripts/matrix_state.py guard design
 ```
 
 If the design guard fails, stop and return to `$matrix-design`. The exporter reads the active change's `proposal.md`, `design.md`, and `plan.md`; it does not invent missing facts.
@@ -30,11 +30,11 @@ Treat explicit invocation of `$matrix-claude` as the user's choice of Claude Cod
 
 ```powershell
 # Generic project: only exports a Matrix artifact.
-python .matrix/scripts/matrix_claude.py export --task-id <ID> --target generic
+python .claude/skills/matrix/scripts/matrix_claude.py export --task-id <ID> --target generic
 
 # FnSec: exports its formal task package. Add --apply-fnsec-board only when
 # active.md is NO_ACTIVE_OBJECTIVE; an existing task is never overwritten.
-python .matrix/scripts/matrix_claude.py export --task-id <ID> --target fnsec --apply-fnsec-board
+python .claude/skills/matrix/scripts/matrix_claude.py export --task-id <ID> --target fnsec --apply-fnsec-board
 ```
 
 ## Task Package Contents
@@ -74,12 +74,12 @@ After Claude Code completes and evidence is present:
 
 1. Run build guard to verify evidence:
    ```powershell
-   python .matrix/scripts/matrix_state.py guard build
+   python .claude/skills/matrix/scripts/matrix_state.py guard build
    ```
 
 2. If guard passes, transition to verify:
    ```powershell
-   python .matrix/scripts/matrix_state.py transition verify
+   python .claude/skills/matrix/scripts/matrix_state.py transition verify
    ```
 
 3. Enter `$matrix-verify` to继续验证流程

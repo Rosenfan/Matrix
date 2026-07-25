@@ -28,6 +28,6 @@ For **hotfix/tweak**, use `grilling` directly (without docs) — keep it concise
 6. **Then enter `$matrix-design` to continue the workflow**
 
 ```powershell
-python .matrix/scripts/matrix_state.py guard open
-python .matrix/scripts/matrix_state.py transition design
+python .claude/skills/matrix/scripts/matrix_state.py guard open
+python .claude/skills/matrix/scripts/matrix_state.py transition design
 ```
