@@ -59,33 +59,54 @@ Each phase:
 
 ## Prerequisites
 
-- [Claude Code](https://docs.anthropic.com/claude-code) installed
-- [Matt Pocock's skills](https://github.com/mattpocock/skills) installed in your project
-- Python 3.8+ in PATH
+- [Claude Code](https://docs.anthropic.com/claude-code) and/or Codex installed
+- Node.js 18+ (for the installer)
+- Python is optional during the compatibility window; new installations run the bundled Node workflow runtime.
 
 ---
 
 ## Installation
 
-### 1. Install Matt Pocock's Skills First
+Install the Matrix CLI once:
 
 ```bash
-npx skills@latest add mattpocock/skills
+npm install --global @rosenfan/matrix
 ```
 
-### 2. Install Matrix Workflow
-
-Copy the matrix skills into your project's `.claude/skills/` directory:
+Then initialize Matrix inside any project:
 
 ```bash
-# Clone this repo
-git clone https://github.com/yourusername/matrix-workflow.git /tmp/matrix-workflow
-
-# Copy matrix skills to your project
-cp -r /tmp/matrix-workflow/.claude/skills/matrix* /path/to/your/project/.claude/skills/
+cd /path/to/your/project
+matrix init
 ```
 
-This installs:
+The interactive setup lets you:
+
+- Choose English or Chinese, project or global scope, and Claude Code, Codex, or both
+- Copy skills (recommended) or symlink them for local development
+- Safely update an existing installation with an automatic backup
+- Install Matt Pocock's companion skills in the same flow
+
+For automation and CI:
+
+```bash
+# Safe non-interactive installation for both verified platforms
+matrix init --yes --platform claude-code --platform codex --with-mattpocock
+
+# Preview exactly what would change (including backups) without writing
+matrix init --platform codex --dry-run --json
+
+# Inspect Matrix ownership, Matt Skills inheritance, and the selected platform
+matrix doctor --platform codex
+```
+
+Until the npm package is published, install directly from GitHub:
+
+```bash
+npm install --global github:Rosenfan/Matrix
+```
+
+Matrix installs:
 - `matrix/` — Entry point and state management
 - `matrix-open/` — Open phase (uses `/grill-with-docs`)
 - `matrix-design/` — Design phase (uses `/prototype`, `/research`)

@@ -12,7 +12,13 @@ Use Matrix as the development-workflow entrypoint. Its source of truth is the cu
 First run:
 
 ```powershell
-python .claude/skills/matrix/scripts/matrix_state.py inspect
+matrix workflow inspect
+```
+
+If and only if the `matrix` executable is reported as absent, run the bundled fallback from this Skill directory instead:
+
+```powershell
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs inspect
 ```
 
 - If an active change exists, show its phase and enter the returned `next_skill`.
@@ -21,7 +27,7 @@ python .claude/skills/matrix/scripts/matrix_state.py inspect
 - Before `init`, derive a short kebab-case change id and an accurate title. Start with `full` unless a shortcut clearly applies.
 
 ```powershell
-python .claude/skills/matrix/scripts/matrix_state.py init <change-id> --workflow <full|hotfix|tweak> --title "<title>"
+matrix workflow init <change-id> --workflow <full|hotfix|tweak> --title "<title>"
 ```
 
 Then enter `$matrix-open`. State initialization creates tracked design artifacts and ignores machine-only state without changing the repository's existing `.gitignore`.
@@ -37,7 +43,7 @@ When context is running low and work needs to continue in a fresh session, use `
 
 ## Rules
 
-- A phase can advance only through `matrix_state.py transition`; run its guard first.
+- A phase can advance only through `matrix workflow transition`; run its guard first.
 - Do not replace required evidence with an assertion that work is complete.
 - Pause for user confirmation at material architecture/scope decisions and before archive/commit.
 - On scope expansion, return to `$matrix-design`; never silently continue the old plan.

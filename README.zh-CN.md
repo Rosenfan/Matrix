@@ -61,32 +61,50 @@ grill   plan    implement  tdd    commit
 ## 前置条件
 
 - 已安装 [Claude Code](https://docs.anthropic.com/claude-code)
-- 已在项目中安装 [Matt Pocock 的 skills](https://github.com/mattpocock/skills)
+- Node.js 18+（用于运行安装器）
 - Python 3.8+ 已添加到 PATH
 
 ---
 
 ## 安装
 
-### 1. 先安装 Matt Pocock 的 Skills
+只需全局安装一次 Matrix CLI：
 
 ```bash
-npx skills@latest add mattpocock/skills
+npm install --global @rosenfan/matrix
 ```
 
-### 2. 安装 Matrix Workflow
-
-将 matrix skills 复制到项目的 `.claude/skills/` 目录：
+之后在任意项目中初始化：
 
 ```bash
-# 克隆本仓库
-git clone https://github.com/yourusername/matrix-workflow.git /tmp/matrix-workflow
-
-# 复制 matrix skills 到你的项目
-cp -r /tmp/matrix-workflow/.claude/skills/matrix* /path/to/your/project/.claude/skills/
+cd /path/to/your/project
+matrix init
 ```
 
-这将安装：
+交互式初始化支持：
+
+- 选择安装到当前项目或全局
+- 复制 skills（推荐）或为本地开发创建符号链接
+- 更新已有安装，并自动备份被替换的 Matrix 文件
+- 在同一流程中安装 Matt Pocock 的配套 skills
+
+自动化或 CI 环境可以使用：
+
+```bash
+# 使用推荐的项目级默认值，不显示交互问题
+matrix init --yes --with-mattpocock
+
+# 检查安装完整性和运行环境
+matrix doctor
+```
+
+npm 包正式发布前，也可以直接从 GitHub 安装：
+
+```bash
+npm install --global github:Rosenfan/Matrix
+```
+
+Matrix 将安装：
 - `matrix/` — 入口点和状态管理
 - `matrix-open/` — 开放阶段（使用 `/grill-with-docs`）
 - `matrix-design/` — 设计阶段（使用 `/prototype`、`/research`）

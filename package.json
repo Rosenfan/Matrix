@@ -1,0 +1,56 @@
+{
+  "name": "@rosenfan/matrix",
+  "version": "0.1.0",
+  "description": "Install and manage the Matrix workflow for Matt Pocock's agent skills.",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "matrix": "./bin/matrix.js"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "assets/skills-zh-CN",
+    ".claude/skills/matrix",
+    ".claude/skills/matrix-open",
+    ".claude/skills/matrix-design",
+    ".claude/skills/matrix-build",
+    ".claude/skills/matrix-verify",
+    ".claude/skills/matrix-archive",
+    ".claude/skills/matrix-hotfix",
+    ".claude/skills/matrix-tweak",
+    ".claude/skills/matrix-status",
+    ".claude/skills/matrix-claude",
+    "!.claude/skills/**/__pycache__",
+    "!.claude/skills/**/scripts/test_*.py",
+    "README.md",
+    "README.zh-CN.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "pack:check": "npm pack --dry-run",
+    "prepublishOnly": "npm run test && npm run pack:check"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Rosenfan/Matrix.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Rosenfan/Matrix/issues"
+  },
+  "homepage": "https://github.com/Rosenfan/Matrix#readme",
+  "publishConfig": {
+    "access": "public"
+  },
+  "keywords": [
+    "claude-code",
+    "agent-skills",
+    "workflow",
+    "tdd",
+    "ai"
+  ]
+}

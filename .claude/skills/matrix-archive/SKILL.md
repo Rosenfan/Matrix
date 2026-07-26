@@ -16,7 +16,7 @@ This is the **final phase** of the Matrix workflow. After archiving, the workflo
 5. **Workflow complete** — no further phase transitions needed
 
 ```powershell
-python .claude/skills/matrix/scripts/matrix_state.py archive
+matrix workflow archive
 ```
 
 Do not archive if the verify guard fails.

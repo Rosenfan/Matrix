@@ -68,8 +68,8 @@ If documents or public behavior changed, record the required synchronization wor
 10. **Then enter `$matrix-archive` to continue the workflow**
 
 ```powershell
-python .claude/skills/matrix/scripts/matrix_state.py guard verify
-python .claude/skills/matrix/scripts/matrix_state.py transition archive
+matrix workflow guard verify
+matrix workflow transition archive
 ```
 
 ## Evidence Requirements

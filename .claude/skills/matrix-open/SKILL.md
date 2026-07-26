@@ -5,7 +5,7 @@ description: Open or resume the Matrix open phase by clarifying a development re
 
 # Matrix Open
 
-Read the active Matrix change with `matrix_state.py inspect`. Produce `artifacts/proposal.md` containing exactly these substantive sections: `## Goal`, `## Scope`, `## Non-goals`, `## Acceptance`, and `## Risks`.
+Read the active Matrix change with `matrix workflow inspect`. Produce `artifacts/proposal.md` containing exactly these substantive sections: `## Goal`, `## Scope`, `## Non-goals`, `## Acceptance`, and `## Risks`.
 
 ## Skills to Use
 
@@ -28,6 +28,6 @@ For **hotfix/tweak**, use `grilling` directly (without docs) — keep it concise
 6. **Then enter `$matrix-design` to continue the workflow**
 
 ```powershell
-python .claude/skills/matrix/scripts/matrix_state.py guard open
-python .claude/skills/matrix/scripts/matrix_state.py transition design
+matrix workflow guard open
+matrix workflow transition design
 ```

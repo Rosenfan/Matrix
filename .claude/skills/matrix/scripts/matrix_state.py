@@ -71,7 +71,9 @@ def init(args):
     (directory / "artifacts").mkdir(parents=True)
     root().mkdir(exist_ok=True); (root() / "archive").mkdir(exist_ok=True)
     (root() / "config.yaml").write_text("schema: matrix/config/v1\nauto_transition: true\n", encoding="utf-8") if not (root() / "config.yaml").exists() else None
-    (root() / ".gitignore").write_text("active.json\nchanges/*/run-state.json\nchanges/*/events.jsonl\nchanges/*/artifacts/handoff.md\n", encoding="utf-8")
+    gitignore = root() / ".gitignore"
+    ignored = "active.json\ninstallation.json\nchanges/*/run-state.json\nchanges/*/events.jsonl\nchanges/*/artifacts/handoff.md\n"
+    gitignore.write_text(ignored, encoding="utf-8") if not gitignore.exists() else None
     values = {"schema":"matrix/change/v1", "id":change, "workflow":args.workflow, "status":"active", "phase":"open", "title":args.title, "created_at":now(), "updated_at":now(), "acceptance":"pending", "scope":"pending"}
     write_flow(directory / "matrix.yaml", values)
     write_json(directory / "run-state.json", {"schema":"matrix/run/v1", "current_step":"open", "iteration":0, "pending_gate":None, "updated_at":now()})
