@@ -9,6 +9,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 test("package publishes under the documented Matrix name with a release gate", () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(root, "package.json"), "utf8"));
   assert.equal(manifest.name, "@rosenfan/matrix");
+  assert.equal(manifest.bin.matrix, "bin/matrix.js");
   assert.equal(manifest.publishConfig.access, "public");
   assert.equal(manifest.scripts.prepublishOnly, "npm run test && npm run pack:check");
 });

@@ -19,11 +19,13 @@ const run = (command, args, options) => {
 test("packed npm artifact installs and initializes Codex without repository source", (t) => {
   const temporary = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-packed-"));
   t.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
-  run("npm", ["pack", "--pack-destination", temporary], { cwd: root });
+  // `npm publish --dry-run` propagates npm_config_dry_run to child npm commands.
+  // This integration seam must always create a real tarball.
+  run("npm", ["pack", "--pack-destination", temporary], { cwd: root, env: { ...process.env, npm_config_dry_run: "false" } });
   const tarball = fs.readdirSync(temporary).find((name) => name.endsWith(".tgz"));
   assert.ok(tarball);
   const prefix = path.join(temporary, "prefix");
-  run("npm", ["install", "--ignore-scripts", "--prefix", prefix, path.join(temporary, tarball)], { cwd: temporary });
+  run("npm", ["install", "--ignore-scripts", "--prefix", prefix, path.join(temporary, tarball)], { cwd: temporary, env: { ...process.env, npm_config_dry_run: "false" } });
   const project = path.join(temporary, "project");
   fs.mkdirSync(project);
   const binary = path.join(prefix, "node_modules", "@rosenfan", "matrix", "bin", "matrix.js");
