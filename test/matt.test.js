@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { createMattAdapter } from "../src/matt.js";
+import { buildProcessInvocation, createMattAdapter } from "../src/matt.js";
 
 test("Matt adapter uses fixed selected-platform arguments and a bounded timeout", () => {
   const calls = [];
@@ -19,4 +19,21 @@ test("Matt adapter returns a recovery diagnostic for launch or command failure",
   assert.equal(result.ok, false);
   assert.equal(result.code, "MATT_INSTALL_FAILED");
   assert.match(result.recovery, /matrix init/);
+});
+
+test("Matt adapter requests grilling when installing the default companion cohort", () => {
+  const calls = [];
+  const adapter = createMattAdapter({ run: (request) => calls.push(request) });
+  assert.equal(adapter.installMissing({ projectRoot: "C:/project", platforms: ["codex"] }).ok, true);
+  assert.ok(calls[0].args.includes("grilling"));
+});
+
+test("Windows npx invocation runs npm's Node CLI without a shell", () => {
+  const invocation = buildProcessInvocation({
+    command: "npx", args: ["--yes", "skills@latest", "add", "mattpocock/skills"], platform: "win32",
+    nodeExecutable: "C:/node/node.exe", npmCliPath: "C:/node/node_modules/npm/bin/npm-cli.js"
+  });
+  assert.equal(invocation.executable, "C:/node/node.exe");
+  assert.deepEqual(invocation.args, ["C:/node/node_modules/npm/bin/npm-cli.js", "exec", "--yes", "skills@latest", "--", "add", "mattpocock/skills"]);
+  assert.equal(invocation.shell, false);
 });

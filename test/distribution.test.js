@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { MATRIX_SKILLS, hashDirectory } from "../src/catalog.js";
+import { MATRIX_SKILLS, MATT_SKILLS, hashDirectory } from "../src/catalog.js";
 import { createDistribution, recoverPendingTransaction } from "../src/distribution.js";
 import { invoke } from "../src/workflow.js";
 
@@ -22,6 +22,12 @@ test("requires a platform when no verified platform can be detected", (t) => {
   const { project, home } = fixture(t);
   const result = createDistribution().evaluate({ projectRoot: project, home, language: "en" });
   assert.equal(result.code, "INPUT_REQUIRED");
+});
+
+test("Matt catalog closes grill-with-docs' required Skill dependencies", () => {
+  assert.ok(MATT_SKILLS.includes("grill-with-docs"));
+  assert.ok(MATT_SKILLS.includes("grilling"));
+  assert.ok(MATT_SKILLS.includes("domain-modeling"));
 });
 
 test("plans and commits Claude Code and Codex without touching unrelated skills", (t) => {
@@ -107,13 +113,13 @@ test("project Matt detection combines local and global skills for the same platf
   const { project, home } = fixture(t);
   fs.mkdirSync(path.join(project, ".claude", "skills", "grill-with-docs"), { recursive: true });
   fs.writeFileSync(path.join(project, ".claude", "skills", "grill-with-docs", "SKILL.md"), "local");
-  for (const skill of ["domain-modeling", "research", "wayfinder", "prototype", "codebase-design", "implement", "tdd", "code-review", "diagnosing-bugs", "resolving-merge-conflicts", "improve-codebase-architecture"]) {
+  for (const skill of ["grilling", "domain-modeling", "research", "wayfinder", "prototype", "codebase-design", "implement", "tdd", "code-review", "diagnosing-bugs", "resolving-merge-conflicts", "improve-codebase-architecture"]) {
     fs.mkdirSync(path.join(home, ".claude", "skills", skill), { recursive: true });
     fs.writeFileSync(path.join(home, ".claude", "skills", skill, "SKILL.md"), "global");
   }
   const evaluation = createDistribution().evaluate({ projectRoot: project, home, platforms: ["claude-code"] });
   assert.equal(evaluation.observations[0].matt.state, "complete");
-  assert.equal(evaluation.observations[0].matt.inherited, 11);
+  assert.equal(evaluation.observations[0].matt.inherited, 12);
   assert.deepEqual(evaluation.observations[0].matt.missing, []);
 });
 

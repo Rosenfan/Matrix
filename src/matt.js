@@ -1,10 +1,21 @@
 import { execFileSync } from "node:child_process";
+import fs from "node:fs";
+import path from "node:path";
 import { PLATFORMS, MATT_SKILLS } from "./catalog.js";
 
+export function buildProcessInvocation({ command, args, platform = process.platform, nodeExecutable = process.execPath, npmCliPath }) {
+  if (platform !== "win32" || command !== "npx") return { executable: command, args, shell: false };
+  const candidates = [npmCliPath, process.env.npm_execpath, path.join(path.dirname(nodeExecutable), "node_modules", "npm", "bin", "npm-cli.js")].filter(Boolean);
+  const cli = candidates.find((candidate) => npmCliPath || fs.existsSync(candidate));
+  if (!cli) throw new Error("npm CLI was not found beside the Node runtime.");
+  const [yes, packageSpec, ...commandArgs] = args;
+  if (yes !== "--yes" || !packageSpec) throw new Error("Windows npx invocation must use fixed npm exec arguments.");
+  return { executable: nodeExecutable, args: [cli, "exec", yes, packageSpec, "--", ...commandArgs], shell: false };
+}
+
 export function defaultProcessRunner({ command, args, cwd, timeout }) {
-  const executable = process.platform === "win32" && command === "npx" ? "npx.cmd" : command;
-  // The only shell-enabled case is the Windows npm shim; all inputs are catalog values.
-  return execFileSync(executable, args, { cwd, stdio: "inherit", timeout, shell: process.platform === "win32" && command === "npx" });
+  const invocation = buildProcessInvocation({ command, args });
+  return execFileSync(invocation.executable, invocation.args, { cwd, stdio: "inherit", timeout, shell: invocation.shell });
 }
 
 export function createMattAdapter({ run = defaultProcessRunner } = {}) {

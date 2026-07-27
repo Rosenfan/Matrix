@@ -11,7 +11,7 @@ export const MATRIX_SKILLS = [
   "matrix-archive", "matrix-hotfix", "matrix-tweak", "matrix-status", "matrix-claude"
 ];
 export const MATT_SKILLS = [
-  "grill-with-docs", "domain-modeling", "research", "wayfinder", "prototype",
+  "grill-with-docs", "grilling", "domain-modeling", "research", "wayfinder", "prototype",
   "codebase-design", "implement", "tdd", "code-review", "diagnosing-bugs",
   "resolving-merge-conflicts", "improve-codebase-architecture"
 ];
