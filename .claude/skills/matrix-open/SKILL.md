@@ -5,27 +5,24 @@ description: Open or resume the Matrix open phase by clarifying a development re
 
 # Matrix Open
 
-Read the active Matrix change with `matrix workflow inspect`. Produce `artifacts/proposal.md` containing exactly these substantive sections: `## Goal`, `## Scope`, `## Non-goals`, `## Acceptance`, and `## Risks`.
+Run `matrix workflow inspect`, read the active change and its frozen `orchestration`, then produce `artifacts/proposal.md` containing exactly these substantive sections: `## Goal`, `## Scope`, `## Non-goals`, `## Acceptance`, and `## Risks`.
 
-## Skills to Use
+## Prim
 
-For a **full workflow**, use `grill-with-docs` to resolve ambiguity before writing the proposal. This skill automatically:
+Use Matrix's own capability to clarify the request and write the proposal.
 
-1. Runs a `/grilling` session to stress-test the plan through relentless Q&A
-2. Invokes `/domain-modeling` to establish shared vocabulary
-3. Creates or updates `CONTEXT.md` with domain terms
-4. Creates ADRs (Architecture Decision Records) for significant decisions
+## Arch
 
-For **hotfix/tweak**, use `grilling` directly (without docs) — keep it concise but preserve acceptance criteria.
+Invoke `grilling` only when material ambiguity remains or the user asks to stress-test the request. Invoke `domain-modeling` only when domain vocabulary, invariants, or an architectural decision is unclear. Announce the capability and reason before invoking it; selecting Arch already authorizes triggered capabilities.
+
+Companion output is evidence for the Matrix proposal. It must not create another workflow, proposal, confirmation state, or phase transition. If a correctly installed capability fails, perform at most one Matrix-owned fallback for that same capability and record the failure and evidence. Installation-integrity failures require `matrix init --with-mattpocock` and are not eligible for fallback.
 
 ## Process
 
-1. Run `grill-with-docs` (or `grilling` for hotfix/tweak)
-2. Write `proposal.md` with all required sections
-3. Ask the user to confirm when scope or risk is material
-4. Run the guard
-5. If guard passes, run transition to advance to design phase
-6. **Then enter `$matrix-design` to continue the workflow**
+1. Resolve only ambiguities required by the active workflow.
+2. Write the canonical proposal and synchronize material companion conclusions into it.
+3. Ask the user to confirm when scope or risk is material.
+4. Run the guard and transition, then enter `$matrix-design`.
 
 ```powershell
 matrix workflow guard open

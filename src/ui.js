@@ -53,7 +53,7 @@ export function createUi({ color = stdout.isTTY, animate = true } = {}) {
         stdout.write(`\u001b[${bannerLines}A`);
       }
       console.log(paint("cyan", logo));
-      console.log(paint("yellow", "Evidence-driven workflow for Matt Pocock's agent skills"));
+      console.log(paint("yellow", "Evidence-driven workflow with Prim and Arch orchestration"));
       console.log();
     },
     info(message) { console.log(`${paint("blue", "> ")} ${message}`); },

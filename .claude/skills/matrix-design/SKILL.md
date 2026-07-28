@@ -5,32 +5,32 @@ description: Design and freeze the active Matrix change before implementation. U
 
 # Matrix Design
 
-Read the active proposal. Write `artifacts/design.md` with `## Decisions`, `## Boundaries`, `## Test seams`, and `## Risks`; write `artifacts/plan.md` with `## Steps`, `## Validation`, and `## Stop conditions`.
+Run `matrix workflow inspect`, read the active proposal and frozen `orchestration`, then write `artifacts/design.md` with `## Decisions`, `## Boundaries`, `## Test seams`, and `## Risks`; write `artifacts/plan.md` with `## Steps`, `## Validation`, and `## Stop conditions`.
 
-## Skills to Use (Recommended Order)
+## Prim
 
-1. **`domain-modeling`** — First, establish or refine the domain vocabulary. Update `CONTEXT.md` with any new terms from the proposal. This ensures all subsequent design work uses consistent language.
+Use Matrix's own capability to investigate the repository and design the change.
 
-2. **`research`** — If the design requires investigating external APIs, documentation, or specifications, spawn a background research agent. It will investigate primary sources and write findings to a Markdown file.
+## Arch
 
-3. **`wayfinder`** — For complex codebases, use this to explore and understand existing module structure, seams, and dependencies before making design decisions.
+Invoke only capabilities whose task-fact trigger is proven:
 
-4. **`prototype`** — When a design question needs empirical validation (e.g., "does this state model feel right?" or "what should this UI look like?"), build a throwaway prototype. Two modes:
-   - **Logic prototype**: interactive terminal app to test state machines
-   - **UI prototype**: multiple UI variations on a single route
+- `domain-modeling` for unclear vocabulary, invariants, or architectural decisions;
+- `research` when required external facts cannot be established from the repository;
+- `wayfinder` when module ownership or dependency seams are unknown;
+- `prototype` when a material design decision needs disposable empirical evidence;
+- `codebase-design` when a deep-module, interface, or test-seam decision remains.
 
-5. **`codebase-design`** — Finally, define module boundaries, interfaces, and test seams. Use its "design-it-twice" pattern to explore alternative approaches before committing.
+Order follows actual dependencies; never run a fixed companion sequence. Announce each invocation and reason. A correctly installed capability gets at most one same-capability Matrix fallback; installation-integrity failure stops the phase.
+
+Long-lived domain, ADR, or research artifacts follow repository conventions, and material conclusions must be synchronized into the canonical design or plan. Prototypes default to an OS temporary directory unless the approved design promotes a project path. Companion output cannot own Matrix state or create a competing plan.
 
 ## Process
 
-1. Start with `domain-modeling` to ground the vocabulary
-2. Use `research` for external dependencies (runs in background)
-3. Use `wayfinder` to explore complex existing code
-4. Use `prototype` to validate key design questions
-5. Use `codebase-design` to finalize module boundaries
-6. Confirm material architecture choices with the user before freezing
-7. Run the guard
-8. If guard passes, ask the user to choose implementation method:
+1. Establish repository facts and resolve only triggered design questions.
+2. Write and synchronize the canonical Matrix design and plan.
+3. Confirm material architecture choices with the user before freezing.
+4. Run the guard, then choose the implementation actor.
 
 ```powershell
 matrix workflow guard design
@@ -52,15 +52,14 @@ Then enter `$matrix-build` to implement directly in this session.
 
 ### Option B: Use Claude Code for implementation
 
-Run `$matrix-claude` to export the frozen design as a bounded task package. This:
-- Does NOT change Matrix phase or state
+First approve the frozen contract by transitioning to Build, then run `$matrix-claude` to export a bounded task package. This:
+- Does not change the Build phase or state beyond the preceding transition
 - Creates `artifacts/claude-task.md` with all implementation details
 - Includes acceptance criteria, test seams, and required commands
 
-After Claude Code completes and returns results, run the transition and enter `$matrix-verify`:
+After Claude Code completes and returns results, run the Build guard and enter `$matrix-verify`:
 
 ```powershell
-matrix workflow transition build
 matrix workflow guard build
 matrix workflow transition verify
 ```

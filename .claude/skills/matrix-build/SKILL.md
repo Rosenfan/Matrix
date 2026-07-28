@@ -5,49 +5,36 @@ description: Implement the frozen active Matrix plan with test-first vertical sl
 
 # Matrix Build
 
-Read `plan.md`, `design.md`, and repository instructions. Implement only the frozen scope.
+Run `matrix workflow inspect`. Read `plan.md`, `design.md`, the approved Contract, and repository instructions. Implement only the frozen scope.
 
-## Skills to Use
+## Prim
 
-### Primary: `implement`
+Use Matrix's own implementation and test discipline.
 
-Use the `implement` skill to execute the plan. It automatically:
+## Arch
 
-1. Uses `/tdd` at pre-agreed seams for red-green-refactor cycles
-2. Runs typechecking regularly
-3. Runs single test files regularly during development
-4. Runs the full test suite once at the end
-5. Uses `/code-review` to review the work when done
-6. Commits work to the current branch
+- invoke `tdd` when the change modifies observable behavior at a testable seam;
+- invoke `diagnosing-bugs` only when an actual failure exists and root cause is not established;
+- invoke `resolving-merge-conflicts` only for an in-progress merge or rebase conflict.
 
-### On Failure: `diagnosing-bugs`
-
-When encountering crashes, test failures, or build failures:
-
-1. **Stop** — do not propose source code fixes before root cause is located
-2. Load the `diagnosing-bugs` skill
-3. Follow its feedback-loop discipline: build a tight red/pass signal first
-4. Only after root cause is identified, implement the fix through `implement` + `tdd`
-5. Record the diagnosis and fix in `artifacts/verification.md` under `## Build evidence`
-
-### On Merge Conflicts: `resolving-merge-conflicts`
-
-If merge conflicts occur during implementation, use the `resolving-merge-conflicts` skill to resolve them systematically.
+Announce each triggered capability and reason. No companion may commit, review, transition, archive, or broaden scope. A correctly installed capability gets at most one Matrix-owned fallback for that same capability; record the Skill, failure, fallback, and evidence. Installation-integrity failure stops the phase.
 
 ## Scope Discipline
 
-If implementation exposes a scope or design change, **stop and return to `$matrix-design`**; do not amend the plan silently.
+If implementation exposes a scope or design change, **stop and run**:
+
+```powershell
+matrix workflow return design --reason design-gap
+```
+
+Then enter `$matrix-design`; do not amend the plan silently. The Runtime preserves old verification evidence in revision history and requires fresh evidence after the redesigned plan returns to Build.
 
 ## Process
 
-1. Load `implement` skill
-2. Implement through vertical slices with TDD
-3. On failure: load `diagnosing-bugs` skill
-4. On merge conflicts: load `resolving-merge-conflicts` skill
-5. Record concrete commands and outcomes under `## Build evidence` in `artifacts/verification.md`
-6. Run the guard
-7. If guard passes, run transition to advance to verify phase
-8. **Then enter `$matrix-verify` to continue the workflow**
+1. Implement the approved plan in bounded vertical slices.
+2. Use only triggered Arch capabilities.
+3. Record commands, outcomes, capability invocations and fallbacks under `## Build evidence`.
+4. Run the guard and transition, then enter `$matrix-verify`.
 
 ```powershell
 matrix workflow guard build

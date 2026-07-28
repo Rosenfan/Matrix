@@ -41,11 +41,25 @@ env/
 .DS_Store
 Thumbs.db
 
-# Matrix runtime state (user-specific, not for version control)
-.matrix/active.json
-.matrix/changes/*/run-state.json
-.matrix/changes/*/events.jsonl
-.matrix/changes/*/artifacts/handoff.md
+# Matrix runtime and local development state
+.matrix/
+.agents/
+.codex/
+.comet/
+AGENTS.md
+CLAUDE.md
+
+# Local Agent configuration and development-only skills
+.claude/rules/
+.claude/settings.local.json
+.claude/skills/*
+!.claude/skills/matrix/
+!.claude/skills/matrix-*/
+
+# Internal workflow records and development notes
+docs/comet/
+docs/roadmap.md
+docs/adr/
 
 # Complementary skills from Matt Pocock (install separately)
 .claude/skills/code-review/

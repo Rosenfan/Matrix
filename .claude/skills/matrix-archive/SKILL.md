@@ -5,22 +5,29 @@ description: Close and archive a verified Matrix change. Use when the active Mat
 
 # Matrix Archive
 
-This is the **final phase** of the Matrix workflow. After archiving, the workflow is complete.
+This is the final Matrix phase. Read the proposal, plan, and verification evidence; summarize changed behavior, verification, residual risks, and follow-up work. Ask for explicit confirmation before committing or archiving.
 
-## Process
+Archive is Matrix-owned in both Prim and Arch. Do not invoke companion implementation, review, or architecture capabilities here.
 
-1. Read the proposal, plan, and verification evidence
-2. Summarize changed behavior, verification, residual risks, and follow-up work in `artifacts/verification.md` or the project's normal delivery document
-3. Ask for explicit confirmation before committing or archiving
-4. Run the archive command (this also runs the verify guard)
-5. **Workflow complete** — no further phase transitions needed
+## Mandatory two-step Archive
+
+Run the read-only preflight and review its bounded effect summary. Then submit exactly the hash returned by that preflight:
 
 ```powershell
-matrix workflow archive
+matrix workflow archive --dry-run
+matrix workflow archive --expect-preflight <sha256-returned-by-dry-run>
 ```
 
-Do not archive if the verify guard fails.
+Bare Archive is rejected. Runtime reacquires the project Archive boundary and recomputes the entire protected change-directory manifest before committing.
 
-## After Archive
+- `ARCHIVE_PREFLIGHT_CHANGED`: run dry-run again and review the new summary.
+- `ARCHIVE_BUSY`: retry later. Do not remove or take over the lock; stale-lock recovery belongs to the later doctor/repair change.
+- Guard or Contract failure: use the returned recovery command and do not submit.
 
-The change is moved to `.matrix/archive/`. To start a new change, run `$matrix` again.
+If acceptance criteria or design must change while awaiting confirmation, use the sole Archive recovery path:
+
+```powershell
+matrix workflow return design --reason acceptance-or-design-gap
+```
+
+After successful commit, the change is under `.matrix/archive/` and the workflow is complete.

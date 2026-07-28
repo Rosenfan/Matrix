@@ -27,30 +27,22 @@ Before starting verification, ensure:
 
 If these are missing (e.g., Claude Code didn't produce complete evidence), return to `$matrix-build` or ask Claude Code to补充.
 
-## Skills to Use
+## Orchestration
 
-### Primary: `code-review`
+Run `matrix workflow inspect` and read the frozen mode.
 
-Use the `code-review` skill to perform a two-axis review of the diff:
+- **Prim**: Matrix performs the Standards and Spec review itself.
+- **Arch**: invoke `code-review` to produce both review axes; announce the invocation and reason.
 
-1. **Standards axis** — Does the code conform to this repo's documented coding standards? Includes a "smell baseline" (Fowler code smells) even when no standards are documented.
-
-2. **Spec axis** — Does the code faithfully implement the originating issue/PRD/spec? Checks for:
-   - Missing or partial requirements
-   - Scope creep (behavior not asked for)
-   - Wrong implementations of required behavior
-
-Both axes run as parallel sub-agents and report separately. Record findings under `## Review evidence` in `artifacts/verification.md`.
-
-### Optional: `improve-codebase-architecture`
-
-After verification passes, if the change touched modules that could be deepened, use `improve-codebase-architecture` to scan for shallow-module opportunities. This is advisory — skip it for simple changes or when time is constrained.
+Review findings are inputs to Matrix Verify; a companion cannot decide the phase outcome, broaden approved architecture, transition, or archive. Do not invoke post-review architecture wrappers. A correctly installed review capability gets at most one same-capability Matrix fallback; installation-integrity failure stops verification.
 
 ## Failure Handling
 
 If verification or review fails:
-- If the issue is in the implementation → **return to `$matrix-build`** or ask Claude Code to fix
-- If the issue is in the plan/design → return to `$matrix-design`
+- If the issue is in the implementation, run `matrix workflow return build --reason verification-failed`, then enter `$matrix-build` or ask Claude Code to fix.
+- If the issue is in the acceptance criteria or design, run `matrix workflow return design --reason acceptance-or-design-gap`, then enter `$matrix-design`.
+
+Both Return paths rotate the current `verification.md` into revisioned evidence history. Do not copy stale conclusions back into the new current evidence.
 
 If documents or public behavior changed, record the required synchronization work before the guard.
 
@@ -59,13 +51,10 @@ If documents or public behavior changed, record the required synchronization wor
 1. Check that `artifacts/verification.md` exists with `## Build evidence`
 2. Run the plan's acceptance commands (from `plan.md` `## Validation` section)
 3. Record test output under `## Test evidence`
-4. Load `code-review` skill
-5. Run both axes (Standards + Spec) in parallel
+4. Produce both Standards and Spec review axes through the selected orchestration mode
 6. Record findings under `## Review evidence`
-7. Optionally run `improve-codebase-architecture`
-8. Run the guard
-9. If guard passes, run transition to advance to archive phase
-10. **Then enter `$matrix-archive` to continue the workflow**
+7. Run the guard
+8. If it passes, transition to archive and enter `$matrix-archive`
 
 ```powershell
 matrix workflow guard verify

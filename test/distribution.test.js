@@ -24,10 +24,14 @@ test("requires a platform when no verified platform can be detected", (t) => {
   assert.equal(result.code, "INPUT_REQUIRED");
 });
 
-test("Matt catalog closes grill-with-docs' required Skill dependencies", () => {
-  assert.ok(MATT_SKILLS.includes("grill-with-docs"));
-  assert.ok(MATT_SKILLS.includes("grilling"));
-  assert.ok(MATT_SKILLS.includes("domain-modeling"));
+test("Arch catalog contains only the ten managed atomic capabilities", () => {
+  assert.deepEqual(MATT_SKILLS, [
+    "grilling", "domain-modeling", "research", "wayfinder", "prototype",
+    "codebase-design", "tdd", "diagnosing-bugs", "resolving-merge-conflicts", "code-review"
+  ]);
+  for (const excluded of ["grill-with-docs", "implement", "improve-codebase-architecture"]) {
+    assert.equal(MATT_SKILLS.includes(excluded), false);
+  }
 });
 
 test("plans and commits Claude Code and Codex without touching unrelated skills", (t) => {
@@ -46,6 +50,7 @@ test("plans and commits Claude Code and Codex without touching unrelated skills"
     assert.ok(fs.existsSync(path.join(project, ".agents", "skills", skill, "SKILL.md")));
   }
   assert.ok(fs.existsSync(path.join(project, ".claude", "skills", "matrix", "scripts", "matrix-runtime.mjs")));
+  assert.ok(fs.existsSync(path.join(project, ".claude", "skills", "matrix", "scripts", "workflow-transaction.js")));
   const fallback = spawnSync(process.execPath, [path.join(project, ".claude", "skills", "matrix", "scripts", "matrix-runtime.mjs"), "inspect"], { cwd: project, encoding: "utf8" });
   assert.equal(fallback.status, 2);
   assert.equal(JSON.parse(fallback.stdout).code, "NO_ACTIVE_CHANGE");
@@ -109,18 +114,105 @@ test("Chinese installation uses the Chinese Matrix guidance cohort", (t) => {
   assert.ok(fs.existsSync(path.join(project, ".agents", "skills", "matrix", "scripts", "matrix_state.py")));
 });
 
-test("project Matt detection combines local and global skills for the same platform", (t) => {
+test("project Arch detection combines local and global managed skills for the same platform", (t) => {
   const { project, home } = fixture(t);
-  fs.mkdirSync(path.join(project, ".claude", "skills", "grill-with-docs"), { recursive: true });
-  fs.writeFileSync(path.join(project, ".claude", "skills", "grill-with-docs", "SKILL.md"), "local");
-  for (const skill of ["grilling", "domain-modeling", "research", "wayfinder", "prototype", "codebase-design", "implement", "tdd", "code-review", "diagnosing-bugs", "resolving-merge-conflicts", "improve-codebase-architecture"]) {
+  fs.mkdirSync(path.join(project, ".claude", "skills", "grilling"), { recursive: true });
+  fs.writeFileSync(path.join(project, ".claude", "skills", "grilling", "SKILL.md"), "local");
+  for (const skill of MATT_SKILLS.filter((skill) => skill !== "grilling")) {
     fs.mkdirSync(path.join(home, ".claude", "skills", skill), { recursive: true });
     fs.writeFileSync(path.join(home, ".claude", "skills", skill, "SKILL.md"), "global");
   }
   const evaluation = createDistribution().evaluate({ projectRoot: project, home, platforms: ["claude-code"] });
   assert.equal(evaluation.observations[0].matt.state, "complete");
-  assert.equal(evaluation.observations[0].matt.inherited, 12);
+  assert.equal(evaluation.observations[0].matt.inherited, 9);
   assert.deepEqual(evaluation.observations[0].matt.missing, []);
+});
+
+test("fresh installation records Prim as the only available orchestration without Arch", (t) => {
+  const { project, home } = fixture(t);
+  const distribution = createDistribution();
+  const evaluation = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none" });
+  assert.equal(distribution.commit(evaluation.plan).ok, true);
+  const manifest = JSON.parse(fs.readFileSync(path.join(project, ".matrix", "installation.json"), "utf8"));
+  assert.deepEqual(manifest.orchestration, { default: "prim", available: ["prim"] });
+  assert.match(fs.readFileSync(path.join(project, ".matrix", "config.yaml"), "utf8"), /^default_orchestration: prim$/m);
+});
+
+test("verified Arch setup records hashes and defaults first non-interactive setup to Arch", (t) => {
+  const { project, home } = fixture(t);
+  const adapter = {
+    installMissing({ platforms, skills }) {
+      for (const platform of platforms) {
+        const root = path.join(project, platform === "codex" ? ".agents" : ".claude", "skills");
+        for (const skill of skills) {
+          fs.mkdirSync(path.join(root, skill), { recursive: true });
+          fs.writeFileSync(path.join(root, skill, "SKILL.md"), `# ${skill}\n`);
+        }
+      }
+      return { ok: true, code: "OK" };
+    }
+  };
+  const distribution = createDistribution({ mattAdapter: adapter });
+  const evaluation = distribution.evaluate({ projectRoot: project, home, platforms: ["claude-code", "codex"], matt: "missing", nonInteractive: true });
+  assert.equal(distribution.commit(evaluation.plan).ok, true);
+  const manifest = JSON.parse(fs.readFileSync(path.join(project, ".matrix", "installation.json"), "utf8"));
+  assert.deepEqual(manifest.orchestration, { default: "arch", available: ["prim", "arch"] });
+  assert.equal(Object.keys(manifest.platforms.codex.matt.skills).length, MATT_SKILLS.length);
+  assert.equal(Object.keys(manifest.platforms["claude-code"].matt.skills).length, MATT_SKILLS.length);
+  assert.match(fs.readFileSync(path.join(project, ".matrix", "config.yaml"), "utf8"), /^default_orchestration: arch$/m);
+});
+
+test("rerunning setup preserves an existing orchestration default unless explicitly changed", (t) => {
+  const { project, home } = fixture(t);
+  const distribution = createDistribution();
+  assert.equal(distribution.commit(distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none" }).plan).ok, true);
+  const repeated = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none", defaultOrchestration: "arch" });
+  assert.equal(repeated.code, "ARCH_INSTALLATION_INCOMPLETE");
+  const changed = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none", defaultOrchestration: "prim" });
+  assert.equal(distribution.commit(changed.plan).ok, true);
+  assert.match(fs.readFileSync(path.join(project, ".matrix", "config.yaml"), "utf8"), /^default_orchestration: prim$/m);
+});
+
+test("failed Arch platform expansion preserves the configured platform set", (t) => {
+  const { project, home } = fixture(t);
+  const installing = createDistribution({ mattAdapter: {
+    installMissing({ platforms, skills }) {
+      for (const platform of platforms) for (const skill of skills) {
+        const target = path.join(project, platform === "codex" ? ".agents" : ".claude", "skills", skill);
+        fs.mkdirSync(target, { recursive: true });
+        fs.writeFileSync(path.join(target, "SKILL.md"), skill);
+      }
+      return { ok: true, code: "OK" };
+    }
+  } });
+  assert.equal(installing.commit(installing.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "missing", nonInteractive: true }).plan).ok, true);
+  const manifestFile = path.join(project, ".matrix", "installation.json");
+  const configFile = path.join(project, ".matrix", "config.yaml");
+  const manifestBefore = fs.readFileSync(manifestFile, "utf8");
+  const configBefore = fs.readFileSync(configFile, "utf8");
+
+  const failing = createDistribution({ mattAdapter: { installMissing() { return { ok: false, code: "MATT_INSTALL_FAILED" }; } } });
+  const expansion = failing.evaluate({ projectRoot: project, home, platforms: ["claude-code"], matt: "missing", nonInteractive: true });
+  const result = failing.commit(expansion.plan);
+  assert.equal(result.code, "PARTIAL");
+  assert.equal(fs.existsSync(path.join(project, ".claude", "skills", "matrix")), false);
+  assert.equal(fs.readFileSync(manifestFile, "utf8"), manifestBefore);
+  assert.equal(fs.readFileSync(configFile, "utf8"), configBefore);
+});
+
+test("excluded user Skills are preserved and reported as unmanaged extras", (t) => {
+  const { project, home } = fixture(t);
+  for (const skill of ["grill-with-docs", "implement", "improve-codebase-architecture"]) {
+    const target = path.join(project, ".agents", "skills", skill);
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(target, "SKILL.md"), "user-owned");
+  }
+  const distribution = createDistribution();
+  const evaluation = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none" });
+  assert.equal(distribution.commit(evaluation.plan).ok, true);
+  const diagnosis = distribution.diagnose({ projectRoot: project, home, platforms: ["codex"], matt: "none" });
+  assert.deepEqual(diagnosis.diagnosis.find((item) => item.code === "ARCH_UNMANAGED_EXTRA").skills, ["grill-with-docs", "implement", "improve-codebase-architecture"]);
+  assert.equal(fs.readFileSync(path.join(project, ".agents", "skills", "implement", "SKILL.md"), "utf8"), "user-owned");
 });
 
 test("newer manifest-backed Matrix cohorts are kept without downgrade", (t) => {

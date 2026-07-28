@@ -9,6 +9,7 @@ Run the same Matrix state kernel used by the main entry and every phase Skill:
 
 ```powershell
 matrix workflow inspect
+matrix workflow doctor
 ```
 
-Report the returned change id, workflow, phase, guard result, and `next_skill`. Do not infer status from conversation history and do not modify state. If the guard is failing, name the missing evidence and direct the user to the current phase Skill.
+Report the returned change id, workflow, frozen `orchestration`, phase, guard result, `next_skill`, Workflow health, unfinished transactions, available strategies, and exact recovery commands. If Arch integrity fails, identify the affected platform/Skill facts and report `matrix init --with-mattpocock`; do not reinterpret the change as Prim. Both commands are read-only. Do not infer status from conversation history, run `--repair`, or modify state. If the guard is failing, name the missing evidence and direct the user to the current phase Skill.

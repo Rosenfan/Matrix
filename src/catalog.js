@@ -11,10 +11,10 @@ export const MATRIX_SKILLS = [
   "matrix-archive", "matrix-hotfix", "matrix-tweak", "matrix-status", "matrix-claude"
 ];
 export const MATT_SKILLS = [
-  "grill-with-docs", "grilling", "domain-modeling", "research", "wayfinder", "prototype",
-  "codebase-design", "implement", "tdd", "code-review", "diagnosing-bugs",
-  "resolving-merge-conflicts", "improve-codebase-architecture"
+  "grilling", "domain-modeling", "research", "wayfinder", "prototype",
+  "codebase-design", "tdd", "diagnosing-bugs", "resolving-merge-conflicts", "code-review"
 ];
+export const UNMANAGED_MATT_SKILLS = ["grill-with-docs", "implement", "improve-codebase-architecture"];
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const packageManifest = JSON.parse(fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"));
@@ -75,6 +75,7 @@ export function hashDirectory(directory, extraFiles = []) {
 }
 
 export function workflowRuntimeSource() { return path.join(packageRoot, "src", "workflow.js"); }
+export function workflowTransactionSource() { return path.join(packageRoot, "src", "workflow-transaction.js"); }
 
 export function releaseCatalog(language = "en") {
   if (!LANGUAGE_IDS.includes(language)) throw new Error(`Unsupported language: ${language}`);
@@ -82,6 +83,10 @@ export function releaseCatalog(language = "en") {
   const missing = MATRIX_SKILLS.filter((skill) => !fs.existsSync(path.join(root, skill, "SKILL.md")));
   if (missing.length) throw new Error(`Matrix package is incomplete. Missing: ${missing.join(", ")}`);
   const runtime = fs.readFileSync(workflowRuntimeSource());
-  const skills = Object.fromEntries(MATRIX_SKILLS.map((skill) => [skill, hashDirectory(path.join(root, skill), [{ path: "scripts/matrix-runtime.mjs", contents: runtime }])]));
+  const transaction = fs.readFileSync(workflowTransactionSource());
+  const skills = Object.fromEntries(MATRIX_SKILLS.map((skill) => [skill, hashDirectory(path.join(root, skill), [
+    { path: "scripts/matrix-runtime.mjs", contents: runtime },
+    { path: "scripts/workflow-transaction.js", contents: transaction }
+  ])]));
   return { language, root, version: packageManifest.version, skills, digest: crypto.createHash("sha256").update(JSON.stringify(skills)).digest("hex") };
 }

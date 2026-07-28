@@ -9,10 +9,10 @@ import { invoke } from "./workflow.js";
 
 const packagePath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "package.json");
 const version = JSON.parse(fs.readFileSync(packagePath, "utf8")).version;
-const HELP = `Matrix ${version}\n\nUsage: matrix init [directory] [options]\n       matrix doctor [directory] [options]\n\nOptions:\n  --language <en|zh-CN>\n  --scope <project|global>\n  --platform <claude-code|codex>  (repeatable)\n  --mode <copy|symlink>\n  --with-mattpocock | --without-mattpocock\n  --force  --yes, -y  --dry-run  --json  --no-color`;
+const HELP = `Matrix ${version}\n\nUsage: matrix init [directory] [options]\n       matrix doctor [directory] [options]\n\nOptions:\n  --language <en|zh-CN>\n  --scope <project|global>\n  --platform <claude-code|codex>  (repeatable)\n  --mode <copy|symlink>\n  --with-mattpocock | --without-mattpocock\n  --default-orchestration <prim|arch>\n  --force  --yes, -y  --dry-run  --json  --no-color`;
 
 function parse(argv) {
-  const result = { command: null, directory: null, scope: null, language: null, platforms: [], mode: "copy", matt: null, matrixPolicy: "safe", yes: false, dryRun: false, json: false, color: true };
+  const result = { command: null, directory: null, scope: null, language: null, platforms: [], mode: "copy", matt: null, defaultOrchestration: null, matrixPolicy: "safe", yes: false, dryRun: false, json: false, color: true };
   const values = [...argv];
   if (values[0] && !values[0].startsWith("-")) result.command = values.shift();
   while (values.length) {
@@ -24,6 +24,7 @@ function parse(argv) {
     else if (token === "--mode") result.mode = values.shift();
     else if (token === "--with-mattpocock") result.matt = "missing";
     else if (token === "--without-mattpocock") result.matt = "none";
+    else if (token === "--default-orchestration") result.defaultOrchestration = values.shift();
     else if (token === "--force") result.matrixPolicy = "replace";
     else if (["--yes", "-y"].includes(token)) result.yes = true;
     else if (token === "--dry-run") result.dryRun = true;
@@ -59,13 +60,17 @@ async function intentFrom(options, ui) {
   let platforms = options.platforms;
   if (!platforms.length && interactive && !options.yes) platforms = await ui.selectMany(text(language, "platformsQuestion"), [{ label: "Claude Code", value: "claude-code" }, { label: "Codex", value: "codex" }]);
   const matt = options.matt ?? (interactive && !options.yes ? (await ui.confirm(text(language, "mattQuestion"), true, labelsFor(language)) ? "missing" : "none") : "missing");
-  return { projectRoot: projectRoot(options.directory), language, scope, platforms, mode: options.mode, matt, matrixPolicy: options.matrixPolicy, dryRun: options.dryRun };
+  const defaultOrchestration = options.defaultOrchestration ?? (interactive && !options.yes && matt === "missing"
+    ? await ui.select(text(language, "orchestrationQuestion"), [{ label: "Arch", value: "arch" }, { label: "Prim", value: "prim" }])
+    : null);
+  return { projectRoot: projectRoot(options.directory), language, scope, platforms, mode: options.mode, matt, defaultOrchestration, nonInteractive: options.yes || !interactive, matrixPolicy: options.matrixPolicy, dryRun: options.dryRun };
 }
 
 function render(ui, evaluation) {
   const language = evaluation.intent?.language ?? "en";
   const actions = (evaluation.actions ?? []).map((item) => `${item.platform}: ${localizedAction(language, item.matrix)}`).join(", ");
   ui.info(actions ? `${text(language, "preview")}: ${actions}` : evaluation.code);
+  if (evaluation.intent?.defaultOrchestration) ui.muted(`Default orchestration: ${evaluation.intent.defaultOrchestration}`);
   for (const item of evaluation.observations ?? []) ui.muted(`${item.name}: ${text(language, "matrix")} ${localizedState(language, item.matrix)}；${text(language, "matt")} ${localizedState(language, item.matt.state)}${item.matt.inherited ? ` (${text(language, "global")})` : ""}`);
   for (const item of evaluation.diagnostics ?? []) ui.warn(item.code === "USER_MODIFIED_BLOCKED" ? text(language, "replaceQuestion") : item.message ?? item.code);
   for (const item of evaluation.diagnosis ?? []) (item.code === "MATT_INHERITED" ? ui.muted : ui.warn)(item.message ?? item.code);

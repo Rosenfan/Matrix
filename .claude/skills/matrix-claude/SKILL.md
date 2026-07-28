@@ -5,12 +5,12 @@ description: Export a frozen Matrix design as a bounded Claude Code task package
 
 # Matrix Claude Handoff
 
-This is an optional Matrix sidecar, not a Matrix phase. It must not call `transition`, `archive`, or write `matrix.yaml`, `run-state.json`, or `events.jsonl`.
+This is an optional Matrix sidecar, not a Matrix phase. It must not call `transition`, `archive`, or write `matrix.yaml` or `events.jsonl`.
 
 ## When to Use
 
 Use `$matrix-claude` when:
-- The design phase guard has passed (design is frozen)
+- The active change is in Build and the Design -> Build transition has approved the contract
 - You want Claude Code (instead of Codex) to implement the design
 - You need a bounded task package with all implementation details
 
@@ -19,16 +19,16 @@ Use `$matrix-claude` when:
 The exporter performs this read-only check before writing anything:
 
 ```powershell
-matrix workflow guard design
+matrix workflow guard build
 ```
 
 If `matrix` is genuinely absent from PATH, use the bundled runtime from the installed root Matrix Skill. Do not fall back when the primary command starts and returns an error.
 
-If the design guard fails, stop and return to `$matrix-design`. The exporter reads the active change's `proposal.md`, `design.md`, and `plan.md`; it does not invent missing facts.
+If the build guard reports `CONTRACT_CHANGED` or `CONTRACT_UNAPPROVED`, return to `$matrix-design` and approve a new contract through Build. The exporter reads the approved bytes of `proposal.md`, `design.md`, and `plan.md`; it does not invent missing facts.
 
 ## Export
 
-Treat explicit invocation of `$matrix-claude` as the user's choice of Claude Code as the implementation actor. Generate the package with the deterministic exporter; it refuses a missing design guard and does not alter Matrix state.
+Treat explicit invocation of `$matrix-claude` as the user's choice of Claude Code as the implementation actor. Generate the package with the deterministic exporter; it refuses a non-matching approved contract and does not alter Matrix state.
 
 ```powershell
 # Generic project: only exports a Matrix artifact.
@@ -43,7 +43,7 @@ matrix workflow export --task-id <ID> --target fnsec --apply-fnsec-board
 
 The exported package (`artifacts/claude-task.md`) contains everything Claude Code needs to implement and produce evidence for `$matrix-verify`:
 
-1. **Task ID and execution actor**: Claude Code
+1. **Task ID, execution actor, and approved contract hash**: Claude Code and the exact approved snapshot
 2. **Objective and acceptance criteria** — copied from `proposal.md`
 3. **In-scope and out-of-scope boundaries** — from `proposal.md`
 4. **Frozen design decisions** — from `design.md` (Decisions, Boundaries, Test seams)
@@ -91,6 +91,6 @@ If the build guard fails, return to Claude Code to补充 missing evidence.
 ## Important Notes
 
 - This sidecar does NOT change Matrix phase, workflow, or guard result
-- The Matrix state remains in `design` phase until explicitly transitioned
+- The Matrix state remains in `build` phase; export itself does not advance it
 - Claude Code must produce evidence that satisfies the build guard conditions
 - After successful transition to verify, the normal verify流程 continues

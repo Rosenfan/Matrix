@@ -34,4 +34,23 @@ test("Chinese release cohort contains every Matrix Skill with matching machine c
   assert.match(fs.readFileSync(path.join(chineseRoot, "matrix", "SKILL.md"), "utf8"), /matrix workflow inspect/);
   assert.match(fs.readFileSync(path.join(chineseRoot, "matrix-build", "SKILL.md"), "utf8"), /matrix workflow transition verify/);
   assert.match(fs.readFileSync(path.join(chineseRoot, "matrix-claude", "SKILL.md"), "utf8"), /matrix workflow export --task-id/);
+  for (const command of [
+    "matrix workflow return design --reason design-gap",
+    "matrix workflow return build --reason verification-failed",
+    "matrix workflow return design --reason acceptance-or-design-gap",
+    "matrix workflow abort --reason"
+  ]) {
+    assert.ok(fs.readFileSync(path.join(englishRoot, "matrix", "SKILL.md"), "utf8").includes(command), `English matrix is missing ${command}`);
+    assert.ok(fs.readFileSync(path.join(chineseRoot, "matrix", "SKILL.md"), "utf8").includes(command), `Chinese matrix is missing ${command}`);
+  }
+});
+
+test("Prim and Arch guidance excludes orchestration wrappers from managed phases", () => {
+  for (const base of [path.join(root, ".claude", "skills"), path.join(root, "assets", "skills-zh-CN")]) {
+    assert.match(fs.readFileSync(path.join(base, "matrix", "SKILL.md"), "utf8"), /Prim/);
+    assert.match(fs.readFileSync(path.join(base, "matrix", "SKILL.md"), "utf8"), /Arch/);
+    assert.equal(fs.readFileSync(path.join(base, "matrix-open", "SKILL.md"), "utf8").includes("`grill-with-docs`"), false);
+    assert.equal(fs.readFileSync(path.join(base, "matrix-build", "SKILL.md"), "utf8").includes("`implement`"), false);
+    assert.equal(fs.readFileSync(path.join(base, "matrix-verify", "SKILL.md"), "utf8").includes("`improve-codebase-architecture`"), false);
+  }
 });

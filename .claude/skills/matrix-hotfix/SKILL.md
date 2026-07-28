@@ -5,4 +5,4 @@ description: Run a constrained Matrix workflow for a reproducible small bug. Use
 
 # Matrix Hotfix
 
-Start through `$matrix` with workflow `hotfix`, then use `diagnosing-bugs` to establish a red-capable feedback loop before changing code. Write the compact proposal, then continue through Matrix gates. If the bug requires architecture change, a new public API, schema work, or broad coordination, pause and ask whether to upgrade to full `$matrix`.
+Start through `$matrix` with workflow `hotfix` and preserve its frozen Prim or Arch orchestration. Prim diagnoses directly. Arch invokes `diagnosing-bugs` only when an actual failure exists and root cause is not established. Write the compact proposal, continue through the normal Matrix gates, and keep all companion output subordinate to Matrix artifacts and state. If the bug requires architecture change, a new public API, schema work, or broad coordination, use controlled Return and upgrade the work to a full Matrix change.

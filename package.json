@@ -1,7 +1,7 @@
 {
   "name": "@rosenfan/matrix",
-  "version": "0.1.1",
-  "description": "Install and manage the Matrix workflow for Matt Pocock's agent skills.",
+  "version": "0.1.2",
+  "description": "Evidence-driven development workflow with Prim and Arch agent-skill orchestration.",
   "license": "MIT",
   "type": "module",
   "bin": {
