@@ -5,7 +5,9 @@ description: Export a frozen Matrix design as a bounded Claude Code task package
 
 # Matrix Claude Handoff
 
-This is an optional Matrix sidecar, not a Matrix phase. It must not call `transition`, `archive`, or write `matrix.yaml` or `events.jsonl`.
+This is an optional Matrix sidecar, not a Matrix phase. It must not call `transition`, `archive`, or write `matrix.yaml` or `events.jsonl`. It supports only a matching full or legacy-full three-artifact Contract; new lightweight hotfix/tweak changes are intentionally unsupported.
+
+Use `artifact_language` from inspect for human-readable handoff text while retaining the stable machine-readable headings and metadata keys.
 
 ## When to Use
 

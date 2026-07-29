@@ -31,9 +31,18 @@ const readConfig = (file) => {
     }));
   } catch { return {}; }
 };
-const configContent = (existing, defaultOrchestration, scope) => {
-  const autoTransition = existing.auto_transition === "false" ? "false" : "true";
-  return `schema: matrix/config/v1\nauto_transition: ${autoTransition}\ndefault_orchestration: ${defaultOrchestration}\ninstallation_scope: ${scope}\n`;
+const configContent = (existing, defaultOrchestration, scope, language) => {
+  const values = {
+    ...existing,
+    schema: "matrix/config/v1",
+    auto_transition: existing.auto_transition === "false" ? "false" : "true",
+    default_orchestration: defaultOrchestration,
+    installation_scope: scope,
+    language
+  };
+  const preferred = ["schema", "auto_transition", "default_orchestration", "installation_scope", "language"];
+  const keys = [...preferred, ...Object.keys(values).filter((key) => !preferred.includes(key)).sort()];
+  return `${keys.map((key) => `${key}: ${values[key]}`).join("\n")}\n`;
 };
 const removeEntry = (value) => { if (pathExists(value)) fs.rmSync(value, { recursive: true, force: true }); };
 const removeStaging = (stagingRoot) => {
@@ -51,6 +60,28 @@ const skillPresent = (root, skill) => exists(path.join(root, skill, "SKILL.md"))
 const isBrokenLink = (value) => { try { return fs.lstatSync(value).isSymbolicLink() && !exists(value); } catch { return false; } };
 
 function readManifest(intent) { return readJson(manifestPath(intent.scope, intent.projectRoot, intent.home)); }
+
+export function installedIntent({ projectRoot = process.cwd(), home = os.homedir() } = {}) {
+  const resolvedProjectRoot = path.resolve(projectRoot);
+  const config = readConfig(path.join(resolvedProjectRoot, ".matrix", "config.yaml"));
+  const scope = config.installation_scope === "global" ? "global" : "project";
+  const manifest = readJson(manifestPath(scope, resolvedProjectRoot, home));
+  const platforms = Object.keys(manifest?.platforms ?? {}).filter((id) => PLATFORM_IDS.includes(id));
+  if (!manifest || !platforms.length) return { ok: false, code: "MANIFEST_MISSING", scope, config };
+  const language = ["en", "zh-CN"].includes(manifest.language) ? manifest.language : (["en", "zh-CN"].includes(config.language) ? config.language : "en");
+  const defaultOrchestration = ["prim", "arch"].includes(manifest.orchestration?.default) ? manifest.orchestration.default : "prim";
+  const matt = manifest.orchestration?.available?.includes("arch") ? "missing" : "none";
+  return {
+    ok: true,
+    intent: {
+      projectRoot: resolvedProjectRoot, home, scope, platforms, language,
+      mode: ["copy", "symlink"].includes(manifest.mode) ? manifest.mode : "copy",
+      matt, defaultOrchestration, nonInteractive: true, matrixPolicy: "safe", dryRun: false
+    },
+    manifest,
+    config
+  };
+}
 
 function detectPlatforms(projectRoot, scope, home) {
   const bases = [scopeBase(scope, projectRoot, home)];
@@ -242,7 +273,7 @@ export function createDistribution({ failAt, mattAdapter = createMattAdapter() }
         const available = postObservations.every((item) => item.matt.state === "complete") ? ["prim", "arch"] : ["prim"];
         const previousConfig = readConfig(journal.config.backup ?? plan.configPath);
         fs.mkdirSync(path.dirname(plan.configPath), { recursive: true });
-        fs.writeFileSync(plan.configPath, configContent(previousConfig, plan.intent.defaultOrchestration, plan.intent.scope)); journal.config.written = true; persist();
+        fs.writeFileSync(plan.configPath, configContent(previousConfig, plan.intent.defaultOrchestration, plan.intent.scope, plan.intent.language)); journal.config.written = true; persist();
         writeJson(plan.manifestPath, {
           version: VERSION, catalogVersion: catalog.version, language: plan.intent.language, mode: plan.intent.mode, scope: plan.intent.scope,
           catalogDigest: catalog.digest, orchestration: { default: plan.intent.defaultOrchestration, available }, platforms: records

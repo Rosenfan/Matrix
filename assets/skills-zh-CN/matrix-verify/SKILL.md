@@ -5,7 +5,9 @@ description: 依据计划验证 Matrix 变更并审查差异。
 
 # Matrix Verify
 
-运行计划的验证命令，在 `verification.md` 写入 `## Test evidence`。读取冻结 `orchestration`：
+运行已批准 Contract 的验证命令，在 `verification.md` 写入 `## Test evidence`。hotfix 另写 `## Regression evidence`；tweak 另写 `## Scope review evidence`。读取冻结 `orchestration`：
+
+验证正文使用 `artifact_language`；上述 Runtime 所需英文证据标题保持不变。
 
 - **Prim**：Matrix 自行完成 Standards 与 Spec 双轴审查。
 - **Arch**：调用 `code-review` 产生双轴证据，并说明调用原因。

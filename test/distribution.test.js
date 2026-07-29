@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { MATRIX_SKILLS, MATT_SKILLS, hashDirectory } from "../src/catalog.js";
-import { createDistribution, recoverPendingTransaction } from "../src/distribution.js";
+import { createDistribution, installedIntent, recoverPendingTransaction } from "../src/distribution.js";
 import { invoke } from "../src/workflow.js";
 
 function fixture(t) {
@@ -112,6 +112,8 @@ test("Chinese installation uses the Chinese Matrix guidance cohort", (t) => {
   const guidance = fs.readFileSync(path.join(project, ".agents", "skills", "matrix", "SKILL.md"), "utf8");
   assert.match(guidance, /持久化的 Matrix 开发工作流/);
   assert.ok(fs.existsSync(path.join(project, ".agents", "skills", "matrix", "scripts", "matrix_state.py")));
+  assert.match(fs.readFileSync(path.join(project, ".matrix", "config.yaml"), "utf8"), /^language: zh-CN$/m);
+  assert.equal(installedIntent({ projectRoot: project, home }).intent.language, "zh-CN");
 });
 
 test("project Arch detection combines local and global managed skills for the same platform", (t) => {

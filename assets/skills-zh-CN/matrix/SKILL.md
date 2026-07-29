@@ -7,6 +7,8 @@ description: 启动、恢复并治理持久化的 Matrix 开发工作流。
 
 以当前仓库的 `.matrix/` 为唯一状态来源；不得从聊天记录推断阶段。
 
+读取 `matrix workflow inspect` 的 `artifact_language`。规范 Markdown 标题 token 必须保持不变；面向用户的产物正文、说明和 handoff 在 `zh-CN` 时写中文，在 `en` 时写英文。
+
 先执行：
 
 ```powershell
@@ -32,7 +34,7 @@ matrix workflow init <change-id> --workflow <full|hotfix|tweak> --orchestration 
 - **Prim**：各阶段使用 Matrix 自身能力，不依赖 Matt Skills。
 - **Arch**：仅在任务事实满足触发条件时，调用初始化阶段已验证的十项原子能力。
 
-两种模式共用同一套 Matrix phase graph、产物、守卫、Return/Abort、Contract、事务与归档协议。Arch 能力不得写 Matrix 状态、推进阶段、提交、归档或创建竞争工作流。调用前说明能力与触发原因，无需重复请求 Skill 权限。
+两种编排模式使用已选定的 workflow profile：`full` 走 `open → design → build → verify → archive`；`hotfix` 与 `tweak` 共用内部 `lightweight` profile，走 `open → build → verify → archive`，仅证据策略不同。Arch 能力不得写 Matrix 状态、推进阶段、提交、归档或创建竞争工作流。
 
 正确安装的 Arch 能力执行失败时，最多允许一次同能力的 Matrix fallback，并记录失败与证据。缺失、修改或不完整的 Arch 安装必须通过 `matrix init --with-mattpocock` 修复，不得切换活动 change 到 Prim。
 
@@ -64,7 +66,7 @@ matrix workflow doctor --repair --lock <id>
 
 ## 精确 Contract
 
-`design -> build` 会批准 `proposal.md`、`design.md`、`plan.md` 的精确字节 SHA-256 身份。任何后续字节变动都会阻断 Build、Verify、Archive 和 Claude 导出；必须受控 Return 至 Design 后重新批准。旧 schema 会被拒绝且不发生写入。
+full 的 `design -> build` 会批准 proposal/design/plan；lightweight 的 `open -> build --confirmed` 只批准紧凑 proposal，并拒绝初始化后、批准前发生的项目实现改动。Contract 后续漂移都会阻断推进。
 
 ## 可选 Claude 交接
 
@@ -78,3 +80,4 @@ matrix workflow doctor --repair --lock <id>
 - 成功 Archive 必须使用两步乐观提交：先运行 `matrix workflow archive --dry-run`，再将其精确 hash 传给 `matrix workflow archive --expect-preflight <sha256>`；不得绕过预演。
 - `matrix workflow doctor` 始终只读；transaction 与陈旧锁 repair 必须显式绑定 doctor 报告的 identity，不得手工编辑或删除 `.matrix/transactions/`、`.matrix/workflow.lock`。
 - 重大架构/范围决定和 archive/commit 前应暂停等待用户确认。
+- shortcut 范围扩大时执行 `matrix workflow return design --reason design-gap`；Runtime 将其升级为 full。

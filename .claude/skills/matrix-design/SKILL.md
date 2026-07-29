@@ -5,6 +5,10 @@ description: Design and freeze the active Matrix change before implementation. U
 
 # Matrix Design
 
+Design is used by `full` and resumable legacy shortcut changes only. A new lightweight hotfix/tweak moves directly from Open to Build and must not create Design artifacts merely to satisfy the full guard.
+
+Use `artifact_language` from `matrix workflow inspect` for all design and plan prose. Keep Runtime-required English heading tokens unchanged.
+
 Run `matrix workflow inspect`, read the active proposal and frozen `orchestration`, then write `artifacts/design.md` with `## Decisions`, `## Boundaries`, `## Test seams`, and `## Risks`; write `artifacts/plan.md` with `## Steps`, `## Validation`, and `## Stop conditions`.
 
 ## Prim

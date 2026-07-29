@@ -23,6 +23,25 @@ function writeContract(base) {
   fs.writeFileSync(path.join(base, "design.md"), "## Decisions\nDecision text.\n\n## Boundaries\nBoundary text.\n\n## Test seams\nUse invoke argv.\n\n## Risks\nKnown risk.");
   fs.writeFileSync(path.join(base, "plan.md"), "## Steps\n1. Build it.\n\n## Validation\nRun tests.\n\n## Stop conditions\nStop on scope change.");
 }
+function writeShortcutProposal(base, workflow) {
+  const common = "## Goal\nChange one bounded behavior.\n\n## Scope\nOnly the selected behavior.\n\n## Non-goals\nNo API or architecture changes.\n\n## Approach\nUse the existing implementation seam.\n\n## Acceptance\nThe selected behavior changes as requested.\n\n## Validation\nRun the focused tests and inspect the diff.\n\n## Risks\nA nearby behavior could regress.\n\n## Upgrade conditions\nStop for API, schema, architecture, or cross-module changes.";
+  const specific = workflow === "hotfix"
+    ? "\n\n## Expected behavior\nThe operation succeeds.\n\n## Actual behavior\nThe operation fails reproducibly.\n\n## Reproduction\nRun the focused failing test."
+    : "\n\n## Current behavior\nThe existing output uses the old value.\n\n## Preserved behavior\nAdjacent outputs remain unchanged.\n\n## Diff boundary\nOnly the selected module and its tests may change.";
+  fs.writeFileSync(path.join(base, "proposal.md"), `${common}${specific}`);
+}
+function writeShortcutBuildEvidence(base, workflow) {
+  const specific = workflow === "hotfix"
+    ? "\n\n## Reproduction evidence\nThe focused test failed before the fix.\n\n## Root cause\nThe existing branch selected the wrong value."
+    : "\n\n## Scope evidence\nThe diff contains only the selected behavior and its test.";
+  fs.writeFileSync(path.join(base, "verification.md"), `## Build evidence\nImplemented the approved bounded change and ran the focused command.${specific}`);
+}
+function writeShortcutVerification(base, workflow) {
+  const specific = workflow === "hotfix"
+    ? "\n\n## Regression evidence\nThe original failure now passes and the adjacent case remains green."
+    : "\n\n## Scope review evidence\nThe final diff matches the approved boundary and preserves adjacent behavior.";
+  fs.writeFileSync(path.join(base, "verification.md"), `## Build evidence\nImplemented the approved bounded change and recorded its commands.\n\n## Test evidence\nFocused and adjacent tests passed.${specific}\n\n## Review evidence\nStandards and specification review found no blocking issue.`);
+}
 function start(cwd, id = "change") { assert.equal(invoke(["init", id, "--title", id], { cwd }).ok, true); return artifacts(cwd, id); }
 function build(cwd, id = "change") { const base = start(cwd, id); writeContract(base); assert.equal(invoke(["transition", "design"], { cwd }).ok, true); const result = invoke(["transition", "build"], { cwd }); assert.equal(result.ok, true, result.message); return { base, result }; }
 function verify(cwd, id = "change") { const { base } = build(cwd, id); fs.writeFileSync(path.join(base, "verification.md"), "## Build evidence\nBuild passed with enough detail."); assert.equal(invoke(["transition", "verify"], { cwd }).ok, true); fs.writeFileSync(path.join(base, "verification.md"), "## Build evidence\nBuild passed.\n\n## Test evidence\nTests passed with enough detail.\n\n## Review evidence\nReview passed with enough detail."); return base; }
@@ -107,6 +126,120 @@ test("v0.1.2 initializes only final v2 state and rejects old schema without muta
   const before = fs.readFileSync(statePath(cwd, "final"), "utf8");
   assert.equal(invoke(["inspect"], { cwd }).code, "STATE_VERSION_UNSUPPORTED");
   assert.equal(fs.readFileSync(statePath(cwd, "final"), "utf8"), before);
+});
+
+test("workflow freezes the configured artifact language and exposes it on inspect", (t) => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-language-")); t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(cwd, ".matrix"), { recursive: true });
+  fs.writeFileSync(path.join(cwd, ".matrix", "config.yaml"), "schema: matrix/config/v1\nlanguage: zh-CN\ndefault_orchestration: prim\ninstallation_scope: project\n");
+  assert.equal(invoke(["init", "language", "--title", "language"], { cwd }).artifact_language, "zh-CN");
+  assert.match(fs.readFileSync(statePath(cwd, "language"), "utf8"), /^artifact_language: zh-CN$/m);
+  assert.equal(invoke(["inspect"], { cwd }).artifact_language, "zh-CN");
+});
+
+test("hotfix and tweak share one lightweight lifecycle with distinct evidence policies", (t) => {
+  for (const workflow of ["hotfix", "tweak"]) {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), `matrix-${workflow}-`)); t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+    const id = `${workflow}-change`;
+    const created = invoke(["init", id, "--title", id, "--workflow", workflow], { cwd });
+    assert.equal(created.ok, true, created.message);
+    assert.equal(created.profile, "lightweight");
+    assert.equal(created.evidence_policy, workflow);
+    const base = artifacts(cwd, id);
+    writeShortcutProposal(base, workflow);
+    assert.equal(invoke(["transition", "design"], { cwd }).code, "ILLEGAL_TRANSITION");
+    const state = fs.readFileSync(statePath(cwd, id), "utf8"); const history = fs.readFileSync(path.join(cwd, ".matrix", "changes", id, "events.jsonl"), "utf8");
+    assert.equal(invoke(["transition", "build"], { cwd }).code, "CONFIRMATION_REQUIRED");
+    assert.equal(fs.readFileSync(statePath(cwd, id), "utf8"), state);
+    assert.equal(fs.readFileSync(path.join(cwd, ".matrix", "changes", id, "events.jsonl"), "utf8"), history);
+    const approved = invoke(["transition", "build", "--confirmed"], { cwd });
+    assert.equal(approved.ok, true, approved.message);
+    assert.equal(approved.profile, "lightweight");
+    assert.equal(approved.contract_status, "approved-and-matching");
+    assert.equal(fs.existsSync(path.join(base, "design.md")), false);
+    assert.equal(fs.existsSync(path.join(base, "plan.md")), false);
+    writeShortcutBuildEvidence(base, workflow);
+    assert.equal(invoke(["transition", "verify"], { cwd }).ok, true);
+    writeShortcutVerification(base, workflow);
+    assert.equal(invoke(["transition", "archive"], { cwd }).ok, true);
+    const prepared = invoke(["archive", "--dry-run"], { cwd });
+    assert.match(prepared.commit_command, /--confirmed$/);
+    assert.equal(invoke(["archive", "--expect-preflight", prepared.preflight_hash], { cwd }).code, "CONFIRMATION_REQUIRED");
+    assert.equal(invoke(["archive", "--expect-preflight", prepared.preflight_hash, "--confirmed"], { cwd }).ok, true);
+  }
+});
+
+test("lightweight evidence policies cannot substitute for one another", (t) => {
+  const hotfix = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-hotfix-policy-")); const tweak = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-tweak-policy-"));
+  t.after(() => fs.rmSync(hotfix, { recursive: true, force: true })); t.after(() => fs.rmSync(tweak, { recursive: true, force: true }));
+  assert.equal(invoke(["init", "hotfix", "--title", "Hotfix", "--workflow", "hotfix"], { cwd: hotfix }).ok, true);
+  writeShortcutProposal(artifacts(hotfix, "hotfix"), "tweak");
+  assert.equal(invoke(["guard", "open"], { cwd: hotfix }).code, "GUARD_FAILED");
+  assert.equal(invoke(["init", "tweak", "--title", "Tweak", "--workflow", "tweak"], { cwd: tweak }).ok, true);
+  writeShortcutProposal(artifacts(tweak, "tweak"), "hotfix");
+  assert.equal(invoke(["guard", "open"], { cwd: tweak }).code, "GUARD_FAILED");
+});
+
+test("lightweight approval detects only workspace changes made after initialization", (t) => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-workspace-order-")); t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(cwd, "existing.txt"), "dirty before Matrix");
+  assert.equal(invoke(["init", "ordered", "--title", "Ordered", "--workflow", "tweak"], { cwd }).ok, true);
+  const base = artifacts(cwd, "ordered"); writeShortcutProposal(base, "tweak");
+  fs.writeFileSync(path.join(cwd, "implemented-too-early.txt"), "implementation");
+  const state = fs.readFileSync(statePath(cwd, "ordered"), "utf8"); const history = fs.readFileSync(path.join(cwd, ".matrix", "changes", "ordered", "events.jsonl"), "utf8");
+  assert.equal(invoke(["transition", "build", "--confirmed"], { cwd }).code, "PREMATURE_IMPLEMENTATION");
+  assert.equal(fs.readFileSync(statePath(cwd, "ordered"), "utf8"), state);
+  assert.equal(fs.readFileSync(path.join(cwd, ".matrix", "changes", "ordered", "events.jsonl"), "utf8"), history);
+  fs.rmSync(path.join(cwd, "implemented-too-early.txt"));
+  assert.equal(invoke(["transition", "build", "--confirmed"], { cwd }).ok, true);
+
+  const damaged = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-workspace-baseline-missing-")); t.after(() => fs.rmSync(damaged, { recursive: true, force: true }));
+  assert.equal(invoke(["init", "damaged", "--title", "Damaged", "--workflow", "tweak"], { cwd: damaged }).ok, true);
+  writeShortcutProposal(artifacts(damaged, "damaged"), "tweak");
+  fs.rmSync(path.join(damaged, ".matrix", "changes", "damaged", "workspace-baseline.json"));
+  assert.equal(invoke(["transition", "build", "--confirmed"], { cwd: damaged }).code, "WORKSPACE_BASELINE_MISSING");
+});
+
+test("lightweight workspace baseline uses Git enumeration when available", (t) => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-workspace-git-")); t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  const initialized = spawnSync("git", ["init"], { cwd, encoding: "utf8" });
+  if (initialized.status !== 0) { t.skip("Git is unavailable"); return; }
+  fs.writeFileSync(path.join(cwd, "source.txt"), "pre-existing content");
+  assert.equal(spawnSync("git", ["add", "source.txt"], { cwd, encoding: "utf8" }).status, 0);
+  assert.equal(invoke(["init", "git-order", "--title", "Git order", "--workflow", "tweak"], { cwd }).ok, true);
+  const baseline = JSON.parse(fs.readFileSync(path.join(cwd, ".matrix", "changes", "git-order", "workspace-baseline.json"), "utf8"));
+  assert.equal(baseline.provider, "git");
+  writeShortcutProposal(artifacts(cwd, "git-order"), "tweak");
+  assert.equal(invoke(["transition", "build", "--confirmed"], { cwd }).ok, true);
+});
+
+test("legacy v0.1.2 shortcut Design remains resumable and scope expansion upgrades to full", (t) => {
+  const legacyOpen = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-legacy-open-")); t.after(() => fs.rmSync(legacyOpen, { recursive: true, force: true }));
+  assert.equal(invoke(["init", "legacy-open", "--title", "Legacy open", "--workflow", "hotfix"], { cwd: legacyOpen }).ok, true);
+  const legacyOpenState = statePath(legacyOpen, "legacy-open");
+  fs.writeFileSync(legacyOpenState, fs.readFileSync(legacyOpenState, "utf8").replace(/^workflow_profile:.*\r?\n/m, ""));
+  fs.rmSync(path.join(legacyOpen, ".matrix", "changes", "legacy-open", "workspace-baseline.json"));
+  writeContract(artifacts(legacyOpen, "legacy-open"));
+  assert.equal(invoke(["inspect"], { cwd: legacyOpen }).profile, "legacy-full");
+  assert.equal(invoke(["transition", "design"], { cwd: legacyOpen }).ok, true);
+
+  const legacy = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-legacy-shortcut-")); t.after(() => fs.rmSync(legacy, { recursive: true, force: true }));
+  assert.equal(invoke(["init", "legacy", "--title", "Legacy", "--workflow", "tweak"], { cwd: legacy }).ok, true);
+  const legacyBase = artifacts(legacy, "legacy"); writeContract(legacyBase);
+  fs.writeFileSync(statePath(legacy, "legacy"), fs.readFileSync(statePath(legacy, "legacy"), "utf8").replace(/^workflow_profile:.*\r?\n/m, "").replace("phase: open", "phase: design").replace("revision: 1", "revision: 2"));
+  fs.rmSync(path.join(legacy, ".matrix", "changes", "legacy", "workspace-baseline.json"));
+  assert.equal(invoke(["inspect"], { cwd: legacy }).profile, "legacy-full");
+  assert.equal(invoke(["transition", "build"], { cwd: legacy }).ok, true);
+
+  const current = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-upgrade-shortcut-")); t.after(() => fs.rmSync(current, { recursive: true, force: true }));
+  assert.equal(invoke(["init", "upgrade", "--title", "Upgrade", "--workflow", "tweak"], { cwd: current }).ok, true);
+  writeShortcutProposal(artifacts(current, "upgrade"), "tweak");
+  assert.equal(invoke(["transition", "build", "--confirmed"], { cwd: current }).ok, true);
+  const upgraded = invoke(["return", "design", "--reason", "design-gap"], { cwd: current });
+  assert.equal(upgraded.ok, true);
+  assert.equal(upgraded.workflow, "full");
+  assert.equal(upgraded.profile, "full");
+  assert.equal(upgraded.approved_contract_hash, null);
 });
 
 test("design to build approves an exact contract and drift fails before evidence guards", (t) => {
@@ -208,7 +341,7 @@ test("Archive preflight has a fixed public identity vector and globally sorted t
   const base = archivePhase(cwd, "vector"); normalizeArchiveTimes(cwd, "vector");
   fs.mkdirSync(path.join(base, "a")); fs.mkdirSync(path.join(base, "empty"));
   fs.writeFileSync(path.join(base, "a", "z.txt"), "nested"); fs.writeFileSync(path.join(base, "a.txt"), "sibling");
-  assert.equal(preflight(cwd).preflight_hash, "sha256:b06a477774ff1ef3f03b0735ccafd629870a8b9217863027a3950f3ed5e65d13");
+  assert.equal(preflight(cwd).preflight_hash, "sha256:49fc2cb1b1b8f9404060b17c703c3b8f1f3130a2b1b57121d7e9462858738dc5");
 });
 
 test("Archive preflight rejects drift, cross-change reuse, lock contention, and unsupported entries without mutation", (t) => {

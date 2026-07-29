@@ -5,7 +5,9 @@ description: 将已批准的 Matrix Contract 导出为受边界约束的 Claude 
 
 # Matrix Claude Handoff
 
-这是可选旁路，不是 Matrix phase。它不得执行 `transition`、`archive`，也不得写入 `matrix.yaml` 或 `events.jsonl`。
+这是可选旁路，不是 Matrix phase。它不得执行 `transition`、`archive`，也不得写入 `matrix.yaml` 或 `events.jsonl`。它只支持匹配的 full 或 legacy-full 三产物 Contract；新的 lightweight hotfix/tweak 不支持导出。
+
+人类可读 handoff 内容使用 inspect 的 `artifact_language`；稳定的机器可读标题和 metadata key 保持不变。
 
 仅当变更已进入 Build、`design -> build` 已批准精确 Contract，并且用户明确选择 Claude Code 实现时使用。先检查：
 

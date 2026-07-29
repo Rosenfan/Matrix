@@ -5,7 +5,9 @@ description: Implement the frozen active Matrix plan with test-first vertical sl
 
 # Matrix Build
 
-Run `matrix workflow inspect`. Read `plan.md`, `design.md`, the approved Contract, and repository instructions. Implement only the frozen scope.
+Run `matrix workflow inspect` and implement only its approved Contract. Full and `legacy-full` read proposal/design/plan. `lightweight` reads the approved compact proposal and must not backfill Design artifacts.
+
+Write build evidence and user-facing explanations in `artifact_language`; preserve any Runtime-required English heading tokens.
 
 ## Prim
 
@@ -21,7 +23,7 @@ Announce each triggered capability and reason. No companion may commit, review, 
 
 ## Scope Discipline
 
-If implementation exposes a scope or design change, **stop and run**:
+If implementation exposes a scope or design change, **stop and run**; a lightweight change is upgraded to full by this Return:
 
 ```powershell
 matrix workflow return design --reason design-gap
@@ -33,7 +35,7 @@ Then enter `$matrix-design`; do not amend the plan silently. The Runtime preserv
 
 1. Implement the approved plan in bounded vertical slices.
 2. Use only triggered Arch capabilities.
-3. Record commands, outcomes, capability invocations and fallbacks under `## Build evidence`.
+3. Record common facts under `## Build evidence`. Hotfix also requires `## Reproduction evidence` and `## Root cause`; tweak also requires `## Scope evidence`.
 4. Run the guard and transition, then enter `$matrix-verify`.
 
 ```powershell

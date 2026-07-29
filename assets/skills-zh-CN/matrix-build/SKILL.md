@@ -5,7 +5,9 @@ description: 用测试优先的纵向切片实现冻结的 Matrix 计划。仅�
 
 # Matrix Build
 
-读取 `matrix workflow inspect`、`plan.md`、`design.md`、已批准 Contract 与仓库指令，只实现冻结范围。
+读取 `matrix workflow inspect` 与已批准 Contract。full/legacy-full 读取 proposal/design/plan；lightweight 只读取紧凑 proposal，不补写 Design 产物。
+
+Build 证据与面向用户的说明使用 `artifact_language`；Runtime 所需英文标题 token 保持不变。
 
 ## 编排
 
@@ -27,7 +29,7 @@ matrix workflow return design --reason design-gap
 ## 流程
 
 1. 用 `tdd` 以纵向切片实现。
-2. 在 `artifacts/verification.md` 的 `## Build evidence` 记录具体命令和结果。
+2. 在 `## Build evidence` 记录共同事实；hotfix 另写 `## Reproduction evidence`、`## Root cause`，tweak 另写 `## Scope evidence`。
 3. 运行 Build guard；它同时确认批准的 Contract 仍精确匹配。
 4. 通过后推进至 Verify，并进入 `$matrix-verify`。
 

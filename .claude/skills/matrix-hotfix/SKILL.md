@@ -5,4 +5,4 @@ description: Run a constrained Matrix workflow for a reproducible small bug. Use
 
 # Matrix Hotfix
 
-Start through `$matrix` with workflow `hotfix` and preserve its frozen Prim or Arch orchestration. Prim diagnoses directly. Arch invokes `diagnosing-bugs` only when an actual failure exists and root cause is not established. Write the compact proposal, continue through the normal Matrix gates, and keep all companion output subordinate to Matrix artifacts and state. If the bug requires architecture change, a new public API, schema work, or broad coordination, use controlled Return and upgrade the work to a full Matrix change.
+Start through `$matrix` with workflow `hotfix`. It uses the shared lightweight lifecycle `open → build → verify → archive`; there is no separate hotfix state machine. Before Build, record expected/actual behavior and a reproducible failure signal, present the compact Contract, and wait for confirmation. Build records reproduction and root-cause evidence; Verify records regression evidence. If the bug requires architecture, public API, schema, or broad coordination, use controlled Return to upgrade the change to full.

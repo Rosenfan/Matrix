@@ -1,18 +1,20 @@
 import fs from "node:fs";
 import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { PLATFORMS } from "./catalog.js";
-import { createDistribution } from "./distribution.js";
+import { createDistribution, installedIntent } from "./distribution.js";
 import { text } from "./messages.js";
 import { createUi } from "./ui.js";
 import { invoke } from "./workflow.js";
+import { compareVersions, globalBinPath, latestVersion, selfUpdate } from "./self-update.js";
 
 const packagePath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "package.json");
 const version = JSON.parse(fs.readFileSync(packagePath, "utf8")).version;
-const HELP = `Matrix ${version}\n\nUsage: matrix init [directory] [options]\n       matrix doctor [directory] [options]\n\nOptions:\n  --language <en|zh-CN>\n  --scope <project|global>\n  --platform <claude-code|codex>  (repeatable)\n  --mode <copy|symlink>\n  --with-mattpocock | --without-mattpocock\n  --default-orchestration <prim|arch>\n  --force  --yes, -y  --dry-run  --json  --no-color`;
+const HELP = `Matrix ${version}\n\nUsage: matrix init [directory] [options]\n       matrix update [directory] [options]\n       matrix doctor [directory] [options]\n\nOptions:\n  --language <en|zh-CN>\n  --scope <project|global>\n  --platform <claude-code|codex>  (repeatable)\n  --mode <copy|symlink>\n  --with-mattpocock | --without-mattpocock\n  --default-orchestration <prim|arch>\n  --skip-self-update  --force  --yes, -y  --dry-run  --json  --no-color`;
 
 function parse(argv) {
-  const result = { command: null, directory: null, scope: null, language: null, platforms: [], mode: "copy", matt: null, defaultOrchestration: null, matrixPolicy: "safe", yes: false, dryRun: false, json: false, color: true };
+  const result = { command: null, directory: null, scope: null, language: null, platforms: [], mode: "copy", matt: null, defaultOrchestration: null, matrixPolicy: "safe", yes: false, dryRun: false, json: false, color: true, skipSelfUpdate: false, reexec: false };
   const values = [...argv];
   if (values[0] && !values[0].startsWith("-")) result.command = values.shift();
   while (values.length) {
@@ -28,6 +30,8 @@ function parse(argv) {
     else if (token === "--force") result.matrixPolicy = "replace";
     else if (["--yes", "-y"].includes(token)) result.yes = true;
     else if (token === "--dry-run") result.dryRun = true;
+    else if (token === "--skip-self-update") result.skipSelfUpdate = true;
+    else if (token === "--_reexec") result.reexec = true;
     else if (token === "--json") result.json = true;
     else if (token === "--no-color") result.color = false;
     else if (["--help", "-h"].includes(token)) result.help = true;
@@ -80,6 +84,10 @@ async function init(options) {
   const ui = createUi({ color: options.color && !options.json });
   if (!options.json) await ui.banner();
   const intent = await intentFrom(options, ui);
+  return refresh(intent, options, ui);
+}
+
+async function refresh(intent, options, ui) {
   const distribution = createDistribution();
   let evaluation = distribution.evaluate(intent);
   const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY && !options.json);
@@ -94,6 +102,50 @@ async function init(options) {
   ui.success(options.dryRun ? text(intent.language, "dryRunComplete") : text(intent.language, "ready"));
   ui.muted(evaluation.intent.platforms.map((id) => `${PLATFORMS[id].name}: $matrix <request>`).join("\n"));
   return 0;
+}
+
+async function update(options) {
+  const ui = createUi({ color: options.color && !options.json });
+  const root = projectRoot(options.directory);
+  const installed = installedIntent({ projectRoot: root });
+  if (!installed.ok) {
+    const result = { ok: false, code: installed.code, message: "No trusted Matrix installation manifest was found. Run matrix init first." };
+    if (options.json) console.log(JSON.stringify(result)); else ui.warn(result.message);
+    return 2;
+  }
+  const forbidden = options.language || options.scope || options.platforms.length || options.matt || options.defaultOrchestration || options.mode !== "copy";
+  if (forbidden) throw new Error("matrix update inherits installation settings. Use matrix init to change language, scope, platform, mode, Matt skills, or orchestration.");
+  const intent = { ...installed.intent, dryRun: options.dryRun };
+  let npm = { status: "skipped", current: version, target: version, reason: options.skipSelfUpdate ? "disabled by --skip-self-update" : null };
+  if (!options.skipSelfUpdate && !options.reexec) {
+    try {
+      const target = await latestVersion(); const comparison = compareVersions(target, version);
+      if (comparison === null) throw new Error("unable to compare registry version");
+      npm = comparison > 0 ? { status: "available", current: version, target } : { status: "skipped", current: version, target, reason: comparison === 0 ? "already latest" : "registry version is older" };
+    } catch (error) {
+      const result = { ok: false, code: "SELF_UPDATE_CHECK_FAILED", npm: { status: "failed", current: version, reason: error.message }, recovery_command: "matrix update --skip-self-update" };
+      if (options.json) console.log(JSON.stringify(result)); else ui.warn(`${result.code}: ${error.message}\nRun ${result.recovery_command} to refresh assets without npm.`);
+      return 2;
+    }
+  }
+  if (options.json && options.dryRun) { console.log(JSON.stringify({ ok: true, code: "DRY_RUN", npm, intent })); return 0; }
+  if (!options.json) {
+    await ui.banner(); ui.info(`Matrix update: CLI ${npm.current}${npm.status === "available" ? ` → ${npm.target}` : ""}`);
+    ui.muted(`Assets: ${intent.scope}, ${intent.language}, ${intent.platforms.join(", ")}`);
+  }
+  const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY && !options.json);
+  if (npm.status === "available") {
+    if (!options.yes && interactive && !await ui.confirm(`Upgrade Matrix CLI ${npm.current} → ${npm.target} and then refresh these assets?`, true, labelsFor(intent.language))) return 0;
+    if (options.dryRun) { if (options.json) console.log(JSON.stringify({ ok: true, code: "DRY_RUN", npm, intent })); else ui.success(text(intent.language, "dryRunComplete")); return 0; }
+    const updated = selfUpdate(version, npm.target);
+    if (!updated.ok) { const result = { ok: false, code: "SELF_UPDATE_FAILED", npm: { ...npm, status: "failed", reason: updated.reason }, recovery_command: "matrix update --skip-self-update" }; if (options.json) console.log(JSON.stringify(result)); else ui.warn(`${result.code}: ${updated.reason}`); return 2; }
+    const args = [globalBinPath(), "update", root, "--skip-self-update", "--_reexec", "--yes"];
+    if (options.matrixPolicy === "replace") args.push("--force"); if (options.json) args.push("--json"); if (!options.color) args.push("--no-color");
+    const rerun = spawnSync(process.execPath, args, { stdio: "inherit" });
+    return Number.isInteger(rerun.status) ? rerun.status : 2;
+  }
+  if (options.json) return refresh(intent, { ...options, yes: true }, ui);
+  return refresh(intent, options, ui);
 }
 
 async function doctor(options) {
@@ -117,6 +169,7 @@ export async function main(argv) {
   if (options.version) { console.log(version); return 0; }
   if (options.help || !options.command) { console.log(HELP); return 0; }
   if (options.command === "init") return init(options);
+  if (options.command === "update") return update(options);
   if (options.command === "doctor") return doctor(options);
   throw new Error(`Unknown command: ${options.command}. Run matrix --help.`);
 }

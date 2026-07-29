@@ -54,3 +54,16 @@ test("Prim and Arch guidance excludes orchestration wrappers from managed phases
     assert.equal(fs.readFileSync(path.join(base, "matrix-verify", "SKILL.md"), "utf8").includes("`improve-codebase-architecture`"), false);
   }
 });
+
+test("published shortcut guidance shares one lightweight path with explicit approval", () => {
+  for (const base of [path.join(root, ".claude", "skills"), path.join(root, "assets", "skills-zh-CN")]) {
+    const open = fs.readFileSync(path.join(base, "matrix-open", "SKILL.md"), "utf8");
+    const hotfix = fs.readFileSync(path.join(base, "matrix-hotfix", "SKILL.md"), "utf8");
+    const tweak = fs.readFileSync(path.join(base, "matrix-tweak", "SKILL.md"), "utf8");
+    assert.match(open, /matrix workflow transition build --confirmed/);
+    assert.match(hotfix, /open → build → verify → archive/);
+    assert.match(tweak, /open → build → verify → archive/);
+    assert.match(hotfix, /root.?cause|根因/i);
+    assert.match(tweak, /diff boundary|diff 边界/i);
+  }
+});

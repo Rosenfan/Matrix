@@ -5,7 +5,9 @@ description: Verify the active Matrix change against its plan and review its dif
 
 # Matrix Verify
 
-Run the plan's acceptance commands and record their output summaries under `## Test evidence` in `artifacts/verification.md`.
+Run the approved Contract's acceptance commands and record their output summaries under `## Test evidence` in `artifacts/verification.md`.
+
+Write verification prose in `artifact_language` from inspect while preserving the required English evidence headings.
 
 ## Input Sources
 
@@ -49,7 +51,7 @@ If documents or public behavior changed, record the required synchronization wor
 ## Process
 
 1. Check that `artifacts/verification.md` exists with `## Build evidence`
-2. Run the plan's acceptance commands (from `plan.md` `## Validation` section)
+2. Run the approved validation commands (full plan or lightweight proposal)
 3. Record test output under `## Test evidence`
 4. Produce both Standards and Spec review axes through the selected orchestration mode
 6. Record findings under `## Review evidence`
@@ -68,4 +70,4 @@ The guard checks for:
 1. **Test evidence** — Output from running the plan's validation commands
 2. **Review evidence** — Findings from the two-axis code review
 
-Both must be present and substantive (>40 chars each) to pass the guard.
+Full requires Test and Review evidence. Hotfix additionally requires `## Regression evidence`; tweak additionally requires `## Scope review evidence`.

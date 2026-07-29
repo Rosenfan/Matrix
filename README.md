@@ -40,10 +40,11 @@ Matrix solves this with one deterministic state machine, explicit phases, guard 
 
 ## What It Does
 
-Matrix provides two capability-orchestration modes over the same workflow:
+Matrix provides two capability-orchestration modes over two centrally defined workflow profiles:
 
 ```
-open → design → build → verify → archive
+full:                    open → design → build → verify → archive
+hotfix/tweak lightweight: open ─────────→ build → verify → archive
 
 Prim: Matrix performs phase work itself
 Arch: Matrix invokes verified atomic Skills only when task facts trigger them
@@ -68,9 +69,10 @@ Each phase:
 
 ## Prerequisites
 
-- [Claude Code](https://docs.anthropic.com/claude-code) and/or Codex installed
-- Node.js 18+ (for the installer)
-- Python is optional during the compatibility window; new installations run the bundled Node workflow runtime.
+- [Claude Code](https://docs.anthropic.com/claude-code) and/or Codex installed as the Skill host
+- Node.js 18+ and `npm` on `PATH` (for the Matrix CLI)
+- Python is optional during the compatibility window; new installations use the bundled Node workflow runtime.
+- Git is only needed when installing from GitHub or contributing to Matrix.
 
 ---
 
@@ -93,7 +95,7 @@ The interactive setup lets you:
 
 - Choose English or Chinese, project or global scope, and Claude Code, Codex, or both
 - Copy skills (recommended) or symlink them for local development
-- Safely update an existing installation with an automatic backup
+- Safely reconfigure an existing installation with an automatic backup
 - Install Matt Pocock's companion skills in the same flow
 - Choose **Prim** or **Arch** as the project default without disabling the other available mode
 
@@ -113,7 +115,24 @@ matrix init --platform codex --dry-run --json
 matrix doctor --platform codex
 ```
 
-Until the npm package is published, install directly from GitHub:
+Update an initialized project:
+
+```bash
+# Check for a newer Matrix CLI, confirm the plan, then refresh this project's installed assets
+matrix update
+
+# Offline or local-development refresh: skip the npm registry and use the current CLI package
+matrix update --skip-self-update
+
+# Non-interactive update after CI has explicitly authorized writes
+matrix update --yes
+```
+
+`matrix update` preserves the installation's scope, platforms, language, mode, and orchestration. It first validates a newer npm package in isolation, then re-runs the new CLI to refresh project assets. npm and project assets are separate transactions: if asset refresh fails after a CLI upgrade, run `matrix update --skip-self-update` to retry. Use `matrix init` to change installation choices, and `matrix doctor` for read-only diagnosis.
+
+The language selected by `matrix init` controls the prose in new Matrix artifacts. Markdown headings required by Matrix guards remain stable English tokens; the artifact body is Chinese for `zh-CN` and English for `en`. A change freezes this language at creation time.
+
+To install directly from GitHub instead of npm:
 
 ```bash
 npm install --global github:Rosenfan/Matrix
@@ -173,6 +192,7 @@ State is stored in `.matrix/`:
 ├── changes/
 │   └── <change-id>/
 │       ├── matrix.yaml      # Canonical workflow, orchestration, phase, status, revision
+│       ├── workspace-baseline.json # Lightweight implementation-order boundary
 │       ├── events.jsonl
 │       └── artifacts/
 │           ├── proposal.md
@@ -192,6 +212,9 @@ matrix workflow guard open
 # Advance (only if guard passes)
 matrix workflow transition design
 
+# Lightweight: approve the compact proposal and enter Build
+matrix workflow transition build --confirmed
+
 # Return from verification failure; stale evidence is retained in history
 matrix workflow return build --reason verification-failed
 
@@ -201,6 +224,7 @@ matrix workflow abort --reason requirement-cancelled
 # Final Archive is a mandatory two-step optimistic commit
 matrix workflow archive --dry-run
 matrix workflow archive --expect-preflight <sha256-returned-by-dry-run>
+# hotfix/tweak commit command additionally carries --confirmed
 
 # Diagnose an interrupted Workflow without writing
 matrix workflow doctor
@@ -210,7 +234,7 @@ matrix workflow doctor --repair --transaction <id> --strategy <continue|rollback
 matrix workflow doctor --repair --lock <id>
 ```
 
-`matrix.yaml` is the only canonical workflow/orchestration/phase/status/revision record, using `matrix/change/v2`. The resolved `prim|arch` value is frozen at initialization. Older schemas are rejected without mutation. The Design -> Build transition records a SHA-256 identity of the exact bytes of `proposal.md`, `design.md`, and `plan.md`; any byte change blocks Build, Verify, Archive, and Claude export until a controlled Return to Design and a new approval. Final Archive requires a read-only dry-run and a hash-bound commit; Runtime recomputes the protected change-directory manifest inside the Archive boundary and rejects drift. Every multi-file Workflow mutation is protected by a durable journal under `.matrix/transactions/`. `matrix workflow doctor` is read-only, and recovery requires the exact transaction/strategy or lock identity it reports. Terminal journals become bounded audit receipts; unresolved or conflicting journals are never automatically deleted.
+`matrix.yaml` is the only canonical workflow/orchestration/phase/status/revision record, using `matrix/change/v2`. Full approval binds the exact bytes of proposal/design/plan. Lightweight approval binds the compact proposal, requires explicit confirmation, and compares the project with its initialization baseline so implementation cannot precede approval. Contract drift blocks later phases. Final Archive uses a read-only dry-run and hash-bound commit; shortcut workflows additionally require explicit confirmation. Multi-file mutations remain protected by durable journals.
 
 ---
 
@@ -221,6 +245,8 @@ matrix workflow doctor --repair --lock <id>
 | **full** | New features, architecture changes | All 5 phases |
 | **hotfix** | Reproducible small bugs | Simplified: open → build → verify → archive |
 | **tweak** | Bounded changes, no API/schema impact | Simplified: open → build → verify → archive |
+
+Hotfix and tweak reference the same internal `lightweight` transition profile. They differ only in routing and evidence: hotfix requires reproduction/root-cause/regression evidence; tweak requires behavior-boundary, diff, and scope-review evidence.
 
 ---
 
@@ -275,7 +301,7 @@ Prim uses Matrix's own capability. Arch uses one initialization-verified cohort 
 
 **Key difference**: Matt Pocock's skills are individual tools. Matrix adds:
 - **State persistence**: Survives context loss
-- **Phase enforcement**: Can't skip design and jump to build
+- **Phase enforcement**: Full cannot skip Design; lightweight cannot edit implementation before its confirmed Open Contract
 - **Evidence requirements**: Guards check for artifacts, not assertions
 - **Transition logging**: Full audit trail of phase changes
 

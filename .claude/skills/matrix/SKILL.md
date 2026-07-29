@@ -7,6 +7,8 @@ description: Route, initialize, resume, and govern a persistent Matrix developme
 
 Use Matrix as the development-workflow entrypoint. Its source of truth is the current repository's `.matrix/`; never infer a phase from chat history.
 
+Read `artifact_language` from `matrix workflow inspect`. Keep required Markdown heading tokens unchanged, but write every user-facing artifact body, explanation, and handoff in that language: English for `en`, Chinese for `zh-CN`.
+
 ## Route
 
 First run:
@@ -37,7 +39,7 @@ An explicit mode wins; otherwise Runtime uses the project `default_orchestration
 - **Prim** uses Matrix's own capability in every phase and never requires Matt Skills.
 - **Arch** conditionally invokes the initialization-verified ten-Skill cohort when documented task-fact triggers are present.
 
-Both modes share the same Matrix phase graph, artifacts, guards, Return/Abort, Contract, transactions, and Archive protocol. Companion Skills never write Matrix state, transition, commit, archive, or create competing workflow artifacts. Announce each Arch capability and trigger before invoking it; do not ask for redundant per-Skill permission.
+Both orchestration modes use the same selected workflow profile. `full` uses `open → design → build → verify → archive`; `hotfix` and `tweak` share one internal `lightweight` profile, `open → build → verify → archive`, with different evidence policies. Companion Skills never write Matrix state, transition, commit, archive, or create competing workflow artifacts.
 
 A correctly installed Arch capability that fails gets at most one Matrix-owned fallback for the same bounded capability, with failure and evidence recorded. A missing, modified, or incomplete Arch installation must be repaired with `matrix init --with-mattpocock`; never switch the active change to Prim.
 
@@ -82,9 +84,9 @@ When context is running low and work needs to continue in a fresh session, use `
 
 - A phase can advance only through `matrix workflow transition`; run its guard first.
 - A phase can move backward only through one of the documented `matrix workflow return` intents.
-- The Build transition approves the exact bytes of proposal, design, and plan. Any later byte change blocks Build, Verify, Archive, and Claude export until a controlled Return to Design and a new Build approval.
+- Full Build approval binds proposal, design, and plan. Lightweight Build approval binds its compact proposal, requires `transition build --confirmed`, and rejects project implementation changes made after initialization but before approval.
 - A successful Archive is always a two-step optimistic commit: run `matrix workflow archive --dry-run`, then pass its exact hash to `matrix workflow archive --expect-preflight <sha256>`. Never bypass the preflight.
 - `matrix workflow doctor` is read-only. Every transaction or stale-lock repair must explicitly bind the identity reported by doctor; do not edit or delete `.matrix/transactions/` or `.matrix/workflow.lock`.
 - Do not replace required evidence with an assertion that work is complete.
 - Pause for user confirmation at material architecture/scope decisions and before archive/commit.
-- On scope expansion, run `matrix workflow return design --reason design-gap` and enter `$matrix-design`; never silently continue the old plan.
+- On shortcut scope expansion, run `matrix workflow return design --reason design-gap`; Runtime upgrades the change to `full`. Never silently continue the old contract.

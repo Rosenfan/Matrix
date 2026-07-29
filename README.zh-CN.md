@@ -40,10 +40,11 @@ Matrix 通过唯一的确定性状态机解决这些问题 —— 包含明确�
 
 ## 它做了什么
 
-Matrix 在同一条工作流上提供两种能力编排：
+Matrix 在集中定义的两种 workflow profile 上提供两种能力编排：
 
 ```
-open → design → build → verify → archive
+full：                    open → design → build → verify → archive
+hotfix/tweak lightweight：open ─────────→ build → verify → archive
 
 Prim：Matrix 使用自身能力
 Arch：仅在任务事实满足触发条件时调用已验证的原子 Skill
@@ -68,9 +69,10 @@ verify --acceptance-or-design-gap------> design
 
 ## 前置条件
 
-- 已安装 [Claude Code](https://docs.anthropic.com/claude-code)
-- Node.js 18+（用于运行安装器）
-- Python 3.8+ 已添加到 PATH
+- 已安装 [Claude Code](https://docs.anthropic.com/claude-code) 和/或 Codex，作为 Skill 宿主
+- Node.js 18+，且 `npm` 已加入 PATH（用于 Matrix CLI）
+- Python 仅在兼容窗口内的旧适配器路径使用；新安装使用内置 Node workflow runtime
+- Git 仅在从 GitHub 安装或参与 Matrix 开发时需要
 
 ---
 
@@ -93,7 +95,7 @@ matrix init
 
 - 选择安装到当前项目或全局
 - 复制 skills（推荐）或为本地开发创建符号链接
-- 更新已有安装，并自动备份被替换的 Matrix 文件
+- 安全地重新配置已有安装，并自动备份被替换的 Matrix 文件
 - 在同一流程中安装 Matt Pocock 的配套 skills
 - 选择 Prim 或 Arch 作为项目默认值，且不禁用另一种可用模式
 
@@ -110,7 +112,24 @@ matrix init --yes --with-mattpocock --default-orchestration arch
 matrix doctor
 ```
 
-npm 包正式发布前，也可以直接从 GitHub 安装：
+更新已经初始化的项目：
+
+```bash
+# 检查新版 Matrix CLI，确认计划后更新 CLI 并同步当前项目资产
+matrix update
+
+# 离线或本地开发：不访问 npm registry，只用当前 CLI 同步资产
+matrix update --skip-self-update
+
+# 已在自动化中明确授权写入
+matrix update --yes
+```
+
+`matrix update` 会保留既有安装的 scope、平台、语言、mode 与 orchestration。它先隔离验证 npm 新包，再由新 CLI 同步项目资产。npm 与项目资产是两个事务：若 CLI 已更新但资产同步失败，可运行 `matrix update --skip-self-update` 重试。修改安装选择请使用 `matrix init`；只读诊断请使用 `matrix doctor`。
+
+`matrix init` 选择的语言决定新 Matrix 产物的正文语言：`zh-CN` 使用中文、`en` 使用英文。Runtime 守卫依赖的 Markdown 英文标题 token 保持不变；每个 change 在创建时冻结该语言。
+
+也可以直接从 GitHub 安装，而不是 npm：
 
 ```bash
 npm install --global github:Rosenfan/Matrix
@@ -170,6 +189,7 @@ Matrix 将会：
 ├── changes/
 │   └── <change-id>/
 │       ├── matrix.yaml      # 唯一 workflow、orchestration、阶段、状态与 revision 事实
+│       ├── workspace-baseline.json # lightweight 的实施顺序边界
 │       ├── events.jsonl
 │       └── artifacts/
 │           ├── proposal.md
@@ -189,6 +209,9 @@ matrix workflow guard open
 # 推进（仅在守卫通过时）
 matrix workflow transition design
 
+# lightweight：确认紧凑 proposal 后进入 Build
+matrix workflow transition build --confirmed
+
 # 验证失败时返回 Build；旧证据保留在历史目录
 matrix workflow return build --reason verification-failed
 
@@ -198,6 +221,7 @@ matrix workflow abort --reason requirement-cancelled
 # 最终归档强制使用两步乐观提交
 matrix workflow archive --dry-run
 matrix workflow archive --expect-preflight <dry-run-返回的-sha256>
+# hotfix/tweak 的提交命令还必须带 --confirmed
 
 # 只读诊断中断的 Workflow
 matrix workflow doctor
@@ -207,7 +231,7 @@ matrix workflow doctor --repair --transaction <id> --strategy <continue|rollback
 matrix workflow doctor --repair --lock <id>
 ```
 
-`matrix.yaml` 是 workflow、orchestration、阶段、状态与 revision 的唯一事实来源，schema 为 `matrix/change/v2`；初始化解析出的 `prim|arch` 在整个 change 中冻结。旧 schema 会被拒绝且不会发生写入。`design -> build` 会记录 `proposal.md`、`design.md`、`plan.md` 精确字节的 SHA-256 身份；任一字节改动都会阻断 Build、Verify、Archive 和 Claude 导出，必须受控 Return 到 Design 后重新批准。最终 Archive 必须先只读 dry-run，再携带该 hash 提交；Runtime 在 Archive 事务边界内重算整个受保护 change 目录 manifest，发生漂移即拒绝。所有多文件 Workflow mutation 都由 `.matrix/transactions/` 下的持久 journal 保护；`matrix workflow doctor` 始终只读，恢复必须显式绑定其报告的 transaction/strategy 或 lock identity。终态 journal 会收缩为有界审计 receipt，未完成或冲突 journal 永不自动删除。
+`matrix.yaml` 仍是 workflow、orchestration、阶段、状态与 revision 的唯一事实来源。full 批准 proposal/design/plan 的精确字节；lightweight 批准紧凑 proposal，要求明确确认，并与初始化工作区基线比较，阻止先实现后补方案。Contract 漂移会阻断后续阶段。最终 Archive 仍使用只读 dry-run 与 hash-bound commit，shortcut 还要求明确确认；所有多文件 mutation 继续受持久 journal 保护。
 
 ---
 
@@ -218,6 +242,8 @@ matrix workflow doctor --repair --lock <id>
 | **full** | 新功能、架构变更 | 全部 5 个阶段 |
 | **hotfix** | 可复现的小型 Bug | 简化：open → build → verify → archive |
 | **tweak** | 有界变更，无 API/架构影响 | 简化：open → build → verify → archive |
+
+hotfix 与 tweak 引用同一个内部 `lightweight` 迁移 profile，只在入口和证据上区分：hotfix 要求复现、根因、回归证据；tweak 要求行为边界、diff 与范围审查证据。
 
 ---
 
@@ -272,7 +298,7 @@ Prim 使用 Matrix 自身能力。Arch 使用初始化时验证的十项原子�
 
 **关键区别**：Matt Pocock 的 skills 是独立工具。Matrix 增加了：
 - **状态持久化**：可承受上下文丢失
-- **阶段强制**：不能跳过设计直接进入构建
+- **阶段强制**：full 不能跳过 Design；lightweight 不能在确认 Open Contract 前修改实现
 - **证据要求**：守卫检查产物，而非断言
 - **转换日志**：完整的阶段变更审计记录
 

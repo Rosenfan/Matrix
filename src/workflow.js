@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import os from "node:os";
+import { spawnSync } from "node:child_process";
 import {
   captureWorkflowEntry,
   runWorkflowTransaction,
@@ -14,14 +15,29 @@ import {
 } from "./workflow-transaction.js";
 
 const PHASES = ["open", "design", "build", "verify", "archive"];
-const NEXT = { open: "design", design: "build", build: "verify", verify: "archive" };
-const RETURNS = [
+const FULL_PROFILE = {
+  id: "full",
+  next: { open: "design", design: "build", build: "verify", verify: "archive" },
+  contractFiles: ["proposal.md", "design.md", "plan.md"]
+};
+const LIGHTWEIGHT_PROFILE = {
+  id: "lightweight",
+  next: { open: "build", build: "verify", verify: "archive" },
+  contractFiles: ["proposal.md"]
+};
+const FULL_RETURNS = [
   { from: "build", to: "design", reason: "design-gap" },
   { from: "verify", to: "build", reason: "verification-failed" },
   { from: "verify", to: "design", reason: "acceptance-or-design-gap" },
   { from: "archive", to: "design", reason: "acceptance-or-design-gap" }
 ];
-const RETURN_REASONS = new Set(RETURNS.map(({ reason }) => reason));
+const LIGHTWEIGHT_RETURNS = [
+  { from: "build", to: "design", reason: "design-gap", upgrade: true },
+  { from: "verify", to: "build", reason: "verification-failed" },
+  { from: "verify", to: "design", reason: "acceptance-or-design-gap", upgrade: true },
+  { from: "archive", to: "design", reason: "acceptance-or-design-gap", upgrade: true }
+];
+const RETURN_REASONS = new Set([...FULL_RETURNS, ...LIGHTWEIGHT_RETURNS].map(({ reason }) => reason));
 const INVALIDATED_EVIDENCE = ["build", "test", "review", "archive"];
 const ABORT_REASONS = new Set(["requirement-cancelled", "superseded", "no-longer-valuable", "blocked", "other"]);
 const ORCHESTRATIONS = ["prim", "arch"];
@@ -36,7 +52,24 @@ const ARTIFACT_POLICY = {
   build: ["## Build evidence"],
   verification: ["## Test evidence", "## Review evidence"]
 };
-const CONTRACT_FILES = ["proposal.md", "design.md", "plan.md"];
+const LIGHTWEIGHT_COMMON_PROPOSAL = ["## Goal", "## Scope", "## Non-goals", "## Approach", "## Acceptance", "## Validation", "## Risks", "## Upgrade conditions"];
+const LIGHTWEIGHT_POLICY = {
+  hotfix: {
+    proposal: [...LIGHTWEIGHT_COMMON_PROPOSAL, "## Expected behavior", "## Actual behavior", "## Reproduction"],
+    build: ["## Build evidence", "## Reproduction evidence", "## Root cause"],
+    verification: ["## Test evidence", "## Regression evidence", "## Review evidence"]
+  },
+  tweak: {
+    proposal: [...LIGHTWEIGHT_COMMON_PROPOSAL, "## Current behavior", "## Preserved behavior", "## Diff boundary"],
+    build: ["## Build evidence", "## Scope evidence"],
+    verification: ["## Test evidence", "## Scope review evidence", "## Review evidence"]
+  }
+};
+const WORKSPACE_BASELINE_FILE = "workspace-baseline.json";
+const WORKSPACE_EXCLUDES = new Set([".git", ".matrix", ".comet", "node_modules"]);
+const WORKSPACE_MAX_FILES = 50000;
+const WORKSPACE_MAX_BYTES = 512 * 1024 * 1024;
+const WORKSPACE_MAX_DURATION_MS = 60000;
 const skill = (phase) => `$matrix-${phase}`;
 const stamp = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 const rootFor = (cwd) => path.join(cwd, ".matrix");
@@ -52,6 +85,105 @@ function flatYaml(file) {
       return [key.trim(), value.join(":").trim().replace(/^"|"$/g, "")];
     }));
   } catch { return {}; }
+}
+function excludedWorkspacePath(relative) {
+  const first = relative.replaceAll("\\", "/").split("/")[0];
+  return WORKSPACE_EXCLUDES.has(first);
+}
+function workspaceFiles(cwd) {
+  const git = spawnSync("git", ["-C", cwd, "ls-files", "-co", "--exclude-standard", "-z"], {
+    encoding: "buffer",
+    windowsHide: true,
+    maxBuffer: 64 * 1024 * 1024
+  });
+  if (!git.error && git.status === 0) {
+    return {
+      provider: "git",
+      files: [...new Set(git.stdout.toString("utf8").split("\0").filter(Boolean))]
+        .map((relative) => relative.replaceAll("\\", "/"))
+        .filter((relative) => !excludedWorkspacePath(relative))
+        .sort()
+    };
+  }
+  const files = [];
+  const visit = (directory, prefix = "") => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const relative = path.join(prefix, entry.name).replaceAll("\\", "/");
+      if (!prefix && WORKSPACE_EXCLUDES.has(entry.name)) continue;
+      if (entry.isDirectory()) visit(path.join(directory, entry.name), relative);
+      else files.push(relative);
+      if (files.length > WORKSPACE_MAX_FILES) throw new Error(`Workspace baseline exceeds ${WORKSPACE_MAX_FILES} files.`);
+    }
+  };
+  visit(cwd);
+  return { provider: "physical", files };
+}
+function captureWorkspaceBaseline(cwd) {
+  const startedAt = Date.now();
+  const selection = workspaceFiles(cwd);
+  const hash = crypto.createHash("sha256");
+  hash.update("matrix/workspace-baseline/v1\0", "utf8");
+  let totalBytes = 0;
+  let fileCount = 0;
+  for (const relative of selection.files) {
+    if (Date.now() - startedAt > WORKSPACE_MAX_DURATION_MS) throw new Error(`Workspace baseline exceeds ${WORKSPACE_MAX_DURATION_MS} milliseconds.`);
+    if (fileCount >= WORKSPACE_MAX_FILES) throw new Error(`Workspace baseline exceeds ${WORKSPACE_MAX_FILES} files.`);
+    const absolute = path.join(cwd, relative);
+    const pathBytes = Buffer.from(relative, "utf8");
+    const pathLength = Buffer.alloc(4); pathLength.writeUInt32BE(pathBytes.length);
+    hash.update(pathLength); hash.update(pathBytes);
+    let stat;
+    try { stat = fs.lstatSync(absolute); }
+    catch (error) {
+      if (error.code !== "ENOENT") throw error;
+      hash.update("missing\0", "utf8");
+      fileCount += 1;
+      continue;
+    }
+    if (stat.isSymbolicLink()) {
+      const target = Buffer.from(fs.readlinkSync(absolute), "utf8");
+      hash.update("symlink\0", "utf8"); hash.update(target);
+      totalBytes += target.length;
+    } else if (stat.isFile()) {
+      const bytes = fs.readFileSync(absolute);
+      totalBytes += bytes.length;
+      if (totalBytes > WORKSPACE_MAX_BYTES) throw new Error(`Workspace baseline exceeds ${WORKSPACE_MAX_BYTES} bytes.`);
+      hash.update("file\0", "utf8"); hash.update(bytes);
+    } else {
+      hash.update("special\0", "utf8");
+    }
+    fileCount += 1;
+  }
+  return {
+    schema: "matrix/workspace-baseline/v1",
+    provider: selection.provider,
+    hash: `sha256:${hash.digest("hex")}`,
+    file_count: fileCount,
+    content_bytes: totalBytes
+  };
+}
+function workspaceOrderGuard(cwd, p) {
+  let baseline;
+  try { baseline = read(p.workspaceBaseline); }
+  catch (error) {
+    return fail("WORKSPACE_BASELINE_MISSING", `Lightweight workflow baseline is unavailable: ${error.message}`);
+  }
+  let current;
+  try { current = captureWorkspaceBaseline(cwd); }
+  catch (error) {
+    return fail("WORKSPACE_INSPECTION_FAILED", `Could not inspect the lightweight workflow boundary: ${error.message}`);
+  }
+  if (baseline.schema !== "matrix/workspace-baseline/v1" || !/^sha256:[0-9a-f]{64}$/.test(baseline.hash ?? "")) {
+    return fail("WORKSPACE_BASELINE_INVALID", "Lightweight workflow baseline is invalid.");
+  }
+  if (current.hash !== baseline.hash) {
+    return {
+      ...fail("PREMATURE_IMPLEMENTATION", "Project files changed after lightweight initialization and before Build approval."),
+      baseline_hash: baseline.hash,
+      current_hash: current.hash
+    };
+  }
+  return { ok: true, code: "OK", baseline_hash: baseline.hash, current_hash: current.hash };
 }
 function hashDirectory(directory) {
   const hash = crypto.createHash("sha256");
@@ -79,7 +211,9 @@ function orchestrationConfig(cwd) {
   try { manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8")); } catch {}
   const defaultOrchestration = ORCHESTRATIONS.includes(config.default_orchestration) ? config.default_orchestration
     : ORCHESTRATIONS.includes(manifest?.orchestration?.default) ? manifest.orchestration.default : "prim";
-  return { config, scope, manifestFile, manifest, defaultOrchestration };
+  const artifactLanguage = ["en", "zh-CN"].includes(config.language) ? config.language
+    : ["en", "zh-CN"].includes(manifest?.language) ? manifest.language : "en";
+  return { config, scope, manifestFile, manifest, defaultOrchestration, artifactLanguage };
 }
 function archIntegrity(cwd) {
   const { manifest, manifestFile } = orchestrationConfig(cwd);
@@ -114,7 +248,14 @@ function activeBoard(taskId, taskPath, resultPath, change) {
 function paths(cwd, id, archived = false) {
   const root = rootFor(cwd);
   const change = path.join(root, archived ? "archive" : "changes", id);
-  return { root, active: path.join(root, "active.json"), change, flow: path.join(change, "matrix.yaml"), artifacts: path.join(change, "artifacts") };
+  return {
+    root,
+    active: path.join(root, "active.json"),
+    change,
+    flow: path.join(change, "matrix.yaml"),
+    artifacts: path.join(change, "artifacts"),
+    workspaceBaseline: path.join(change, WORKSPACE_BASELINE_FILE)
+  };
 }
 function normalizeFlow(flow) {
   if (!flow) return null;
@@ -122,6 +263,7 @@ function normalizeFlow(flow) {
   const revision = Number(flow.revision);
   const approved = flow.approved_contract_hash || null;
   const approvalRevision = flow.contract_approved_revision === "" || flow.contract_approved_revision == null ? null : Number(flow.contract_approved_revision);
+  const workflowProfile = flow.workflow_profile || null;
   if (
     typeof flow.id !== "string" || !flow.id ||
     !["full", "hotfix", "tweak"].includes(flow.workflow) ||
@@ -129,11 +271,14 @@ function normalizeFlow(flow) {
     !["active", "archived", "aborted"].includes(flow.status) ||
     !PHASES.includes(flow.phase) ||
     !Number.isInteger(revision) || revision < 1 ||
+    (workflowProfile !== null && workflowProfile !== "lightweight") ||
+    (workflowProfile === "lightweight" && !["hotfix", "tweak"].includes(flow.workflow)) ||
+    (flow.artifact_language != null && !["en", "zh-CN"].includes(flow.artifact_language)) ||
     Boolean(approved) !== Boolean(approvalRevision) ||
     (approved && !/^sha256:[0-9a-f]{64}$/.test(approved)) ||
     (approvalRevision != null && (!Number.isInteger(approvalRevision) || approvalRevision < 1 || approvalRevision > revision))
   ) return null;
-  return { ...flow, revision, approved_contract_hash: approved, contract_approved_revision: approvalRevision };
+  return { ...flow, revision, workflow_profile: workflowProfile, artifact_language: flow.artifact_language ?? null, approved_contract_hash: approved, contract_approved_revision: approvalRevision };
 }
 function readFlow(p) {
   if (!fs.existsSync(p.flow)) return null;
@@ -141,24 +286,28 @@ function readFlow(p) {
   return normalizeFlow(parsed);
 }
 function flowContent(flow) {
-  const order = ["schema", "id", "workflow", "orchestration", "status", "phase", "revision", "approved_contract_hash", "contract_approved_revision", "title", "created_at", "updated_at", "acceptance", "scope"];
-  return `${order.map((key) => `${key}: ${flow[key] ?? ""}`).join("\n")}\n`;
+  const order = ["schema", "id", "workflow", "workflow_profile", "orchestration", "artifact_language", "status", "phase", "revision", "approved_contract_hash", "contract_approved_revision", "title", "created_at", "updated_at", "acceptance", "scope"];
+  return `${order.filter((key) => (key !== "workflow_profile" || flow[key]) && (key !== "artifact_language" || flow[key])).map((key) => `${key}: ${flow[key] ?? ""}`).join("\n")}\n`;
 }
 function active(cwd) { const activeFile = path.join(rootFor(cwd), "active.json"); if (!fs.existsSync(activeFile)) return null; return read(activeFile).change_id; }
-function meaningful(file, headings) { if (!fs.existsSync(file)) return false; const value = fs.readFileSync(file, "utf8").trim(); return value.length >= 40 && headings.every((heading) => value.includes(heading)); }
-function structuralGuard(p, phase) {
-  const base = p.artifacts;
-  const checks = phase === "open" ? [["proposal", meaningful(path.join(base, "proposal.md"), ARTIFACT_POLICY.proposal)]]
-    : phase === "design" ? [["proposal", meaningful(path.join(base, "proposal.md"), ARTIFACT_POLICY.proposal)], ["design", meaningful(path.join(base, "design.md"), ARTIFACT_POLICY.design)], ["plan", meaningful(path.join(base, "plan.md"), ARTIFACT_POLICY.plan)]]
-      : phase === "build" ? [["plan", meaningful(path.join(base, "plan.md"), ARTIFACT_POLICY.plan)], ["build evidence", meaningful(path.join(base, "verification.md"), ARTIFACT_POLICY.build)]]
-        : [["verification", meaningful(path.join(base, "verification.md"), ARTIFACT_POLICY.verification)]];
-  return { pass: checks.every(([, result]) => result), checks };
+function meaningful(file, headings) {
+  if (!fs.existsSync(file)) return false;
+  const value = fs.readFileSync(file, "utf8").trim();
+  if (value.length < 40) return false;
+  return headings.every((heading) => {
+    const start = value.indexOf(heading);
+    if (start < 0) return false;
+    const bodyStart = start + heading.length;
+    const next = value.indexOf("\n## ", bodyStart);
+    return value.slice(bodyStart, next < 0 ? value.length : next).trim().length >= 8;
+  });
 }
-function contractSnapshot(p) {
+function shortcut(flow) { return flow.workflow === "hotfix" || flow.workflow === "tweak"; }
+function contractSnapshotForFiles(p, files) {
   const hash = crypto.createHash("sha256");
   hash.update("matrix/workflow-contract/v1\\0", "utf8");
   const contents = {};
-  for (const name of CONTRACT_FILES) {
+  for (const name of files) {
     const logical = `artifacts/${name}`;
     let bytes;
     try { bytes = fs.readFileSync(path.join(p.artifacts, name)); }
@@ -171,8 +320,32 @@ function contractSnapshot(p) {
   }
   return { hash: `sha256:${hash.digest("hex")}`, contents };
 }
+function workflowProfile(p, flow) {
+  if (!shortcut(flow)) return FULL_PROFILE;
+  return flow.workflow_profile === "lightweight" ? LIGHTWEIGHT_PROFILE : { ...FULL_PROFILE, id: "legacy-full" };
+}
+function evidencePolicy(flow, profile) {
+  return profile.id === "lightweight" ? flow.workflow : "full";
+}
+function structuralGuard(p, flow, phase) {
+  const base = p.artifacts;
+  const profile = workflowProfile(p, flow);
+  const policy = evidencePolicy(flow, profile);
+  const shortcutPolicy = LIGHTWEIGHT_POLICY[policy];
+  const checks = phase === "open" ? [["proposal", meaningful(path.join(base, "proposal.md"), shortcutPolicy?.proposal ?? ARTIFACT_POLICY.proposal)]]
+    : phase === "design" ? [["proposal", meaningful(path.join(base, "proposal.md"), ARTIFACT_POLICY.proposal)], ["design", meaningful(path.join(base, "design.md"), ARTIFACT_POLICY.design)], ["plan", meaningful(path.join(base, "plan.md"), ARTIFACT_POLICY.plan)]]
+      : phase === "build" ? [
+        ...(profile.id === "lightweight" ? [] : [["plan", meaningful(path.join(base, "plan.md"), ARTIFACT_POLICY.plan)]]),
+        ["build evidence", meaningful(path.join(base, "verification.md"), shortcutPolicy?.build ?? ARTIFACT_POLICY.build)]
+      ]
+        : [["verification", meaningful(path.join(base, "verification.md"), shortcutPolicy?.verification ?? ARTIFACT_POLICY.verification)]];
+  return { pass: checks.every(([, result]) => result), checks };
+}
+function contractSnapshot(p, flow) {
+  return contractSnapshotForFiles(p, workflowProfile(p, flow).contractFiles);
+}
 function contractState(p, flow) {
-  const snapshot = contractSnapshot(p);
+  const snapshot = contractSnapshot(p, flow);
   if (snapshot.error) return { status: "unreadable", snapshot };
   if (!flow.approved_contract_hash) return { status: "unapproved", snapshot };
   if (snapshot.missing || snapshot.hash !== flow.approved_contract_hash) return { status: "changed", snapshot };
@@ -308,12 +481,12 @@ function archivePreflightChanged(expected, current) {
 }
 function guard(p, flow, phase) {
   if (!["build", "verify", "archive"].includes(phase)) {
-    const structural = structuralGuard(p, phase);
+    const structural = structuralGuard(p, flow, phase);
     return { ok: structural.pass, code: structural.pass ? "OK" : "GUARD_FAILED", ...structural };
   }
   const contract = contractState(p, flow); const failure = contractFailure(flow, contract);
   if (failure) return { ok: false, ...failure, checks: [["contract", false]] };
-  const structural = structuralGuard(p, phase);
+  const structural = structuralGuard(p, flow, phase);
   return { ok: structural.pass, code: structural.pass ? "OK" : "GUARD_FAILED", ...structural, ...contractFields(flow, contract), checks: [["contract", true], ...structural.checks] };
 }
 function eventContent(file, name, before, after, revision, details = {}) {
@@ -337,14 +510,20 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null } 
     }
     if (active(cwd)) return fail("ACTIVE_CHANGE_EXISTS", `Active Matrix change already exists: ${active(cwd)}.`);
     const p = paths(cwd, id); if (fs.existsSync(p.change) || fs.existsSync(path.join(p.root, "archive", id))) return fail("CHANGE_EXISTS", `Matrix change already exists: ${id}.`);
-    const flow = { schema: "matrix/change/v2", id, workflow, orchestration, status: "active", phase: "open", revision: 1, title, created_at: stamp(), updated_at: stamp(), acceptance: "pending", scope: "pending" };
+    let workspaceBaseline = null;
+    if (workflow === "hotfix" || workflow === "tweak") {
+      try { workspaceBaseline = captureWorkspaceBaseline(cwd); }
+      catch (error) { return fail("WORKSPACE_BASELINE_FAILED", `Could not initialize the lightweight workflow boundary: ${error.message}`); }
+    }
+    const flow = { schema: "matrix/change/v2", id, workflow, ...(workflow === "full" ? {} : { workflow_profile: "lightweight" }), orchestration, artifact_language: configured.artifactLanguage, status: "active", phase: "open", revision: 1, title, created_at: stamp(), updated_at: stamp(), acceptance: "pending", scope: "pending" };
     const operations = [
       ...(!fs.existsSync(path.join(p.root, "archive")) ? [workflowMkdirOperation(cwd, path.join(p.root, "archive"))] : []),
       workflowMkdirOperation(cwd, p.artifacts),
-      ...(!fs.existsSync(path.join(p.root, "config.yaml")) ? [workflowWriteOperation(cwd, path.join(p.root, "config.yaml"), `schema: matrix/config/v1\nauto_transition: true\ndefault_orchestration: ${configured.defaultOrchestration}\ninstallation_scope: project\n`)] : []),
+      ...(!fs.existsSync(path.join(p.root, "config.yaml")) ? [workflowWriteOperation(cwd, path.join(p.root, "config.yaml"), `schema: matrix/config/v1\nauto_transition: true\ndefault_orchestration: ${configured.defaultOrchestration}\ninstallation_scope: project\nlanguage: ${configured.artifactLanguage}\n`)] : []),
       ...(!fs.existsSync(path.join(p.root, ".gitignore")) ? [workflowWriteOperation(cwd, path.join(p.root, ".gitignore"), "active.json\ninstallation.json\nchanges/*/events.jsonl\nchanges/*/artifacts/handoff.md\n")] : []),
       workflowWriteOperation(cwd, p.flow, flowContent(flow)),
-      workflowWriteOperation(cwd, path.join(p.change, "events.jsonl"), eventContent(path.join(p.change, "events.jsonl"), "initialized", null, "open", flow.revision, { workflow, orchestration })),
+      ...(workspaceBaseline ? [workflowWriteOperation(cwd, p.workspaceBaseline, `${JSON.stringify(workspaceBaseline, null, 2)}\n`)] : []),
+      workflowWriteOperation(cwd, path.join(p.change, "events.jsonl"), eventContent(path.join(p.change, "events.jsonl"), "initialized", null, "open", flow.revision, { workflow, orchestration, ...(shortcut(flow) ? { profile: "lightweight" } : {}) })),
       workflowWriteOperation(cwd, p.active, `${JSON.stringify({ change_id: id }, null, 2)}\n`)
     ];
     return runWorkflowTransaction({
@@ -353,7 +532,7 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null } 
       changeId: id,
       operations,
       failAfterOperation,
-      result: { ok: true, code: "OK", change_id: id, workflow, orchestration, status: flow.status, phase: flow.phase, revision: flow.revision, next_skill: skill("open") }
+      result: { ok: true, code: "OK", change_id: id, workflow, profile: shortcut(flow) ? "lightweight" : "full", evidence_policy: workflow === "full" ? "full" : workflow, orchestration, artifact_language: flow.artifact_language, status: flow.status, phase: flow.phase, revision: flow.revision, next_skill: skill("open") }
     });
   }
   if (command === "doctor") {
@@ -382,31 +561,67 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null } 
   const flow = readFlow(p);
   if (flow?.unsupported_schema) return fail("STATE_VERSION_UNSUPPORTED", `Unsupported Matrix state schema: ${flow.unsupported_schema}.`);
   if (!flow) return fail("STATE_INVALID", "active.json does not reference a valid Matrix change.");
+  const artifactLanguage = flow.artifact_language ?? orchestrationConfig(cwd).artifactLanguage;
   const integrity = flow.status === "active" && flow.orchestration === "arch" ? archIntegrity(cwd) : { ok: true, code: "OK" };
   if (["transition", "return", "abort"].includes(command) || (command === "archive" && !args.includes("--dry-run"))) {
     const blocked = workflowMutationGate(cwd);
     if (blocked) return blocked;
   }
   if (command === "inspect") {
+    const profile = workflowProfile(p, flow);
     const contract = contractState(p, flow);
     const result = guard(p, flow, flow.phase);
     const failure = contract.status === "unreadable" ? contractFailure(flow, contract) : null;
-    return { ...(failure ?? (!integrity.ok ? integrity : { ok: true, code: "OK" })), change_id: id, workflow: flow.workflow, orchestration: flow.orchestration, status: flow.status, phase: flow.phase, revision: flow.revision, next_skill: flow.status === "active" ? skill(flow.phase) : null, guard_pass: result.ok, ...contractFields(flow, contract) };
+    return {
+      ...(failure ?? (!integrity.ok ? integrity : { ok: true, code: "OK" })),
+      change_id: id,
+      workflow: flow.workflow,
+      profile: profile.id,
+      evidence_policy: evidencePolicy(flow, profile),
+      orchestration: flow.orchestration,
+      artifact_language: artifactLanguage,
+      status: flow.status,
+      phase: flow.phase,
+      revision: flow.revision,
+      next_skill: flow.status === "active" ? skill(flow.phase) : null,
+      guard_pass: result.ok,
+      ...contractFields(flow, contract)
+    };
   }
-  if (!integrity.ok && command !== "abort") return { ...integrity, change_id: id, workflow: flow.workflow, orchestration: flow.orchestration, status: flow.status, phase: flow.phase, revision: flow.revision, next_skill: skill(flow.phase) };
-  if (command === "guard") { const phase = args[0] ?? flow.phase; if (!PHASES.includes(phase)) return fail("INVALID_INTENT", "Unknown phase."); return { phase, ...guard(p, flow, phase) }; }
+  if (!integrity.ok && command !== "abort") {
+    const profile = workflowProfile(p, flow);
+    return { ...integrity, change_id: id, workflow: flow.workflow, profile: profile.id, evidence_policy: evidencePolicy(flow, profile), orchestration: flow.orchestration, artifact_language: artifactLanguage, status: flow.status, phase: flow.phase, revision: flow.revision, next_skill: skill(flow.phase) };
+  }
+  if (command === "guard") {
+    const phase = args[0] ?? flow.phase;
+    if (!PHASES.includes(phase)) return fail("INVALID_INTENT", "Unknown phase.");
+    const profile = workflowProfile(p, flow);
+    if (profile.id === "lightweight" && phase === "design") return fail("PHASE_UNAVAILABLE", "Lightweight workflows do not have a Design phase.");
+    return { phase, profile: profile.id, evidence_policy: evidencePolicy(flow, profile), artifact_language: artifactLanguage, ...guard(p, flow, phase) };
+  }
   if (command === "transition") {
     const to = args[0];
+    const confirmed = args.includes("--confirmed");
+    if (args.slice(1).some((arg) => arg !== "--confirmed")) return fail("INVALID_INTENT", "Transition accepts only a target phase and optional --confirmed.");
     if (flow.status !== "active") return fail("CHANGE_NOT_ACTIVE", `Matrix change is ${flow.status}.`);
-    if (NEXT[flow.phase] !== to) return fail("ILLEGAL_TRANSITION", `Illegal transition ${flow.phase} -> ${to}.`);
+    const profile = workflowProfile(p, flow);
+    if (profile.next[flow.phase] !== to) return fail("ILLEGAL_TRANSITION", `Illegal ${profile.id} transition ${flow.phase} -> ${to}.`);
     const result = guard(p, flow, flow.phase); if (!result.ok) return { ...result, message: result.message ?? "Current phase guard failed." };
+    if (profile.id === "lightweight" && flow.phase === "open" && to === "build") {
+      if (!confirmed) return fail("CONFIRMATION_REQUIRED", "Lightweight Open requires explicit user confirmation before Build.");
+      const order = workspaceOrderGuard(cwd, p);
+      if (!order.ok) return order;
+    }
     const before = flow.phase;
     const approval = to === "build" ? contractState(p, flow) : null;
     if (approval && approval.status !== "approved-and-matching" && approval.status !== "unapproved") return { ...contractFailure(flow, approval), change_id: id };
-    if (to === "build" && approval.snapshot.missing) return { ...fail("GUARD_FAILED", "Design contract artifacts are incomplete."), change_id: id };
+    if (to === "build" && approval.snapshot.missing) return { ...fail("GUARD_FAILED", "Workflow contract artifacts are incomplete."), change_id: id };
     const next = { ...flow, schema: "matrix/change/v2", phase: to, revision: flow.revision + 1, updated_at: stamp(), ...(to === "build" ? { approved_contract_hash: approval.snapshot.hash, contract_approved_revision: flow.revision + 1 } : {}) };
-    const details = to === "build" ? { approved_contract_hash: next.approved_contract_hash, contract_approved_revision: next.contract_approved_revision } : {};
-    const resultFields = { ok: true, code: "OK", change_id: id, workflow: next.workflow, orchestration: next.orchestration, status: next.status, phase: to, revision: next.revision, next_skill: skill(to), ...contractFields(next, contractState(p, next)) };
+    const nextProfile = workflowProfile(p, next);
+    const details = to === "build"
+      ? { approved_contract_hash: next.approved_contract_hash, contract_approved_revision: next.contract_approved_revision, ...(shortcut(flow) ? { confirmed, profile: nextProfile.id } : {}) }
+      : shortcut(flow) ? { profile: nextProfile.id } : {};
+    const resultFields = { ok: true, code: "OK", change_id: id, workflow: next.workflow, profile: nextProfile.id, evidence_policy: evidencePolicy(next, nextProfile), orchestration: next.orchestration, artifact_language: next.artifact_language ?? artifactLanguage, status: next.status, phase: to, revision: next.revision, next_skill: skill(to), ...contractFields(next, contractState(p, next)) };
     return runWorkflowTransaction({
       cwd,
       kind: "transition",
@@ -425,7 +640,10 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null } 
     if (!reason) return fail("RETURN_REASON_REQUIRED", "Return requires --reason.");
     if (flow.status !== "active") return fail("CHANGE_NOT_ACTIVE", `Matrix change is ${flow.status}.`);
     if (!RETURN_REASONS.has(reason)) return fail("RETURN_REASON_UNSUPPORTED", `Unsupported Return reason: ${reason}.`);
-    if (!RETURNS.some((entry) => entry.from === flow.phase && entry.to === to && entry.reason === reason)) return fail("ILLEGAL_RETURN", `Illegal Return ${flow.phase} -> ${to} for reason ${reason}.`);
+    const profile = workflowProfile(p, flow);
+    const returns = profile.id === "lightweight" ? LIGHTWEIGHT_RETURNS : FULL_RETURNS;
+    const returnRule = returns.find((entry) => entry.from === flow.phase && entry.to === to && entry.reason === reason);
+    if (!returnRule) return fail("ILLEGAL_RETURN", `Illegal ${profile.id} Return ${flow.phase} -> ${to} for reason ${reason}.`);
     if (flow.phase === "verify" && to === "build") { const contract = contractState(p, flow); const failure = contractFailure(flow, contract); if (failure) return failure; }
     const verification = path.join(p.artifacts, "verification.md");
     let destination = null;
@@ -434,7 +652,17 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null } 
       destination = path.join(history, `revision-${flow.revision}-verification.md`);
       if (fs.existsSync(destination)) return fail("EVIDENCE_INVALIDATION_FAILED", `Evidence history already exists for revision ${flow.revision}.`);
     }
-    const next = { ...flow, schema: "matrix/change/v2", phase: to, revision: flow.revision + 1, updated_at: stamp(), ...(to === "design" ? { approved_contract_hash: null, contract_approved_revision: null } : {}) };
+    const next = {
+      ...flow,
+      schema: "matrix/change/v2",
+      workflow: returnRule.upgrade ? "full" : flow.workflow,
+      workflow_profile: returnRule.upgrade ? null : flow.workflow_profile,
+      phase: to,
+      revision: flow.revision + 1,
+      updated_at: stamp(),
+      ...(to === "design" ? { approved_contract_hash: null, contract_approved_revision: null } : {})
+    };
+    const nextProfile = workflowProfile(p, next);
     return runWorkflowTransaction({
       cwd,
       kind: "return",
@@ -443,9 +671,9 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null } 
       operations: [
         ...(destination ? [workflowMoveOperation(cwd, verification, destination)] : []),
         workflowWriteOperation(cwd, p.flow, flowContent(next)),
-        workflowWriteOperation(cwd, path.join(p.change, "events.jsonl"), eventContent(path.join(p.change, "events.jsonl"), "returned", flow.phase, to, next.revision, { reason, invalidated_evidence: INVALIDATED_EVIDENCE }))
+        workflowWriteOperation(cwd, path.join(p.change, "events.jsonl"), eventContent(path.join(p.change, "events.jsonl"), "returned", flow.phase, to, next.revision, { reason, invalidated_evidence: INVALIDATED_EVIDENCE, ...(returnRule.upgrade ? { workflow_from: flow.workflow, workflow_to: "full" } : {}) }))
       ],
-      result: { ok: true, code: "OK", change_id: id, workflow: next.workflow, orchestration: next.orchestration, status: next.status, phase: to, revision: next.revision, next_skill: skill(to), event: "returned", invalidated_evidence: INVALIDATED_EVIDENCE, ...contractFields(next, contractState(p, next)) }
+      result: { ok: true, code: "OK", change_id: id, workflow: next.workflow, profile: nextProfile.id, evidence_policy: evidencePolicy(next, nextProfile), orchestration: next.orchestration, artifact_language: next.artifact_language ?? artifactLanguage, status: next.status, phase: to, revision: next.revision, next_skill: skill(to), event: "returned", invalidated_evidence: INVALIDATED_EVIDENCE, ...contractFields(next, contractState(p, next)) }
     });
   }
   if (command === "abort") {
@@ -471,19 +699,22 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null } 
         workflowWriteOperation(cwd, targetEvents, eventContent(sourceEvents, "aborted", flow.phase, flow.phase, next.revision, { reason, ...(note ? { note } : {}) }), { before: captureWorkflowEntry(sourceEvents) }),
         workflowRemoveOperation(cwd, p.active)
       ],
-      result: { ok: true, code: "OK", change_id: id, workflow: next.workflow, orchestration: next.orchestration, status: next.status, phase: next.phase, revision: next.revision, next_skill: null, event: "aborted" }
+      result: { ok: true, code: "OK", change_id: id, workflow: next.workflow, orchestration: next.orchestration, artifact_language: next.artifact_language ?? artifactLanguage, status: next.status, phase: next.phase, revision: next.revision, next_skill: null, event: "aborted" }
     });
   }
   if (command === "archive") {
     if (flow.status !== "active") return fail("CHANGE_NOT_ACTIVE", `Matrix change is ${flow.status}.`);
     if (flow.phase !== "archive") return fail("ILLEGAL_TRANSITION", "Only an archive-phase change can be archived.");
+    const profile = workflowProfile(p, flow);
     const dryRun = args.includes("--dry-run");
     const expected = option(args, "--expect-preflight");
-    if ((dryRun && expected) || args.some((arg) => !["--dry-run", "--expect-preflight", expected].includes(arg))) {
+    const confirmedByUser = args.includes("--confirmed");
+    if ((dryRun && (expected || confirmedByUser)) || args.some((arg) => !["--dry-run", "--expect-preflight", "--confirmed", expected].includes(arg))) {
       return { ...fail("ARCHIVE_PREFLIGHT_INVALID", "Archive accepts either --dry-run or --expect-preflight <sha256>, not both or additional arguments."), recovery_command: "matrix workflow archive --dry-run" };
     }
     if (!dryRun && !expected) return { ...fail("ARCHIVE_PREFLIGHT_REQUIRED", "Archive requires an explicit dry-run followed by --expect-preflight <sha256>."), recovery_command: "matrix workflow archive --dry-run" };
     if (expected && !/^sha256:[0-9a-f]{64}$/.test(expected)) return { ...fail("ARCHIVE_PREFLIGHT_INVALID", "Expected preflight must be sha256 followed by 64 lowercase hexadecimal characters."), recovery_command: "matrix workflow archive --dry-run" };
+    if (expected && shortcut(flow) && !confirmedByUser) return { ...fail("CONFIRMATION_REQUIRED", "Shortcut workflow Archive requires explicit user confirmation."), recovery_command: `matrix workflow archive --expect-preflight ${expected} --confirmed` };
     if (dryRun) {
       const result = guard(p, flow, "archive"); if (!result.ok) return { ...result, message: result.message ?? "Archive guard failed." };
       const captured = captureArchivePreflight(p, id); if (captured.failure) return captured.failure;
@@ -492,10 +723,10 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null } 
       const confirmed = captureArchivePreflight(p, id); if (confirmed.failure) return confirmed.failure;
       if (captured.hash !== confirmed.hash) return fail("ARCHIVE_PREFLIGHT_UNSTABLE", "Archive inputs changed during dry-run. Retry dry-run.");
       return {
-        ok: true, code: "OK", change_id: id, workflow: currentFlow.workflow, orchestration: currentFlow.orchestration, status: currentFlow.status, phase: currentFlow.phase, revision: currentFlow.revision,
+        ok: true, code: "OK", change_id: id, workflow: currentFlow.workflow, profile: profile.id, evidence_policy: evidencePolicy(currentFlow, profile), orchestration: currentFlow.orchestration, artifact_language: currentFlow.artifact_language ?? artifactLanguage, status: currentFlow.status, phase: currentFlow.phase, revision: currentFlow.revision,
         preflight_hash: confirmed.hash,
         effect_summary: { target: `.matrix/archive/${id}`, files: confirmed.fileCount, directories: confirmed.directoryCount, content_bytes: confirmed.totalBytes },
-        commit_command: `matrix workflow archive --expect-preflight ${confirmed.hash}`,
+        commit_command: `matrix workflow archive --expect-preflight ${confirmed.hash}${shortcut(currentFlow) ? " --confirmed" : ""}`,
         ...contractFields(currentFlow, contractState(p, currentFlow))
       };
     }
@@ -523,11 +754,11 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null } 
       operations: [
         workflowMoveOperation(cwd, p.change, target),
         workflowWriteOperation(cwd, targetFlow, flowContent(next), { before: captureWorkflowEntry(p.flow) }),
-        workflowWriteOperation(cwd, targetEvents, eventContent(sourceEvents, "archived", "archive", "archive", next.revision, { preflight_hash: expected }), { before: captureWorkflowEntry(sourceEvents) }),
+        workflowWriteOperation(cwd, targetEvents, eventContent(sourceEvents, "archived", "archive", "archive", next.revision, { preflight_hash: expected, confirmed: confirmedByUser }), { before: captureWorkflowEntry(sourceEvents) }),
         workflowRemoveOperation(cwd, p.active)
       ],
       result: {
-        ok: true, code: "OK", archived: id, change_id: id, workflow: next.workflow, orchestration: next.orchestration, status: next.status, phase: next.phase, revision: next.revision, next_skill: null, event: "archived",
+        ok: true, code: "OK", archived: id, change_id: id, workflow: next.workflow, profile: profile.id, evidence_policy: evidencePolicy(next, profile), orchestration: next.orchestration, artifact_language: next.artifact_language ?? artifactLanguage, status: next.status, phase: next.phase, revision: next.revision, next_skill: null, event: "archived",
         preflight_hash: expected,
         effect_summary: { target: `.matrix/archive/${id}`, files: confirmed.fileCount, directories: confirmed.directoryCount, content_bytes: confirmed.totalBytes },
         ...contractFields(next, contract)
@@ -537,6 +768,7 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null } 
   if (command === "handoff") { const destination = path.join(p.artifacts, "handoff.md"); fs.writeFileSync(destination, `# Matrix handoff: ${id}\n\n- Workflow: ${flow.workflow}\n- Current phase: ${flow.phase}\n- Resume with: \`${skill(flow.phase)}\`\n- Guard passes: ${guard(p, flow, flow.phase).ok}\n`); return { ok: true, code: "OK", path: destination }; }
   if (command === "export") {
     if (flow.phase !== "build") return fail("ILLEGAL_PHASE", "Export requires the build phase.");
+    if (workflowProfile(p, flow).id === "lightweight") return fail("EXPORT_UNSUPPORTED_WORKFLOW", "Claude export requires the full three-artifact workflow contract.");
     const contract = contractState(p, flow); const failure = contractFailure(flow, contract); if (failure) return failure;
     const taskId = args.includes("--task-id") ? args[args.indexOf("--task-id") + 1] : args[0];
     const target = args.includes("--target") ? args[args.indexOf("--target") + 1] : "generic";

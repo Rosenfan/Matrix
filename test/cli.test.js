@@ -47,3 +47,13 @@ test("non-interactive Matt setup resolves the default orchestration to Arch", (t
   assert.equal(preview.status, 0, preview.stderr);
   assert.equal(JSON.parse(preview.stdout).intent.defaultOrchestration, "arch");
 });
+
+test("update inherits the existing installation language and skips npm on request", (t) => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-cli-update-"));
+  t.after(() => fs.rmSync(project, { recursive: true, force: true }));
+  const installed = spawnSync(process.execPath, ["bin/matrix.js", "init", project, "--yes", "--language", "zh-CN", "--platform", "codex", "--without-mattpocock"], { cwd: root, encoding: "utf8" });
+  assert.equal(installed.status, 0, installed.stderr);
+  const update = spawnSync(process.execPath, ["bin/matrix.js", "update", project, "--skip-self-update", "--json"], { cwd: root, encoding: "utf8" });
+  assert.equal(update.status, 0, update.stderr);
+  assert.equal(JSON.parse(update.stdout).intent.language, "zh-CN");
+});
