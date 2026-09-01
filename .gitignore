@@ -46,6 +46,7 @@ Thumbs.db
 .agents/
 .codex/
 .comet/
+skills-lock.json
 AGENTS.md
 CLAUDE.md
 
@@ -59,7 +60,6 @@ CLAUDE.md
 # Internal workflow records and development notes
 docs/comet/
 docs/roadmap.md
-docs/adr/
 
 # Complementary skills from Matt Pocock (install separately)
 .claude/skills/code-review/
@@ -74,3 +74,8 @@ docs/adr/
 .claude/skills/prototype/
 .claude/skills/research/
 .claude/skills/tdd/
+# >>> Comet managed project state >>>
+!/.comet/
+/.comet/*
+!/.comet/config.yaml
+# <<< Comet managed project state <<<

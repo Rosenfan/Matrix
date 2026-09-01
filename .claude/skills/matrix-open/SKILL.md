@@ -5,7 +5,7 @@ description: Open or resume the Matrix open phase by clarifying a development re
 
 # Matrix Open
 
-Run `matrix workflow inspect` and follow its `profile` and `evidence_policy`.
+Run `node <matrix-skill-directory>/scripts/matrix-runtime.mjs inspect` and follow its `profile` and `evidence_policy`.
 
 Use its `artifact_language` for all proposal prose. Keep the required English heading tokens exactly as specified for Runtime guards; only the text beneath them is localized.
 
@@ -22,6 +22,8 @@ Use Matrix's own capability to clarify the request and write the proposal.
 
 Invoke `grilling` only when material ambiguity remains or the user asks to stress-test the request. Invoke `domain-modeling` only when domain vocabulary, invariants, or an architectural decision is unclear. Announce the capability and reason before invoking it; selecting Arch already authorizes triggered capabilities.
 
+If progress is blocked by facts or decisions owned by another person, explain why `to-questionnaire` fits and ask the user to invoke it. Do not invoke the wrapper yourself.
+
 Companion output is evidence for the Matrix proposal. It must not create another workflow, proposal, confirmation state, or phase transition. If a correctly installed capability fails, perform at most one Matrix-owned fallback for that same capability and record the failure and evidence. Installation-integrity failures require `matrix init --with-mattpocock` and are not eligible for fallback.
 
 ## Process
@@ -32,9 +34,9 @@ Companion output is evidence for the Matrix proposal. It must not create another
 4. For lightweight, always present the compact Contract and wait for explicit confirmation before entering Build.
 
 ```powershell
-matrix workflow guard open
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs guard open
 # full
-matrix workflow transition design
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition design
 # hotfix/tweak, only after explicit confirmation
-matrix workflow transition build --confirmed
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build --confirmed
 ```

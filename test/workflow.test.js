@@ -6,6 +6,7 @@ import test from "node:test";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { hashDirectory } from "../src/catalog.js";
+import { MATT_AUTOMATIC_SKILLS, MATT_CATALOG_DIGEST, MATT_COMPATIBILITY } from "../src/matt-catalog.mjs";
 import { invoke } from "../src/workflow.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -40,11 +41,11 @@ function writeShortcutVerification(base, workflow) {
   const specific = workflow === "hotfix"
     ? "\n\n## Regression evidence\nThe original failure now passes and the adjacent case remains green."
     : "\n\n## Scope review evidence\nThe final diff matches the approved boundary and preserves adjacent behavior.";
-  fs.writeFileSync(path.join(base, "verification.md"), `## Build evidence\nImplemented the approved bounded change and recorded its commands.\n\n## Test evidence\nFocused and adjacent tests passed.${specific}\n\n## Review evidence\nStandards and specification review found no blocking issue.`);
+  fs.writeFileSync(path.join(base, "verification.md"), `## Build evidence\nImplemented the approved bounded change and recorded its commands.\n\n## Test evidence\nFocused and adjacent tests passed.${specific}\n\n## Review evidence\n### Standards\nNo blocking standards findings.\n\n### Spec\nNo blocking specification findings.`);
 }
 function start(cwd, id = "change") { assert.equal(invoke(["init", id, "--title", id], { cwd }).ok, true); return artifacts(cwd, id); }
 function build(cwd, id = "change") { const base = start(cwd, id); writeContract(base); assert.equal(invoke(["transition", "design"], { cwd }).ok, true); const result = invoke(["transition", "build"], { cwd }); assert.equal(result.ok, true, result.message); return { base, result }; }
-function verify(cwd, id = "change") { const { base } = build(cwd, id); fs.writeFileSync(path.join(base, "verification.md"), "## Build evidence\nBuild passed with enough detail."); assert.equal(invoke(["transition", "verify"], { cwd }).ok, true); fs.writeFileSync(path.join(base, "verification.md"), "## Build evidence\nBuild passed.\n\n## Test evidence\nTests passed with enough detail.\n\n## Review evidence\nReview passed with enough detail."); return base; }
+function verify(cwd, id = "change") { const { base } = build(cwd, id); fs.writeFileSync(path.join(base, "verification.md"), "## Build evidence\nBuild passed with enough detail."); assert.equal(invoke(["transition", "verify"], { cwd }).ok, true); fs.writeFileSync(path.join(base, "verification.md"), "## Build evidence\nBuild passed.\n\n## Test evidence\nTests passed with enough detail.\n\n## Review evidence\n### Standards\nNo blocking standards findings.\n\n### Spec\nNo blocking specification findings."); return base; }
 function archivePhase(cwd, id = "change") { const base = verify(cwd, id); assert.equal(invoke(["transition", "archive"], { cwd }).ok, true); return base; }
 function preflight(cwd) { const result = invoke(["archive", "--dry-run"], { cwd }); assert.equal(result.ok, true, result.message); return result; }
 function normalizeArchiveTimes(cwd, id) {
@@ -57,21 +58,61 @@ function normalizeArchiveTimes(cwd, id) {
 
 function writeArchInstallation(cwd, platforms = ["codex"]) {
   const records = {};
+  const mattPlatforms = {};
+  const contentHashes = {};
   for (const platform of platforms) {
     const root = path.join(cwd, platform === "codex" ? ".agents" : ".claude", "skills");
     const skills = {};
-    for (const skill of ["grilling", "domain-modeling", "research", "wayfinder", "prototype", "codebase-design", "tdd", "diagnosing-bugs", "resolving-merge-conflicts", "code-review"]) {
+    for (const skill of MATT_AUTOMATIC_SKILLS) {
       const target = path.join(root, skill);
       fs.mkdirSync(target, { recursive: true });
       fs.writeFileSync(path.join(target, "SKILL.md"), `# ${skill}\n`);
       skills[skill] = { root: target, hash: hashDirectory(target) };
+      contentHashes[skill] = skills[skill].hash;
     }
     records[platform] = { matt: { state: "complete", skills } };
+    mattPlatforms[platform] = { root, skills };
   }
   fs.mkdirSync(path.join(cwd, ".matrix"), { recursive: true });
   fs.writeFileSync(path.join(cwd, ".matrix", "installation.json"), `${JSON.stringify({ version: 2, orchestration: { default: "arch", available: ["prim", "arch"] }, platforms: records }, null, 2)}\n`);
+  fs.writeFileSync(path.join(cwd, ".matrix", "matt-installation.json"), `${JSON.stringify({ version: 1, compatibility: MATT_COMPATIBILITY, catalogDigest: MATT_CATALOG_DIGEST, platforms: mattPlatforms }, null, 2)}\n`);
   fs.writeFileSync(path.join(cwd, ".matrix", "config.yaml"), "schema: matrix/config/v1\nauto_transition: true\ndefault_orchestration: arch\ninstallation_scope: project\n");
+  return contentHashes;
 }
+
+function archVerify(cwd, id = "arch-review") {
+  const mattContentHashes = writeArchInstallation(cwd);
+  assert.equal(invoke(["init", id, "--title", id, "--orchestration", "arch"], { cwd, mattContentHashes }).ok, true);
+  const base = artifacts(cwd, id);
+  writeContract(base);
+  assert.equal(invoke(["transition", "design"], { cwd, mattContentHashes }).ok, true);
+  assert.equal(invoke(["transition", "build"], { cwd, mattContentHashes }).ok, true);
+  fs.writeFileSync(path.join(base, "verification.md"), "## Build evidence\nBuild passed with enough detail.");
+  assert.equal(invoke(["transition", "verify"], { cwd, mattContentHashes }).ok, true);
+  fs.writeFileSync(path.join(base, "verification.md"), "## Build evidence\nBuild passed.\n\n## Test evidence\nTests passed with enough detail.\n\n## Review evidence\n### Standards\nNo blocking standards findings.\n\n### Spec\nNo blocking specification findings.");
+  return { base, mattContentHashes };
+}
+
+test("Python handoff prefers the bundled project Runtime over a PATH launcher", (t) => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-python-runtime-"));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const scripts = path.join(temp, "scripts");
+  const bin = path.join(temp, "bin");
+  fs.mkdirSync(scripts, { recursive: true });
+  fs.mkdirSync(bin, { recursive: true });
+  fs.copyFileSync(stateAdapter, path.join(scripts, "matrix_state.py"));
+  fs.writeFileSync(path.join(scripts, "matrix-runtime.mjs"), "console.log(JSON.stringify({ source: 'project' }));\n");
+  if (process.platform === "win32") fs.writeFileSync(path.join(bin, "matrix.cmd"), "@exit /b 23\r\n");
+  else {
+    const launcher = path.join(bin, "matrix");
+    fs.writeFileSync(launcher, "#!/bin/sh\nexit 23\n", { mode: 0o755 });
+  }
+  const env = { ...process.env, PATH: `${bin}${path.delimiter}${path.dirname(process.execPath)}` };
+  delete env.MATRIX_DEVELOPMENT_RUNTIME;
+  const result = spawnSync(python, [path.join(scripts, "matrix_state.py"), "inspect"], { cwd: temp, encoding: "utf8", env });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), { source: "project" });
+});
 
 test("workflow freezes Prim by default and rejects unsupported orchestration identifiers", (t) => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-prim-")); t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
@@ -92,13 +133,15 @@ test("Arch requires verified project-wide installation facts and freezes Arch in
   assert.equal(fs.existsSync(path.join(missing, ".matrix", "changes", "missing")), false);
 
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-arch-")); t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
-  writeArchInstallation(cwd, ["claude-code", "codex"]);
-  const created = invoke(["init", "arch-change", "--title", "Arch change"], { cwd });
+  const mattContentHashes = writeArchInstallation(cwd, ["claude-code", "codex"]);
+  const created = invoke(["init", "arch-change", "--title", "Arch change"], { cwd, mattContentHashes });
   assert.equal(created.ok, true, created.message);
   assert.equal(created.orchestration, "arch");
-  assert.equal(invoke(["inspect"], { cwd }).orchestration, "arch");
+  assert.match(fs.readFileSync(statePath(cwd, "arch-change"), "utf8"), new RegExp(`^arch_catalog_digest: ${MATT_CATALOG_DIGEST}$`, "m"));
+  assert.match(fs.readFileSync(statePath(cwd, "arch-change"), "utf8"), /^matt_release: v1\.2\.3$/m);
+  assert.equal(invoke(["inspect"], { cwd, mattContentHashes }).orchestration, "arch");
   fs.rmSync(path.join(cwd, ".agents", "skills", "tdd", "SKILL.md"));
-  const damaged = invoke(["inspect"], { cwd });
+  const damaged = invoke(["inspect"], { cwd, mattContentHashes });
   assert.equal(damaged.code, "ARCH_INSTALLATION_INCOMPLETE");
   assert.equal(damaged.orchestration, "arch");
   assert.deepEqual(damaged.findings[0], { platform: "codex", skill: "tdd", reason: "missing" });
@@ -106,13 +149,189 @@ test("Arch requires verified project-wide installation facts and freezes Arch in
 
 test("Arch integrity rejects content changes without silently falling back to Prim", (t) => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-arch-modified-")); t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
-  writeArchInstallation(cwd);
-  assert.equal(invoke(["init", "modified", "--title", "Modified"], { cwd }).orchestration, "arch");
+  const mattContentHashes = writeArchInstallation(cwd);
+  assert.equal(invoke(["init", "modified", "--title", "Modified"], { cwd, mattContentHashes }).orchestration, "arch");
   fs.appendFileSync(path.join(cwd, ".agents", "skills", "code-review", "SKILL.md"), "\nchanged");
-  const result = invoke(["inspect"], { cwd });
+  const result = invoke(["inspect"], { cwd, mattContentHashes });
   assert.equal(result.code, "ARCH_INSTALLATION_INCOMPLETE");
   assert.equal(result.orchestration, "arch");
   assert.deepEqual(result.findings[0], { platform: "codex", skill: "code-review", reason: "modified" });
+});
+
+test("Arch Verify rejects heading-only review claims until Runtime records a current receipt", (t) => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-arch-review-receipt-"));
+  t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  const { base, mattContentHashes } = archVerify(cwd);
+  const beforeState = fs.readFileSync(statePath(cwd, "arch-review"), "utf8");
+  const beforeEvents = fs.readFileSync(path.join(cwd, ".matrix", "changes", "arch-review", "events.jsonl"), "utf8");
+  assert.equal(invoke(["guard", "verify"], { cwd, mattContentHashes }).code, "REVIEW_RECEIPT_MISSING");
+  assert.equal(invoke(["transition", "archive"], { cwd, mattContentHashes }).code, "REVIEW_RECEIPT_MISSING");
+  assert.equal(fs.readFileSync(statePath(cwd, "arch-review"), "utf8"), beforeState);
+  assert.equal(fs.readFileSync(path.join(cwd, ".matrix", "changes", "arch-review", "events.jsonl"), "utf8"), beforeEvents);
+
+  const recorded = invoke(["review", "--source", "matrix-fallback", "--reason", "git-baseline-unavailable", "--standards", "passed", "--spec", "passed"], { cwd, mattContentHashes });
+  assert.equal(recorded.ok, true, recorded.message);
+  assert.equal(recorded.source, "matrix-fallback");
+  assert.ok(fs.existsSync(path.join(base, "review-receipt.json")));
+  assert.equal(invoke(["review", "--source", "matrix-fallback", "--reason", "git-baseline-unavailable", "--standards", "passed", "--spec", "passed"], { cwd, mattContentHashes }).code, "REVIEW_RECEIPT_EXISTS");
+  assert.equal(invoke(["guard", "verify"], { cwd, mattContentHashes }).ok, true);
+
+  fs.writeFileSync(path.join(cwd, "after-review.txt"), "changed after review\n");
+  assert.equal(invoke(["guard", "verify"], { cwd, mattContentHashes }).code, "REVIEW_RECEIPT_STALE");
+  fs.rmSync(path.join(cwd, "after-review.txt"));
+  const returned = invoke(["return", "build", "--reason", "verification-failed"], { cwd, mattContentHashes });
+  assert.equal(returned.ok, true);
+  assert.equal(fs.existsSync(path.join(base, "review-receipt.json")), false);
+  assert.ok(fs.existsSync(path.join(base, "evidence-history", "revision-4-review-receipt.json")));
+});
+
+test("every Verify requires distinct substantive Standards and Spec review axes", (t) => {
+  const full = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-review-axes-full-"));
+  t.after(() => fs.rmSync(full, { recursive: true, force: true }));
+  const { base } = build(full, "review-axes-full");
+  fs.writeFileSync(path.join(base, "verification.md"), "## Build evidence\nBuild passed with enough detail.");
+  assert.equal(invoke(["transition", "verify"], { cwd: full }).ok, true);
+  fs.writeFileSync(path.join(base, "verification.md"), "## Test evidence\nTests passed with enough detail.\n\n## Review evidence\nStandards and specification review found no blocking issue.");
+  const beforeState = fs.readFileSync(statePath(full, "review-axes-full"), "utf8");
+  const beforeEvents = fs.readFileSync(path.join(full, ".matrix", "changes", "review-axes-full", "events.jsonl"), "utf8");
+  assert.equal(invoke(["guard", "verify"], { cwd: full }).code, "REVIEW_EVIDENCE_INCOMPLETE");
+  assert.equal(invoke(["transition", "archive"], { cwd: full }).code, "REVIEW_EVIDENCE_INCOMPLETE");
+  assert.equal(fs.readFileSync(statePath(full, "review-axes-full"), "utf8"), beforeState);
+  assert.equal(fs.readFileSync(path.join(full, ".matrix", "changes", "review-axes-full", "events.jsonl"), "utf8"), beforeEvents);
+
+  for (const workflow of ["hotfix", "tweak"]) {
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), `matrix-review-axes-${workflow}-`));
+    t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+    const id = `review-axes-${workflow}`;
+    assert.equal(invoke(["init", id, "--title", id, "--workflow", workflow], { cwd }).ok, true);
+    const shortcutBase = artifacts(cwd, id);
+    writeShortcutProposal(shortcutBase, workflow);
+    assert.equal(invoke(["transition", "build", "--confirmed"], { cwd }).ok, true);
+    writeShortcutBuildEvidence(shortcutBase, workflow);
+    assert.equal(invoke(["transition", "verify"], { cwd }).ok, true);
+    const specific = workflow === "hotfix"
+      ? "\n\n## Regression evidence\nThe original failure and adjacent case passed."
+      : "\n\n## Scope review evidence\nThe final diff stayed inside the approved boundary.";
+    fs.writeFileSync(path.join(shortcutBase, "verification.md"), `## Test evidence\nFocused tests passed.${specific}\n\n## Review evidence\nStandards and specification review found no blocking issue.`);
+    assert.equal(invoke(["guard", "verify"], { cwd }).code, "REVIEW_EVIDENCE_INCOMPLETE");
+    writeShortcutVerification(shortcutBase, workflow);
+    assert.equal(invoke(["transition", "archive"], { cwd }).ok, true);
+  }
+});
+
+test("Matrix fallback reasons are bounded by observable Git facts and failed axes cannot advance", (t) => {
+  const gitProject = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-review-fallback-git-"));
+  t.after(() => fs.rmSync(gitProject, { recursive: true, force: true }));
+  assert.equal(spawnSync("git", ["init"], { cwd: gitProject, encoding: "utf8" }).status, 0);
+  assert.equal(spawnSync("git", ["config", "user.email", "matrix@example.invalid"], { cwd: gitProject, encoding: "utf8" }).status, 0);
+  assert.equal(spawnSync("git", ["config", "user.name", "Matrix Test"], { cwd: gitProject, encoding: "utf8" }).status, 0);
+  fs.writeFileSync(path.join(gitProject, "baseline.txt"), "baseline\n");
+  assert.equal(spawnSync("git", ["add", "baseline.txt"], { cwd: gitProject, encoding: "utf8" }).status, 0);
+  assert.equal(spawnSync("git", ["commit", "-m", "baseline"], { cwd: gitProject, encoding: "utf8" }).status, 0);
+  const fixedPoint = spawnSync("git", ["rev-parse", "HEAD"], { cwd: gitProject, encoding: "utf8" }).stdout.trim();
+  const gitReview = archVerify(gitProject, "fallback-git");
+  assert.equal(invoke(["review", "--source", "matrix-fallback", "--reason", "git-baseline-unavailable", "--standards", "passed", "--spec", "passed"], { cwd: gitProject, mattContentHashes: gitReview.mattContentHashes }).code, "REVIEW_FALLBACK_REASON_MISMATCH");
+  fs.writeFileSync(path.join(gitProject, "uncommitted.txt"), "candidate\n");
+  assert.equal(invoke(["review", "--source", "matrix-fallback", "--reason", "empty-head-diff", "--fixed-point", fixedPoint, "--standards", "passed", "--spec", "passed"], { cwd: gitProject, mattContentHashes: gitReview.mattContentHashes }).code, "REVIEW_FALLBACK_REASON_MISMATCH");
+  fs.rmSync(path.join(gitProject, "uncommitted.txt"));
+  const empty = invoke(["review", "--source", "matrix-fallback", "--reason", "empty-head-diff", "--fixed-point", fixedPoint, "--standards", "failed", "--spec", "passed"], { cwd: gitProject, mattContentHashes: gitReview.mattContentHashes });
+  assert.equal(empty.ok, true, empty.message);
+  assert.equal(invoke(["guard", "verify"], { cwd: gitProject, mattContentHashes: gitReview.mattContentHashes }).code, "REVIEW_FAILED");
+  assert.equal(invoke(["transition", "archive"], { cwd: gitProject, mattContentHashes: gitReview.mattContentHashes }).code, "REVIEW_FAILED");
+});
+
+test("code-review receipts bind a resolvable fixed point, HEAD diff, evidence, and workspace", (t) => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-arch-code-review-"));
+  t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  assert.equal(spawnSync("git", ["init"], { cwd, encoding: "utf8" }).status, 0);
+  assert.equal(spawnSync("git", ["config", "user.email", "matrix@example.invalid"], { cwd, encoding: "utf8" }).status, 0);
+  assert.equal(spawnSync("git", ["config", "user.name", "Matrix Test"], { cwd, encoding: "utf8" }).status, 0);
+  fs.writeFileSync(path.join(cwd, "candidate.js"), "export const value = 1;\n");
+  assert.equal(spawnSync("git", ["add", "candidate.js"], { cwd, encoding: "utf8" }).status, 0);
+  assert.equal(spawnSync("git", ["commit", "-m", "baseline"], { cwd, encoding: "utf8" }).status, 0);
+  const fixedPoint = spawnSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).stdout.trim();
+  const { base, mattContentHashes } = archVerify(cwd, "arch-code-review");
+  fs.writeFileSync(path.join(cwd, "candidate.js"), "export const value = 2;\n");
+  assert.equal(spawnSync("git", ["add", "candidate.js"], { cwd, encoding: "utf8" }).status, 0);
+  assert.equal(spawnSync("git", ["commit", "-m", "candidate"], { cwd, encoding: "utf8" }).status, 0);
+
+  assert.equal(invoke(["review", "--source", "code-review", "--fixed-point", "missing-ref", "--standards", "passed", "--spec", "passed"], { cwd, mattContentHashes }).code, "REVIEW_FIXED_POINT_INVALID");
+  const recorded = invoke(["review", "--source", "code-review", "--fixed-point", fixedPoint, "--standards", "passed", "--spec", "passed"], { cwd, mattContentHashes });
+  assert.equal(recorded.ok, true, recorded.message);
+  const receipt = JSON.parse(fs.readFileSync(path.join(base, "review-receipt.json"), "utf8"));
+  assert.equal(receipt.source, "code-review");
+  assert.equal(receipt.fixed_point, fixedPoint);
+  assert.match(receipt.diff_hash, /^sha256:[0-9a-f]{64}$/);
+  assert.equal(invoke(["guard", "verify"], { cwd, mattContentHashes }).ok, true);
+  fs.appendFileSync(path.join(base, "verification.md"), "\nChanged after receipt.\n");
+  assert.equal(invoke(["guard", "verify"], { cwd, mattContentHashes }).code, "REVIEW_RECEIPT_STALE");
+});
+
+test("code-review cannot claim uncommitted candidate changes were reviewed", (t) => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-arch-code-review-dirty-"));
+  t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  assert.equal(spawnSync("git", ["init"], { cwd, encoding: "utf8" }).status, 0);
+  assert.equal(spawnSync("git", ["config", "user.email", "matrix@example.invalid"], { cwd, encoding: "utf8" }).status, 0);
+  assert.equal(spawnSync("git", ["config", "user.name", "Matrix Test"], { cwd, encoding: "utf8" }).status, 0);
+  fs.writeFileSync(path.join(cwd, "candidate.js"), "export const value = 1;\n");
+  assert.equal(spawnSync("git", ["add", "candidate.js"], { cwd, encoding: "utf8" }).status, 0);
+  assert.equal(spawnSync("git", ["commit", "-m", "baseline"], { cwd, encoding: "utf8" }).status, 0);
+  const fixedPoint = spawnSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).stdout.trim();
+  const { mattContentHashes } = archVerify(cwd, "arch-code-review-dirty");
+  fs.writeFileSync(path.join(cwd, "candidate.js"), "export const value = 2;\n");
+  assert.equal(spawnSync("git", ["add", "candidate.js"], { cwd, encoding: "utf8" }).status, 0);
+  assert.equal(spawnSync("git", ["commit", "-m", "candidate"], { cwd, encoding: "utf8" }).status, 0);
+  fs.appendFileSync(path.join(cwd, "candidate.js"), "export const staged = true;\n");
+  assert.equal(spawnSync("git", ["add", "candidate.js"], { cwd, encoding: "utf8" }).status, 0);
+  fs.appendFileSync(path.join(cwd, "candidate.js"), "export const unstaged = true;\n");
+  fs.writeFileSync(path.join(cwd, "untracked.js"), "export const untracked = true;\n");
+
+  const recorded = invoke(["review", "--source", "code-review", "--fixed-point", fixedPoint, "--standards", "passed", "--spec", "passed"], { cwd, mattContentHashes });
+
+  assert.equal(recorded.ok, false);
+  assert.equal(recorded.code, "REVIEW_WORKTREE_DIRTY");
+  assert.equal(fs.existsSync(path.join(artifacts(cwd, "arch-code-review-dirty"), "review-receipt.json")), false);
+
+  const fallback = invoke(["review", "--source", "matrix-fallback", "--reason", "uncommitted-worktree", "--fixed-point", fixedPoint, "--standards", "passed", "--spec", "passed"], { cwd, mattContentHashes });
+  assert.equal(fallback.ok, true, fallback.message);
+  assert.equal(fallback.reason, "uncommitted-worktree");
+  assert.match(fallback.candidate_hash, /^sha256:[0-9a-f]{64}$/);
+  assert.equal(invoke(["guard", "verify"], { cwd, mattContentHashes }).ok, true);
+  fs.appendFileSync(path.join(cwd, "candidate.js"), "export const changedAfterReview = true;\n");
+  assert.equal(invoke(["guard", "verify"], { cwd, mattContentHashes }).code, "REVIEW_RECEIPT_STALE");
+});
+
+test("Arch rejects a forged matching receipt when files differ from the reviewed release", (t) => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-arch-forged-receipt-"));
+  t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  writeArchInstallation(cwd);
+  const result = invoke(["init", "forged", "--title", "Forged receipt"], { cwd });
+  assert.equal(result.code, "ARCH_INSTALLATION_INCOMPLETE");
+  assert.equal(result.findings[0].reason, "modified");
+  assert.equal(fs.existsSync(path.join(cwd, ".matrix", "changes", "forged")), false);
+});
+
+test("an active pre-0.1.4 Arch change without catalog identity keeps its legacy cohort", (t) => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-legacy-arch-"));
+  t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  assert.equal(invoke(["init", "legacy", "--title", "Legacy", "--orchestration", "prim"], { cwd }).ok, true);
+  const flowFile = statePath(cwd, "legacy");
+  fs.writeFileSync(flowFile, fs.readFileSync(flowFile, "utf8").replace("orchestration: prim", "orchestration: arch"));
+  const root = path.join(cwd, ".agents", "skills");
+  const skills = {};
+  for (const skill of ["grilling", "domain-modeling", "research", "wayfinder", "prototype", "codebase-design", "tdd", "diagnosing-bugs", "resolving-merge-conflicts", "code-review"]) {
+    const target = path.join(root, skill);
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(target, "SKILL.md"), `# ${skill}\n`);
+    skills[skill] = { root: target, hash: hashDirectory(target) };
+  }
+  fs.writeFileSync(path.join(cwd, ".matrix", "installation.json"), `${JSON.stringify({ version: 2, orchestration: { default: "arch", available: ["prim", "arch"] }, platforms: { codex: { matt: { state: "complete", skills } } } }, null, 2)}\n`);
+  fs.writeFileSync(path.join(cwd, ".matrix", "config.yaml"), "schema: matrix/config/v1\ndefault_orchestration: arch\ninstallation_scope: project\n");
+  assert.equal(invoke(["inspect"], { cwd }).ok, true);
+  fs.rmSync(path.join(root, "wayfinder", "SKILL.md"));
+  const damaged = invoke(["inspect"], { cwd });
+  assert.equal(damaged.code, "ARCH_INSTALLATION_INCOMPLETE");
+  assert.deepEqual(damaged.findings[0], { platform: "codex", skill: "wayfinder", reason: "missing" });
 });
 
 test("v0.1.2 initializes only final v2 state and rejects old schema without mutation", (t) => {
@@ -164,6 +383,7 @@ test("hotfix and tweak share one lightweight lifecycle with distinct evidence po
     assert.equal(invoke(["transition", "archive"], { cwd }).ok, true);
     const prepared = invoke(["archive", "--dry-run"], { cwd });
     assert.match(prepared.commit_command, /--confirmed$/);
+    assert.doesNotMatch(prepared.commit_command, /\bmatrix workflow\b/);
     assert.equal(invoke(["archive", "--expect-preflight", prepared.preflight_hash], { cwd }).code, "CONFIRMATION_REQUIRED");
     assert.equal(invoke(["archive", "--expect-preflight", prepared.preflight_hash, "--confirmed"], { cwd }).ok, true);
   }
@@ -290,7 +510,7 @@ test("controlled Return clears or preserves approval and archive can recover to 
   assert.equal(returned.ok, true); assert.equal(returned.approved_contract_hash, approved);
   fs.writeFileSync(path.join(base, "verification.md"), "## Build evidence\nFresh build evidence after Return.");
   assert.equal(invoke(["transition", "verify"], { cwd }).ok, true);
-  fs.writeFileSync(path.join(base, "verification.md"), "## Test evidence\nTests passed with enough detail.\n\n## Review evidence\nReview passed with enough detail.");
+  fs.writeFileSync(path.join(base, "verification.md"), "## Test evidence\nTests passed with enough detail.\n\n## Review evidence\n### Standards\nNo blocking standards findings.\n\n### Spec\nNo blocking specification findings.");
   assert.equal(invoke(["transition", "archive"], { cwd }).ok, true);
   fs.appendFileSync(path.join(base, "design.md"), "\nChanged while awaiting archive.");
   assert.equal(invoke(["archive", "--dry-run"], { cwd }).code, "CONTRACT_CHANGED");
@@ -328,7 +548,7 @@ test("direct lifecycle archives with matching approval and terminal records rema
   archivePhase(cwd, "direct");
   const before = fs.readFileSync(statePath(cwd, "direct"), "utf8"); const beforeEvents = events(cwd, "direct").length;
   assert.equal(invoke(["archive"], { cwd }).code, "ARCHIVE_PREFLIGHT_REQUIRED");
-  const prepared = preflight(cwd); assert.match(prepared.preflight_hash, /^sha256:[0-9a-f]{64}$/); assert.match(prepared.commit_command, /--expect-preflight sha256:/);
+  const prepared = preflight(cwd); assert.match(prepared.preflight_hash, /^sha256:[0-9a-f]{64}$/); assert.match(prepared.commit_command, /--expect-preflight sha256:/); assert.doesNotMatch(prepared.commit_command, /\bmatrix workflow\b/);
   assert.equal(fs.readFileSync(statePath(cwd, "direct"), "utf8"), before); assert.equal(events(cwd, "direct").length, beforeEvents);
   assert.equal(preflight(cwd).preflight_hash, prepared.preflight_hash);
   const archived = invoke(["archive", "--expect-preflight", prepared.preflight_hash], { cwd }); assert.equal(archived.ok, true); assert.equal(archived.preflight_hash, prepared.preflight_hash); assert.equal(archived.contract_status, "approved-and-matching"); assert.equal(archived.approved_contract_hash, archived.current_contract_hash);
@@ -341,7 +561,7 @@ test("Archive preflight has a fixed public identity vector and globally sorted t
   const base = archivePhase(cwd, "vector"); normalizeArchiveTimes(cwd, "vector");
   fs.mkdirSync(path.join(base, "a")); fs.mkdirSync(path.join(base, "empty"));
   fs.writeFileSync(path.join(base, "a", "z.txt"), "nested"); fs.writeFileSync(path.join(base, "a.txt"), "sibling");
-  assert.equal(preflight(cwd).preflight_hash, "sha256:49fc2cb1b1b8f9404060b17c703c3b8f1f3130a2b1b57121d7e9462858738dc5");
+  assert.equal(preflight(cwd).preflight_hash, "sha256:8c1c198db12093b086a3aaa58f1918366d79bc2f963f37e5fd87824f4085b259");
 });
 
 test("Archive preflight rejects drift, cross-change reuse, lock contention, and unsupported entries without mutation", (t) => {
@@ -385,12 +605,15 @@ test("workflow doctor is read-only and interrupted transitions require an explic
   const interrupted = invoke(["transition", "design"], { cwd, failAfterOperation: 0 });
   assert.equal(interrupted.code, "WORKFLOW_PERSISTENCE_FAILED");
   assert.match(interrupted.transaction_id, /^[0-9a-f-]{36}$/);
+  assert.match(interrupted.recovery_command, /matrix-runtime\.mjs.*doctor/);
+  assert.doesNotMatch(interrupted.recovery_command, /\bmatrix workflow\b/);
   const journal = path.join(cwd, ".matrix", "transactions", interrupted.transaction_id, "journal.json");
   const beforeDoctor = fs.readFileSync(journal, "utf8");
   const diagnosis = invoke(["doctor"], { cwd });
   assert.equal(diagnosis.ok, true);
   assert.equal(diagnosis.health, "recovery-required");
   assert.deepEqual(diagnosis.transactions.find((item) => item.id === interrupted.transaction_id).strategies, ["continue", "rollback"]);
+  assert.equal(diagnosis.transactions.find((item) => item.id === interrupted.transaction_id).commands.every((command) => /matrix-runtime\.mjs.*doctor/.test(command) && !/\bmatrix workflow\b/.test(command)), true);
   assert.equal(fs.readFileSync(journal, "utf8"), beforeDoctor);
   assert.equal(invoke(["doctor", "--repair"], { cwd }).code, "WORKFLOW_TRANSACTION_REQUIRED");
   assert.equal(invoke(["doctor", "--repair", "--transaction", interrupted.transaction_id], { cwd }).code, "WORKFLOW_STRATEGY_REQUIRED");
@@ -521,6 +744,8 @@ test("standalone stale lock cleanup requires its exact doctor-reported identity"
   fs.writeFileSync(lockPath, `${JSON.stringify({ schema: "matrix/workflow-lock/v1", transaction_id: receiptId, pid: 2147483647, hostname: os.hostname(), nonce: "stale-owner", created_at: "2026-01-01T00:00:00Z" })}\n`);
   const diagnosis = invoke(["doctor"], { cwd });
   assert.equal(diagnosis.lock.owner, "absent");
+  const lockFinding = diagnosis.findings.find((finding) => finding.lock_id === diagnosis.lock.id);
+  assert.equal(lockFinding.commands.every((command) => /matrix-runtime\.mjs.*doctor/.test(command) && !/\bmatrix workflow\b/.test(command)), true);
   assert.equal(invoke(["doctor", "--repair"], { cwd }).code, "WORKFLOW_LOCK_REQUIRED");
   assert.equal(invoke(["doctor", "--repair", "--lock", "sha256:wrong"], { cwd }).code, "WORKFLOW_LOCK_CONFLICT");
   const repaired = invoke(["doctor", "--repair", "--lock", diagnosis.lock.id], { cwd });

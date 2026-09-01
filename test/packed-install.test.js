@@ -50,14 +50,14 @@ test("packed artifact runs recoverable Claude Code and Codex lifecycles without 
 
   fs.writeFileSync(path.join(artifacts, "verification.md"), "## Build evidence\nFresh build evidence after the design Return.");
   run(process.execPath, [codexRuntime, "transition", "verify"], { cwd: project });
-  fs.writeFileSync(path.join(artifacts, "verification.md"), "## Build evidence\nBuild command passed with sufficient detail.\n\n## Test evidence\nTests passed with sufficient detail.\n\n## Review evidence\nReview passed with sufficient detail.");
+  fs.writeFileSync(path.join(artifacts, "verification.md"), "## Build evidence\nBuild command passed with sufficient detail.\n\n## Test evidence\nTests passed with sufficient detail.\n\n## Review evidence\n### Standards\nNo blocking standards findings.\n\n### Spec\nNo blocking specification findings.");
   const returned = run(process.execPath, [binary, "workflow", "return", "build", "--reason", "verification-failed", "--json"], { cwd: project });
   assert.equal(JSON.parse(returned.stdout).phase, "build");
   assert.ok(fs.existsSync(path.join(artifacts, "evidence-history", "revision-6-verification.md")));
 
   fs.writeFileSync(path.join(artifacts, "verification.md"), "## Build evidence\nFresh build evidence after verification failure.");
   run(process.execPath, [claudeRuntime, "transition", "verify"], { cwd: project });
-  fs.writeFileSync(path.join(artifacts, "verification.md"), "## Build evidence\nBuild command passed with sufficient detail.\n\n## Test evidence\nTests passed with sufficient detail.\n\n## Review evidence\nReview passed with sufficient detail.");
+  fs.writeFileSync(path.join(artifacts, "verification.md"), "## Build evidence\nBuild command passed with sufficient detail.\n\n## Test evidence\nTests passed with sufficient detail.\n\n## Review evidence\n### Standards\nNo blocking standards findings.\n\n### Spec\nNo blocking specification findings.");
   run(process.execPath, [codexRuntime, "return", "design", "--reason", "acceptance-or-design-gap"], { cwd: project });
   assert.ok(fs.existsSync(path.join(artifacts, "evidence-history", "revision-8-verification.md")));
 
@@ -66,7 +66,7 @@ test("packed artifact runs recoverable Claude Code and Codex lifecycles without 
   run(process.execPath, [claudeRuntime, "transition", "build"], { cwd: project });
   fs.writeFileSync(path.join(artifacts, "verification.md"), "## Build evidence\nFresh final build evidence with sufficient detail.");
   run(process.execPath, [codexRuntime, "transition", "verify"], { cwd: project });
-  fs.writeFileSync(path.join(artifacts, "verification.md"), "## Build evidence\nFresh final build evidence with sufficient detail.\n\n## Test evidence\nFresh final tests passed with sufficient detail.\n\n## Review evidence\nFresh final review passed with sufficient detail.");
+  fs.writeFileSync(path.join(artifacts, "verification.md"), "## Build evidence\nFresh final build evidence with sufficient detail.\n\n## Test evidence\nFresh final tests passed with sufficient detail.\n\n## Review evidence\n### Standards\nNo blocking standards findings.\n\n### Spec\nNo blocking specification findings.");
   run(process.execPath, [claudeRuntime, "transition", "archive"], { cwd: project });
   const packedPreflight = JSON.parse(run(process.execPath, [codexRuntime, "archive", "--dry-run"], { cwd: project }).stdout);
   run(process.execPath, [codexRuntime, "archive", "--expect-preflight", packedPreflight.preflight_hash], { cwd: project });

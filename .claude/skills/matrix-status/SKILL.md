@@ -8,8 +8,8 @@ description: Inspect the active Matrix workflow and report its disk-backed phase
 Run the same Matrix state kernel used by the main entry and every phase Skill:
 
 ```powershell
-matrix workflow inspect
-matrix workflow doctor
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs inspect
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs doctor
 ```
 
 Report the returned change id, workflow, `profile`, `evidence_policy`, frozen `orchestration`, phase, guard result, `next_skill`, Workflow health, unfinished transactions, available strategies, and exact recovery commands. If Arch integrity fails, identify the affected platform/Skill facts and report `matrix init --with-mattpocock`; do not reinterpret the change as Prim. Both commands are read-only. Do not infer status from conversation history, run `--repair`, or modify state. If the guard is failing, name the missing evidence and direct the user to the current phase Skill.

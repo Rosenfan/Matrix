@@ -16,8 +16,8 @@ Prim 与 Arch 的 Archive 均完全由 Matrix 拥有；本阶段不调用 compan
 先运行只读预演并复核影响摘要，再原样提交该次预演返回的 hash：
 
 ```powershell
-matrix workflow archive --dry-run
-matrix workflow archive --expect-preflight <dry-run-返回的-sha256>
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs archive --dry-run
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs archive --expect-preflight <dry-run-返回的-sha256>
 ```
 
 裸 Archive 会被拒绝。Runtime 会重新取得项目 Archive 互斥权，并在提交前重算整个受保护 change 目录 manifest。
@@ -30,7 +30,7 @@ hotfix/tweak 在复核 preflight 后必须再次取得用户明确确认，并�
 若最终确认前发现验收或设计需要调整，使用唯一 Archive 回退路径：
 
 ```powershell
-matrix workflow return design --reason acceptance-or-design-gap
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs return design --reason acceptance-or-design-gap
 ```
 
 提交成功后，变更位于 `.matrix/archive/`，工作流完成。

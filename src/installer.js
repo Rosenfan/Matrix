@@ -2,7 +2,6 @@ import fs from "node:fs";
 import path from "node:path";
 import { createDistribution } from "./distribution.js";
 import { MATRIX_SKILLS, MATT_SKILLS, PLATFORMS, sourceSkillsRoot } from "./catalog.js";
-import { createMattAdapter } from "./matt.js";
 
 export { MATRIX_SKILLS, MATT_SKILLS, sourceSkillsRoot };
 
@@ -37,9 +36,10 @@ export function installMatrix({ destination, mode = "copy", conflict = "error", 
 }
 
 export function installMattSkills({ projectRoot, platforms = ["claude-code"], skills = MATT_SKILLS, global = false, timeout = 300_000 }) {
-  const result = createMattAdapter().installMissing({ projectRoot, platforms, skills, global, timeout });
-  if (!result.ok) throw new Error(`${result.code}: ${result.message}`);
-  return result;
+  void projectRoot; void platforms; void skills; void global; void timeout;
+  const error = new Error("Direct Matt installation was retired; run matrix init --with-mattpocock so Distribution owns the complete Matrix/Matt transaction.");
+  error.code = "MATT_DIRECT_INSTALL_UNSUPPORTED";
+  throw error;
 }
 
 export function findPython() { return null; }

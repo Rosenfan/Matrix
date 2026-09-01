@@ -12,13 +12,17 @@ _Avoid_: Supported tool, detected platform
 An agent environment whose project or user configuration is present on disk; detection alone does not imply Matrix compatibility.
 _Avoid_: Installed platform, verified platform
 
-**Primary runtime**:
-The Matrix command-line runtime preferred when it is available on the user's PATH.
-_Avoid_: Global runtime, installer
+**Global launcher**:
+The user-wide `matrix` command that initializes or updates installations and enters a project. It auto-delegates workflow commands only to an exact same-release, hash-verified project runtime; a different or unidentified project release stops with an explicit direct-runtime command. Older launchers cannot retroactively provide this check. It never replaces a project's compatibility authority.
+_Avoid_: Primary runtime, project runtime, compatibility authority
 
-**Bundled runtime**:
-The self-contained runtime distributed with an installed Matrix Skill and used only when the primary runtime is absent.
-_Avoid_: Backup copy, second implementation
+**Project runtime**:
+The self-contained runtime distributed with a project-installed Matrix Skill and authoritative for workflow operations in that project. It is entered directly by the installed Matrix Skill, or automatically only after a same-release launcher verifies its release identity and content hash.
+_Avoid_: Backup copy, global launcher, fallback runtime
+
+**Project compatibility authority**:
+The installed Matrix release and receipts that govern one project's workflow and Matt compatibility. It outranks user-wide installations and cannot be assembled by merging project and global assets.
+_Avoid_: Global default, merged installation, PATH priority
 
 **Product language**:
 The selected language for installer interaction, installed Skill guidance, workflow artifact prose, diagnostics, and summaries. Commands, schema fields, and machine identifiers remain language-neutral English.
@@ -35,6 +39,14 @@ _Avoid_: Existing file, installed component
 **User-modified asset**:
 A managed asset whose current content no longer matches Matrix's recorded hash, or a pre-existing asset with no trustworthy Matrix installation record.
 _Avoid_: Conflict, outdated asset
+
+**Matt compatibility contract**:
+The stable Matt Pocock release, resolved commit, complete official Skill set, compatible installable subset, and reviewed role catalog supported by one Matrix release. It is both the integration baseline and the source of the Matt subset installed by that Matrix release.
+_Avoid_: Floating latest, compatibility range, installed Skills
+
+**Matt installation receipt**:
+Matrix's project-local record of the Matt compatibility contract and content hashes successfully installed on one platform. It distinguishes a compatible installation from a later user modification without relying on `skills-lock.json` or global Matt Skills.
+_Avoid_: skills-lock.json, role catalog, update reminder
 
 ## Workflow Language
 
@@ -54,9 +66,21 @@ _Avoid_: Basic mode, fallback mode
 The orchestration mode in which Matrix conditionally invokes the initialization-verified atomic Skill cohort while retaining all lifecycle ownership.
 _Avoid_: Wrapper workflow, automatic pipeline
 
-**Managed Arch cohort**:
-The ten atomic companion capabilities installed and content-verified for every Agent platform configured in the project. Excluded or user-owned extra Skills are not part of its integrity contract.
-_Avoid_: Every installed Skill, platform-local availability
+**Automatic Arch cohort**:
+The fixed, reviewed set of model-invoked Matt capabilities that one Matrix release may call conditionally inside Matrix-owned phases. Each Arch change freezes the cohort identity it was created with.
+_Avoid_: Managed Arch cohort, every installed Skill, fixed pipeline
+
+**Explicit Matt handoff**:
+A Matrix explanation and recommendation that leaves invocation of a user-invoked Matt Skill to the user. It cannot advance Matrix state or silently nest the recommended Skill.
+_Avoid_: Automatic invocation, companion transition
+
+**Arch readiness**:
+Whether every Skill in the Automatic Arch cohort is present and matches its Matt installation receipt on each configured platform. Missing or modified standalone Skills do not remove Arch readiness.
+_Avoid_: Latest upstream, every installed Skill, Arch selected
+
+**Review candidate**:
+The exact implementation state covered by Verify review. A normal `code-review` candidate is the fixed-point-to-HEAD committed diff with no candidate worktree changes; an explicit `uncommitted-worktree` fallback additionally binds staged, unstaged, and untracked content by hash.
+_Avoid_: Current files, review prose, HEAD only
 
 **Forward transition**:
 A guard-approved advance from the current phase to its normal successor.

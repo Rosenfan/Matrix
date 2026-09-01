@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { MATT_INSTALLABLE_SKILLS, MATT_ROLES } from "./matt-catalog.mjs";
 
 export const LANGUAGE_IDS = ["en", "zh-CN"];
 export const PLATFORM_IDS = ["claude-code", "codex"];
@@ -10,14 +11,12 @@ export const MATRIX_SKILLS = [
   "matrix", "matrix-open", "matrix-design", "matrix-build", "matrix-verify",
   "matrix-archive", "matrix-hotfix", "matrix-tweak", "matrix-status", "matrix-claude"
 ];
-export const MATT_SKILLS = [
-  "grilling", "domain-modeling", "research", "wayfinder", "prototype",
-  "codebase-design", "tdd", "diagnosing-bugs", "resolving-merge-conflicts", "code-review"
-];
-export const UNMANAGED_MATT_SKILLS = ["grill-with-docs", "implement", "improve-codebase-architecture"];
+export const MATT_SKILLS = MATT_INSTALLABLE_SKILLS;
+export const UNMANAGED_MATT_SKILLS = MATT_ROLES.incompatible;
 
 const packageRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const packageManifest = JSON.parse(fs.readFileSync(path.join(packageRoot, "package.json"), "utf8"));
+export const MATRIX_VERSION = packageManifest.version;
 
 export const PLATFORMS = {
   "claude-code": {
@@ -76,6 +75,7 @@ export function hashDirectory(directory, extraFiles = []) {
 
 export function workflowRuntimeSource() { return path.join(packageRoot, "src", "workflow.js"); }
 export function workflowTransactionSource() { return path.join(packageRoot, "src", "workflow-transaction.js"); }
+export function mattCatalogSource() { return path.join(packageRoot, "src", "matt-catalog.mjs"); }
 
 export function releaseCatalog(language = "en") {
   if (!LANGUAGE_IDS.includes(language)) throw new Error(`Unsupported language: ${language}`);
@@ -84,9 +84,20 @@ export function releaseCatalog(language = "en") {
   if (missing.length) throw new Error(`Matrix package is incomplete. Missing: ${missing.join(", ")}`);
   const runtime = fs.readFileSync(workflowRuntimeSource());
   const transaction = fs.readFileSync(workflowTransactionSource());
-  const skills = Object.fromEntries(MATRIX_SKILLS.map((skill) => [skill, hashDirectory(path.join(root, skill), [
+  const mattCatalog = fs.readFileSync(mattCatalogSource());
+  const sharedRuntimeFiles = [
+    { path: "scripts/package.json", contents: Buffer.from('{"type":"module"}\n') },
     { path: "scripts/matrix-runtime.mjs", contents: runtime },
-    { path: "scripts/workflow-transaction.js", contents: transaction }
-  ])]));
-  return { language, root, version: packageManifest.version, skills, digest: crypto.createHash("sha256").update(JSON.stringify(skills)).digest("hex") };
+    { path: "scripts/workflow-transaction.js", contents: transaction },
+    { path: "scripts/matt-catalog.mjs", contents: mattCatalog }
+  ];
+  const compatibilityFiles = ["matrix_state.py", "matrix_claude.py"].map((filename) => ({
+    path: `scripts/${filename}`,
+    contents: fs.readFileSync(path.join(sourceSkillsRoot("en"), "matrix", "scripts", filename))
+  }));
+  const skills = Object.fromEntries(MATRIX_SKILLS.map((skill) => [skill, hashDirectory(
+    path.join(root, skill),
+    skill === "matrix" ? [...sharedRuntimeFiles, ...compatibilityFiles] : sharedRuntimeFiles
+  )]));
+  return { language, root, version: MATRIX_VERSION, skills, digest: crypto.createHash("sha256").update(JSON.stringify(skills)).digest("hex") };
 }

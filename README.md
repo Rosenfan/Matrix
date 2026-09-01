@@ -93,10 +93,10 @@ matrix init
 
 The interactive setup lets you:
 
-- Choose English or Chinese, project or global scope, and Claude Code, Codex, or both
+- Choose English or Chinese, project or global Matrix discovery scope, and Claude Code, Codex, or both
 - Copy skills (recommended) or symlink them for local development
 - Safely reconfigure an existing installation with an automatic backup
-- Install Matt Pocock's companion skills in the same flow
+- Review all 25 official Matt Skills v1.2.3 roles and install the 23 compatible Skills into the target project
 - Choose **Prim** or **Arch** as the project default without disabling the other available mode
 
 For automation and CI:
@@ -108,10 +108,13 @@ matrix init --yes --platform claude-code --platform codex --with-mattpocock
 # Explicitly select the project default
 matrix init --yes --with-mattpocock --default-orchestration arch
 
+# Replace locally modified Matt Skills only after an explicit backup authorization
+matrix init --yes --with-mattpocock --force-matt
+
 # Preview exactly what would change (including backups) without writing
 matrix init --platform codex --dry-run --json
 
-# Inspect Matrix ownership, Matt Skills inheritance, and the selected platform
+# Inspect Matrix ownership, project-local Matt compatibility, and the selected platform
 matrix doctor --platform codex
 ```
 
@@ -128,7 +131,9 @@ matrix update --skip-self-update
 matrix update --yes
 ```
 
-`matrix update` preserves the installation's scope, platforms, language, mode, and orchestration. It first validates a newer npm package in isolation, then re-runs the new CLI to refresh project assets. npm and project assets are separate transactions: if asset refresh fails after a CLI upgrade, run `matrix update --skip-self-update` to retry. Use `matrix init` to change installation choices, and `matrix doctor` for read-only diagnosis.
+`matrix update` preserves the installation's scope, platforms, language, mode, and orchestration. It first validates a newer npm package in isolation, then re-runs the new CLI to refresh Matrix assets. It never downloads, installs, repairs, or deletes Matt Skills; after the Matrix update it reports the local Matt compatibility status and, when needed, points to `matrix init . --with-mattpocock`. npm and project assets are separate transactions: if asset refresh fails after a CLI upgrade, run `matrix update --skip-self-update` to retry.
+
+Matrix 0.1.4 is bound to Matt Skills v1.2.3 at commit `6acc160e4e0cd062dbbbd7a1b26ae92855edf07e`. `matrix init --with-mattpocock` always uses that exact archive and its reviewed 23-Skill compatible manifest, even if upstream has a newer release. The two official but incompatible Skills, `implement` and raw `resolving-merge-conflicts`, are not Matrix-managed or installed. Matrix scope controls Matrix Skill discovery only: Matt Skills and `.matrix/matt-installation.json` are always project-local. Global Matt copies are preserved but never used to complete project readiness.
 
 The language selected by `matrix init` controls the prose in new Matrix artifacts. Markdown headings required by Matrix guards remain stable English tokens; the artifact body is Chinese for `zh-CN` and English for `en`. A change freezes this language at creation time.
 
@@ -174,9 +179,9 @@ Matrix will:
 | Phase | Arch capabilities (triggered, not a fixed sequence) | Deliverables | Guard Condition |
 |-------|------------------------------------------------------|--------------|-----------------|
 | **open** | `/grilling`, `/domain-modeling` | `proposal.md`; optional repository-standard context/ADR evidence | Goal, Scope, Non-goals, Acceptance, Risks present |
-| **design** | `/domain-modeling`, `/research`, `/wayfinder`, `/prototype`, `/codebase-design` | `design.md`, `plan.md` | Decisions, Test seams, Steps documented |
-| **build** | `/tdd`, `/diagnosing-bugs`, `/resolving-merge-conflicts` | Code, `verification.md` | Exact approved Contract matches; build evidence recorded |
-| **verify** | `/code-review` | Test & review evidence | Test and review evidence present |
+| **design** | `/domain-modeling`, `/research`, `/prototype`, `/codebase-design`, conditional `/writing-for-agents` | `design.md`, `plan.md` | Decisions, Test seams, Steps documented |
+| **build** | `/tdd`, `/diagnosing-bugs`, conditional `/writing-for-agents` and generate-only `/wizard` | Code, `verification.md` | Exact approved Contract matches; build evidence recorded |
+| **verify** | `/code-review` | Test evidence, two-axis review, Arch receipt | Evidence is substantive; Arch receipt matches the current Contract, review, and workspace |
 | **archive** | None; Matrix-owned in both modes | Archive record | Verify guard passed |
 
 ---
@@ -280,22 +285,26 @@ The sidecar does NOT change Matrix state. It's a pure export — like taking a s
 
 ## Integration with Matt Pocock's Skills
 
-Prim uses Matrix's own capability. Arch uses one initialization-verified cohort of ten atomic capabilities:
+Prim uses Matrix's own capability. Matrix reviews all 25 official Matt v1.2.3 roles, installs the 23 compatible Skills, and lets Arch automatically invoke only this reviewed ten-capability cohort:
 
 | Phase | Capability | Trigger |
 |---|---|---|
 | open | `/grilling` | Material ambiguity or explicit stress-test request |
 | open/design | `/domain-modeling` | Unclear vocabulary, invariants, or architectural decisions |
 | design | `/research` | Required external facts are unavailable in the repository |
-| design | `/wayfinder` | Module ownership or dependency seams are unknown |
 | design | `/prototype` | A material design question needs disposable evidence |
 | design | `/codebase-design` | A deep-module, interface, or test-seam decision remains |
+| design/build | `/writing-for-agents` | The Contract changes agent-facing instructions or pointer-reached documents |
 | build | `/tdd` | Observable behavior changes at a testable seam |
 | build | `/diagnosing-bugs` | An actual failure exists and root cause is unknown |
-| build | `/resolving-merge-conflicts` | A merge or rebase conflict is in progress |
+| build | `/wizard` | The Contract requires generated human-run shell steps; Matrix never runs them end-to-end |
 | verify | `/code-review` | Standards and Spec review evidence is required |
 
-`grill-with-docs`, `implement`, and `improve-codebase-architecture` are not Matrix-managed or automatically invoked. Existing user-installed copies are preserved as unmanaged extras. A companion never transitions, commits, archives, or writes Matrix state.
+Matrix may recommend but never nest these user-invoked handoffs: `setup-matt-pocock-skills`, `improve-codebase-architecture`, `wayfinder`, `handoff`, and `to-questionnaire`. The user explicitly runs them outside the active phase; selected output may enter a governed Change.
+
+Arch records a Runtime-managed review receipt after `code-review`, binding its fixed point and committed HEAD diff to the current Contract, review evidence, and workspace. A normal `code-review` receipt requires a clean candidate worktree outside Matrix-managed assets. When Git has no usable baseline, the committed diff is empty, staged/unstaged/untracked candidate files still exist, or the correctly installed capability fails, Matrix may perform one explicitly labelled same-capability fallback for that revision. The `uncommitted-worktree` fallback binds both the fixed point and a content hash of the complete worktree candidate. Installation-integrity failures never fall back. A heading or self-description without the matching receipt cannot advance Verify.
+
+Installed standalone Skills are `ask-matt`, `grill-with-docs`, `triage`, `to-spec`, `to-tickets`, `grill-me`, `teach`, and `wait-what`. `implement` and raw `resolving-merge-conflicts` are incompatible because they can take over TDD/review/staging/commit effects owned by Matrix, so 0.1.4 neither installs nor manages them. Pre-existing copies are preserved and reported as unmanaged extras. Installation never grants automatic invocation, and no companion may transition, commit, archive, recover, or write Matrix state.
 
 ---
 

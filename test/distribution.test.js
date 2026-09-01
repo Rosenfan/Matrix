@@ -1,11 +1,14 @@
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { MATRIX_SKILLS, MATT_SKILLS, hashDirectory } from "../src/catalog.js";
-import { createDistribution, installedIntent, recoverPendingTransaction } from "../src/distribution.js";
+import { MATT_AUTOMATIC_SKILLS, MATT_OFFICIAL_SKILLS, MATT_ROLES } from "../src/matt-catalog.mjs";
+import { classifyMattTarget, createDistribution, installedIntent, recoverPendingTransaction } from "../src/distribution.js";
+import { mattReceiptPath } from "../src/matt.js";
 import { invoke } from "../src/workflow.js";
 
 function fixture(t) {
@@ -18,20 +21,54 @@ function fixture(t) {
   return { project, home };
 }
 
+function fakeMattHashes(contentsFor) {
+  return Object.fromEntries(MATT_SKILLS.map((skill) => {
+    const hash = crypto.createHash("sha256").update("SKILL.md\0").update(contentsFor(skill)).digest("hex");
+    return [skill, hash];
+  }));
+}
+
+function fakeCandidate(base, platforms, contentsFor) {
+  const roots = {};
+  for (const platform of platforms) {
+    const root = path.join(base, platform === "codex" ? ".agents" : ".claude", "skills");
+    roots[platform] = root;
+    for (const skill of MATT_SKILLS) {
+      const target = path.join(root, skill);
+      fs.mkdirSync(target, { recursive: true });
+      fs.writeFileSync(path.join(target, "SKILL.md"), contentsFor(skill));
+    }
+  }
+  return { ok: true, code: "OK", root: base, platforms: roots };
+}
+
 test("requires a platform when no verified platform can be detected", (t) => {
   const { project, home } = fixture(t);
   const result = createDistribution().evaluate({ projectRoot: project, home, language: "en" });
   assert.equal(result.code, "INPUT_REQUIRED");
 });
 
-test("Arch catalog contains only the ten managed atomic capabilities", () => {
-  assert.deepEqual(MATT_SKILLS, [
-    "grilling", "domain-modeling", "research", "wayfinder", "prototype",
-    "codebase-design", "tdd", "diagnosing-bugs", "resolving-merge-conflicts", "code-review"
-  ]);
-  for (const excluded of ["grill-with-docs", "implement", "improve-codebase-architecture"]) {
-    assert.equal(MATT_SKILLS.includes(excluded), false);
-  }
+test("distribution installs only compatible reviewed Skills while Arch invokes the automatic cohort", () => {
+  assert.deepEqual(MATT_SKILLS, MATT_OFFICIAL_SKILLS.filter((skill) => !MATT_ROLES.incompatible.includes(skill)));
+  assert.equal(MATT_SKILLS.length, 23);
+  assert.equal(MATT_AUTOMATIC_SKILLS.length, 10);
+  assert.equal(MATT_AUTOMATIC_SKILLS.includes("implement"), false);
+  assert.equal(MATT_AUTOMATIC_SKILLS.includes("wayfinder"), false);
+  assert.equal(MATT_SKILLS.includes("implement"), false);
+  assert.equal(MATT_SKILLS.includes("resolving-merge-conflicts"), false);
+});
+
+test("installed update intent follows a retained project manifest before global config", (t) => {
+  const { project, home } = fixture(t);
+  const distribution = createDistribution();
+  assert.equal(distribution.commit(distribution.evaluate({ projectRoot: project, home, scope: "project", platforms: ["codex"], matt: "none" }).plan).ok, true);
+  fs.writeFileSync(path.join(project, ".matrix", "config.yaml"), "schema: matrix/config/v1\ninstallation_scope: global\nlanguage: en\n");
+  fs.mkdirSync(path.join(home, ".matrix"), { recursive: true });
+  fs.writeFileSync(path.join(home, ".matrix", "installation.json"), JSON.stringify({ language: "zh-CN", platforms: { "claude-code": {} } }));
+  const installed = installedIntent({ projectRoot: project, home });
+  assert.equal(installed.intent.scope, "project");
+  assert.deepEqual(installed.intent.platforms, ["codex"]);
+  assert.equal(installed.intent.language, "en");
 });
 
 test("plans and commits Claude Code and Codex without touching unrelated skills", (t) => {
@@ -54,6 +91,7 @@ test("plans and commits Claude Code and Codex without touching unrelated skills"
   const fallback = spawnSync(process.execPath, [path.join(project, ".claude", "skills", "matrix", "scripts", "matrix-runtime.mjs"), "inspect"], { cwd: project, encoding: "utf8" });
   assert.equal(fallback.status, 2);
   assert.equal(JSON.parse(fallback.stdout).code, "NO_ACTIVE_CHANGE");
+  assert.doesNotMatch(fallback.stderr, /MODULE_TYPELESS_PACKAGE_JSON/);
   assert.equal(fs.readFileSync(path.join(custom, "SKILL.md"), "utf8"), "custom");
   assert.ok(fs.existsSync(path.join(project, ".matrix", "installation.json")));
   const repeated = distribution.evaluate({ projectRoot: project, home, platforms: ["claude-code", "codex"], language: "en" });
@@ -116,7 +154,7 @@ test("Chinese installation uses the Chinese Matrix guidance cohort", (t) => {
   assert.equal(installedIntent({ projectRoot: project, home }).intent.language, "zh-CN");
 });
 
-test("project Arch detection combines local and global managed skills for the same platform", (t) => {
+test("project Matt readiness never combines local and global Skills", (t) => {
   const { project, home } = fixture(t);
   fs.mkdirSync(path.join(project, ".claude", "skills", "grilling"), { recursive: true });
   fs.writeFileSync(path.join(project, ".claude", "skills", "grilling", "SKILL.md"), "local");
@@ -125,9 +163,64 @@ test("project Arch detection combines local and global managed skills for the sa
     fs.writeFileSync(path.join(home, ".claude", "skills", skill, "SKILL.md"), "global");
   }
   const evaluation = createDistribution().evaluate({ projectRoot: project, home, platforms: ["claude-code"] });
-  assert.equal(evaluation.observations[0].matt.state, "complete");
-  assert.equal(evaluation.observations[0].matt.inherited, 9);
-  assert.deepEqual(evaluation.observations[0].matt.missing, []);
+  assert.equal(evaluation.observations[0].matt.state, "partial");
+  assert.equal(evaluation.observations[0].matt.inherited, 0);
+  assert.equal(evaluation.observations[0].matt.ignoredGlobal, MATT_SKILLS.length - 1);
+  assert.deepEqual(evaluation.observations[0].matt.missing, MATT_SKILLS.filter((skill) => skill !== "grilling"));
+});
+
+test("global Matrix scope still installs Matt only into the target project", (t) => {
+  const { project, home } = fixture(t);
+  const globalMatt = path.join(home, ".agents", "skills", "tdd");
+  fs.mkdirSync(globalMatt, { recursive: true });
+  fs.writeFileSync(path.join(globalMatt, "SKILL.md"), "global-user-copy");
+  const calls = [];
+  const candidate = fakeCandidate(path.join(home, "global-project-candidate"), ["codex"], (skill) => `# ${skill}\n`);
+  const distribution = createDistribution({ mattContentHashes: fakeMattHashes((skill) => `# ${skill}\n`), mattAdapter: {
+    prepareCandidate(request) {
+      calls.push(request);
+      return candidate;
+    },
+    discardCandidate() {}
+  } });
+  const evaluation = distribution.evaluate({ projectRoot: project, home, scope: "global", platforms: ["codex"], matt: "missing", nonInteractive: true });
+  assert.equal(distribution.commit(evaluation.plan).ok, true);
+  assert.equal(calls.length, 1);
+  assert.deepEqual(calls[0].platforms, ["codex"]);
+  assert.ok(fs.existsSync(path.join(home, ".agents", "skills", "matrix", "SKILL.md")));
+  assert.ok(fs.existsSync(path.join(project, ".agents", "skills", "grilling", "SKILL.md")));
+  assert.equal(fs.readFileSync(path.join(globalMatt, "SKILL.md"), "utf8"), "global-user-copy");
+  assert.ok(fs.existsSync(path.join(project, ".matrix", "matt-installation.json")));
+  assert.equal(fs.existsSync(path.join(home, ".matrix", "matt-installation.json")), false);
+});
+
+test("two global-scope Matrix projects retain independent Matt receipts", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-global-projects-"));
+  const home = path.join(root, "home");
+  const projects = [path.join(root, "one"), path.join(root, "two")];
+  fs.mkdirSync(home, { recursive: true });
+  for (const project of projects) fs.mkdirSync(project, { recursive: true });
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  for (const [index, project] of projects.entries()) {
+    const candidate = path.join(root, `candidate-${index}`);
+    const candidateRoot = path.join(candidate, ".agents", "skills");
+    for (const skill of MATT_SKILLS) {
+      const target = path.join(candidateRoot, skill);
+      fs.mkdirSync(target, { recursive: true });
+      fs.writeFileSync(path.join(target, "SKILL.md"), `${index}:${skill}\n`);
+    }
+    const distribution = createDistribution({ mattContentHashes: fakeMattHashes((skill) => `${index}:${skill}\n`), mattAdapter: {
+      prepareCandidate() { return { ok: true, code: "OK", root: candidate, platforms: { codex: candidateRoot } }; },
+      discardCandidate() {}
+    } });
+    const evaluation = distribution.evaluate({ projectRoot: project, home, scope: "global", platforms: ["codex"], matt: "missing", nonInteractive: true });
+    assert.equal(distribution.commit(evaluation.plan).ok, true);
+  }
+  const first = fs.readFileSync(mattReceiptPath(projects[0]), "utf8");
+  const second = fs.readFileSync(mattReceiptPath(projects[1]), "utf8");
+  assert.notEqual(first, second);
+  assert.match(fs.readFileSync(path.join(projects[0], ".agents", "skills", "tdd", "SKILL.md"), "utf8"), /^0:/);
+  assert.match(fs.readFileSync(path.join(projects[1], ".agents", "skills", "tdd", "SKILL.md"), "utf8"), /^1:/);
 });
 
 test("fresh installation records Prim as the only available orchestration without Arch", (t) => {
@@ -142,25 +235,21 @@ test("fresh installation records Prim as the only available orchestration withou
 
 test("verified Arch setup records hashes and defaults first non-interactive setup to Arch", (t) => {
   const { project, home } = fixture(t);
+  const candidate = fakeCandidate(path.join(home, "arch-candidate"), ["claude-code", "codex"], (skill) => `# ${skill}\n`);
   const adapter = {
-    installMissing({ platforms, skills }) {
-      for (const platform of platforms) {
-        const root = path.join(project, platform === "codex" ? ".agents" : ".claude", "skills");
-        for (const skill of skills) {
-          fs.mkdirSync(path.join(root, skill), { recursive: true });
-          fs.writeFileSync(path.join(root, skill, "SKILL.md"), `# ${skill}\n`);
-        }
-      }
-      return { ok: true, code: "OK" };
-    }
+    prepareCandidate() { return candidate; },
+    discardCandidate() {}
   };
-  const distribution = createDistribution({ mattAdapter: adapter });
+  const distribution = createDistribution({ mattAdapter: adapter, mattContentHashes: fakeMattHashes((skill) => `# ${skill}\n`) });
   const evaluation = distribution.evaluate({ projectRoot: project, home, platforms: ["claude-code", "codex"], matt: "missing", nonInteractive: true });
   assert.equal(distribution.commit(evaluation.plan).ok, true);
   const manifest = JSON.parse(fs.readFileSync(path.join(project, ".matrix", "installation.json"), "utf8"));
+  const receipt = JSON.parse(fs.readFileSync(path.join(project, ".matrix", "matt-installation.json"), "utf8"));
+  assert.equal(manifest.version, 3);
   assert.deepEqual(manifest.orchestration, { default: "arch", available: ["prim", "arch"] });
-  assert.equal(Object.keys(manifest.platforms.codex.matt.skills).length, MATT_SKILLS.length);
-  assert.equal(Object.keys(manifest.platforms["claude-code"].matt.skills).length, MATT_SKILLS.length);
+  assert.equal(manifest.platforms.codex.matt, undefined);
+  assert.equal(Object.keys(receipt.platforms.codex.skills).length, MATT_SKILLS.length);
+  assert.equal(Object.keys(receipt.platforms["claude-code"].skills).length, MATT_SKILLS.length);
   assert.match(fs.readFileSync(path.join(project, ".matrix", "config.yaml"), "utf8"), /^default_orchestration: arch$/m);
 });
 
@@ -175,17 +264,34 @@ test("rerunning setup preserves an existing orchestration default unless explici
   assert.match(fs.readFileSync(path.join(project, ".matrix", "config.yaml"), "utf8"), /^default_orchestration: prim$/m);
 });
 
+test("rerunning init without Matt preserves an existing compatible Arch receipt", (t) => {
+  const { project, home } = fixture(t);
+  const hashes = fakeMattHashes((skill) => `# ${skill}\n`);
+  const candidate = fakeCandidate(path.join(home, "preserved-arch-candidate"), ["codex"], (skill) => `# ${skill}\n`);
+  const distribution = createDistribution({
+    mattContentHashes: hashes,
+    mattAdapter: { prepareCandidate() { return candidate; }, discardCandidate() {} }
+  });
+  const installed = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "missing", nonInteractive: true });
+  assert.equal(distribution.commit(installed.plan).ok, true);
+  const receiptFile = mattReceiptPath(project);
+  const receiptBefore = fs.readFileSync(receiptFile, "utf8");
+
+  const repeated = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none" });
+  const result = distribution.commit(repeated.plan);
+
+  assert.equal(result.ok, true);
+  assert.equal(fs.readFileSync(receiptFile, "utf8"), receiptBefore);
+  const manifest = JSON.parse(fs.readFileSync(path.join(project, ".matrix", "installation.json"), "utf8"));
+  assert.deepEqual(manifest.orchestration, { default: "arch", available: ["prim", "arch"] });
+});
+
 test("failed Arch platform expansion preserves the configured platform set", (t) => {
   const { project, home } = fixture(t);
-  const installing = createDistribution({ mattAdapter: {
-    installMissing({ platforms, skills }) {
-      for (const platform of platforms) for (const skill of skills) {
-        const target = path.join(project, platform === "codex" ? ".agents" : ".claude", "skills", skill);
-        fs.mkdirSync(target, { recursive: true });
-        fs.writeFileSync(path.join(target, "SKILL.md"), skill);
-      }
-      return { ok: true, code: "OK" };
-    }
+  const candidate = fakeCandidate(path.join(home, "initial-candidate"), ["codex"], (skill) => skill);
+  const installing = createDistribution({ mattContentHashes: fakeMattHashes((skill) => skill), mattAdapter: {
+    prepareCandidate() { return candidate; },
+    discardCandidate() {}
   } });
   assert.equal(installing.commit(installing.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "missing", nonInteractive: true }).plan).ok, true);
   const manifestFile = path.join(project, ".matrix", "installation.json");
@@ -193,7 +299,7 @@ test("failed Arch platform expansion preserves the configured platform set", (t)
   const manifestBefore = fs.readFileSync(manifestFile, "utf8");
   const configBefore = fs.readFileSync(configFile, "utf8");
 
-  const failing = createDistribution({ mattAdapter: { installMissing() { return { ok: false, code: "MATT_INSTALL_FAILED" }; } } });
+  const failing = createDistribution({ mattAdapter: { prepareCandidate() { return { ok: false, code: "MATT_INSTALL_FAILED", recovery: "failed" }; } } });
   const expansion = failing.evaluate({ projectRoot: project, home, platforms: ["claude-code"], matt: "missing", nonInteractive: true });
   const result = failing.commit(expansion.plan);
   assert.equal(result.code, "PARTIAL");
@@ -202,7 +308,7 @@ test("failed Arch platform expansion preserves the configured platform set", (t)
   assert.equal(fs.readFileSync(configFile, "utf8"), configBefore);
 });
 
-test("excluded user Skills are preserved and reported as unmanaged extras", (t) => {
+test("pre-existing explicit and incompatible Skills are preserved while incompatible extras are reported", (t) => {
   const { project, home } = fixture(t);
   for (const skill of ["grill-with-docs", "implement", "improve-codebase-architecture"]) {
     const target = path.join(project, ".agents", "skills", skill);
@@ -213,8 +319,255 @@ test("excluded user Skills are preserved and reported as unmanaged extras", (t) 
   const evaluation = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none" });
   assert.equal(distribution.commit(evaluation.plan).ok, true);
   const diagnosis = distribution.diagnose({ projectRoot: project, home, platforms: ["codex"], matt: "none" });
-  assert.deepEqual(diagnosis.diagnosis.find((item) => item.code === "ARCH_UNMANAGED_EXTRA").skills, ["grill-with-docs", "implement", "improve-codebase-architecture"]);
+  const unmanaged = diagnosis.diagnosis.find((item) => item.code === "ARCH_UNMANAGED_EXTRA");
+  assert.deepEqual(unmanaged.skills, ["implement"]);
+  assert.equal(diagnosis.observations[0].matt.present, 2);
   assert.equal(fs.readFileSync(path.join(project, ".agents", "skills", "implement", "SKILL.md"), "utf8"), "user-owned");
+});
+
+test("unverified local Matt files cannot self-attest an Arch receipt", (t) => {
+  const { project, home } = fixture(t);
+  for (const skill of MATT_SKILLS) {
+    const target = path.join(project, ".agents", "skills", skill);
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(target, "SKILL.md"), `arbitrary ${skill}\n`);
+  }
+  const distribution = createDistribution();
+  const evaluation = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none" });
+  assert.equal(distribution.commit(evaluation.plan).code, "OK");
+  const manifest = JSON.parse(fs.readFileSync(path.join(project, ".matrix", "installation.json"), "utf8"));
+  assert.deepEqual(manifest.orchestration.available, ["prim"]);
+  assert.equal(fs.existsSync(mattReceiptPath(project)), false);
+  const arch = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none", defaultOrchestration: "arch" });
+  assert.equal(arch.code, "ARCH_INSTALLATION_INCOMPLETE");
+});
+
+test("Distribution fails closed when a Matt adapter cannot provide an isolated candidate", (t) => {
+  const { project, home } = fixture(t);
+  let directInstallCalls = 0;
+  const distribution = createDistribution({ mattAdapter: {
+    installMissing({ skills }) {
+      directInstallCalls += 1;
+      for (const skill of skills) {
+        const target = path.join(project, ".agents", "skills", skill);
+        fs.mkdirSync(target, { recursive: true });
+        fs.writeFileSync(path.join(target, "SKILL.md"), `wrong ${skill}\n`);
+      }
+      return { ok: true, code: "OK" };
+    }
+  } });
+  const result = distribution.commit(distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "missing", nonInteractive: true }).plan);
+  assert.equal(result.code, "PARTIAL");
+  assert.equal(directInstallCalls, 0);
+  assert.equal(fs.existsSync(mattReceiptPath(project)), false);
+  assert.equal(fs.existsSync(path.join(project, ".agents", "skills", "tdd")), false);
+});
+
+test("Matt installation commits a staged candidate without exposing the project to the skills CLI", (t) => {
+  const { project, home } = fixture(t);
+  const lockFile = path.join(project, "skills-lock.json");
+  fs.writeFileSync(lockFile, "user-lock-bytes\n");
+  const candidate = path.join(home, "matrix-owned-candidate");
+  const candidateSkillRoot = path.join(candidate, ".agents", "skills");
+  for (const skill of MATT_SKILLS) {
+    const target = path.join(candidateSkillRoot, skill);
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(target, "SKILL.md"), `# ${skill}\n`);
+  }
+  let prepared = null;
+  let discarded = false;
+  const distribution = createDistribution({ mattContentHashes: fakeMattHashes((skill) => `# ${skill}\n`), mattAdapter: {
+    prepareCandidate(request) {
+      prepared = request;
+      return { ok: true, code: "OK", root: candidate, platforms: { codex: candidateSkillRoot } };
+    },
+    discardCandidate(result) {
+      assert.equal(result.root, candidate);
+      discarded = true;
+    }
+  } });
+  const evaluation = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "missing", nonInteractive: true });
+  const result = distribution.commit(evaluation.plan);
+  assert.equal(result.ok, true, result.error);
+  assert.deepEqual(prepared.platforms, ["codex"]);
+  assert.deepEqual(prepared.skills, MATT_SKILLS);
+  assert.equal(discarded, true);
+  assert.equal(fs.readFileSync(lockFile, "utf8"), "user-lock-bytes\n");
+  for (const skill of MATT_SKILLS) assert.ok(fs.existsSync(path.join(project, ".agents", "skills", skill, "SKILL.md")), skill);
+});
+
+test("Arch readiness requires every reviewed Matt hash to match its trusted receipt record", (t) => {
+  const { project, home } = fixture(t);
+  const candidate = path.join(home, "matrix-owned-candidate");
+  const hashes = fakeMattHashes((skill) => `# ${skill}\n`);
+  const distribution = createDistribution({
+    mattContentHashes: hashes,
+    mattAdapter: {
+      prepareCandidate() { return fakeCandidate(candidate, ["codex"], (skill) => `# ${skill}\n`); }
+    }
+  });
+  const installed = distribution.commit(distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "missing", nonInteractive: true }).plan);
+  assert.equal(installed.ok, true, installed.error);
+  const receiptFile = mattReceiptPath(project);
+  const receipt = JSON.parse(fs.readFileSync(receiptFile, "utf8"));
+  receipt.platforms.codex.skills[MATT_SKILLS[0]].hash = "incorrect-recorded-hash";
+  fs.writeFileSync(receiptFile, `${JSON.stringify(receipt, null, 2)}\n`);
+  const evaluation = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none", defaultOrchestration: "arch" });
+  assert.equal(evaluation.code, "ARCH_INSTALLATION_INCOMPLETE");
+});
+
+test("Distribution rejects a staged candidate that differs from the reviewed release", (t) => {
+  const { project, home } = fixture(t);
+  const candidate = path.join(home, "untrusted-candidate");
+  const candidateRoot = path.join(candidate, ".agents", "skills");
+  for (const skill of MATT_SKILLS) {
+    const target = path.join(candidateRoot, skill);
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(target, "SKILL.md"), `untrusted ${skill}\n`);
+  }
+  const distribution = createDistribution({ mattAdapter: {
+    prepareCandidate() { return { ok: true, code: "OK", root: candidate, platforms: { codex: candidateRoot } }; },
+    discardCandidate() {}
+  } });
+  const result = distribution.commit(distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "missing", nonInteractive: true }).plan);
+  assert.equal(result.code, "MATRIX_COMMIT_FAILED");
+  assert.match(result.error, /did not match the reviewed release/);
+  assert.equal(fs.existsSync(mattReceiptPath(project)), false);
+  assert.equal(fs.existsSync(path.join(project, ".agents", "skills", "tdd")), false);
+});
+
+test("explicit Matt init safely replaces receipt-matching older content with the pinned candidate", (t) => {
+  const { project, home } = fixture(t);
+  const oldCandidate = fakeCandidate(path.join(home, "old-candidate"), ["codex"], (skill) => `old ${skill}\n`);
+  const legacy = createDistribution({ mattContentHashes: fakeMattHashes((skill) => `old ${skill}\n`), mattAdapter: {
+    prepareCandidate() { return oldCandidate; },
+    discardCandidate() {}
+  } });
+  assert.equal(legacy.commit(legacy.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "missing", nonInteractive: true }).plan).ok, true);
+
+  const candidate = path.join(home, "new-candidate");
+  const candidateRoot = path.join(candidate, ".agents", "skills");
+  for (const skill of MATT_SKILLS) {
+    const target = path.join(candidateRoot, skill);
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(target, "SKILL.md"), `new ${skill}\n`);
+  }
+  let prepared = 0;
+  const updating = createDistribution({ mattContentHashes: fakeMattHashes((skill) => `new ${skill}\n`), mattAdapter: {
+    prepareCandidate() { prepared += 1; return { ok: true, code: "OK", root: candidate, platforms: { codex: candidateRoot } }; },
+    discardCandidate() {}
+  } });
+  const evaluation = updating.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "missing", nonInteractive: true });
+  assert.equal(evaluation.observations[0].matt.classifications.tdd.state, "safe-update");
+  assert.equal(updating.commit(evaluation.plan).ok, true);
+  assert.equal(prepared, 1);
+  assert.equal(fs.readFileSync(path.join(project, ".agents", "skills", "tdd", "SKILL.md"), "utf8"), "new tdd\n");
+});
+
+test("explicit Matt init preserves user modifications unless Matt replacement is separately authorized", (t) => {
+  const { project, home } = fixture(t);
+  const oldCandidate = fakeCandidate(path.join(home, "old-modified-candidate"), ["codex"], (skill) => `old ${skill}\n`);
+  const legacy = createDistribution({ mattContentHashes: fakeMattHashes((skill) => `old ${skill}\n`), mattAdapter: {
+    prepareCandidate() { return oldCandidate; },
+    discardCandidate() {}
+  } });
+  assert.equal(legacy.commit(legacy.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "missing", nonInteractive: true }).plan).ok, true);
+  const modified = path.join(project, ".agents", "skills", "tdd", "SKILL.md");
+  fs.appendFileSync(modified, "user change\n");
+  const candidate = path.join(home, "replacement-candidate");
+  const candidateRoot = path.join(candidate, ".agents", "skills");
+  for (const skill of MATT_SKILLS) {
+    const target = path.join(candidateRoot, skill);
+    fs.mkdirSync(target, { recursive: true });
+    fs.writeFileSync(path.join(target, "SKILL.md"), `new ${skill}\n`);
+  }
+  const adapter = { prepareCandidate() { return { ok: true, code: "OK", root: candidate, platforms: { codex: candidateRoot } }; }, discardCandidate() {} };
+  const guarded = createDistribution({ mattAdapter: adapter, mattContentHashes: fakeMattHashes((skill) => `new ${skill}\n`) });
+  const blockedEvaluation = guarded.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "missing", nonInteractive: true });
+  assert.equal(blockedEvaluation.observations[0].matt.classifications.tdd.state, "user-modified");
+  assert.equal(blockedEvaluation.code, "MATT_USER_MODIFIED");
+  const blocked = guarded.commit(blockedEvaluation.plan);
+  assert.equal(blocked.code, "MATT_USER_MODIFIED");
+  assert.match(fs.readFileSync(modified, "utf8"), /user change/);
+  const forced = createDistribution({ mattAdapter: adapter, mattContentHashes: fakeMattHashes((skill) => `new ${skill}\n`) });
+  const approved = forced.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "missing", mattPolicy: "replace", nonInteractive: true });
+  assert.equal(forced.commit(approved.plan).ok, true);
+  assert.equal(fs.readFileSync(modified, "utf8"), "new tdd\n");
+});
+
+test("installed update intent keeps Matt strictly read-only even when Arch is incomplete", (t) => {
+  const { project, home } = fixture(t);
+  const initial = createDistribution();
+  assert.equal(initial.commit(initial.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none" }).plan).ok, true);
+  const manifestFile = path.join(project, ".matrix", "installation.json");
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+  manifest.orchestration = { default: "arch", available: ["prim", "arch"] };
+  fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+  fs.writeFileSync(path.join(project, ".matrix", "config.yaml"), "schema: matrix/config/v1\ndefault_orchestration: arch\ninstallation_scope: project\nlanguage: en\n");
+  let calls = 0;
+  const distribution = createDistribution({ mattAdapter: { installMissing() { calls += 1; throw new Error("must stay read-only"); } } });
+  const installed = installedIntent({ projectRoot: project, home });
+  assert.equal(installed.intent.matt, "readonly");
+  const evaluation = distribution.evaluate(installed.intent);
+  assert.equal(evaluation.ok, true);
+  assert.equal(evaluation.actions[0].matt.kind, "keep");
+  const result = distribution.commit(evaluation.plan);
+  assert.equal(result.ok, true);
+  assert.equal(result.code, "OK");
+  assert.equal(calls, 0);
+  assert.deepEqual(JSON.parse(fs.readFileSync(manifestFile, "utf8")).orchestration.available, ["prim", "arch"]);
+});
+
+test("read-only update never recovers a pending init journal that can write Matt", (t) => {
+  const { project, home } = fixture(t);
+  const distribution = createDistribution();
+  assert.equal(distribution.commit(distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none" }).plan).ok, true);
+  const target = path.join(project, ".agents", "skills", "tdd");
+  const backup = path.join(project, ".matrix", "backups", "pending-init", "matt", "codex", "tdd");
+  fs.mkdirSync(target, { recursive: true });
+  fs.writeFileSync(path.join(target, "SKILL.md"), "new candidate\n");
+  fs.mkdirSync(backup, { recursive: true });
+  fs.writeFileSync(path.join(backup, "SKILL.md"), "old user bytes\n");
+  const journalFile = path.join(project, ".matrix", "transaction.json");
+  fs.writeFileSync(journalFile, JSON.stringify({ id: "pending-init", stagingRoot: path.join(project, ".matrix", "staging", "pending-init"), mattReceipt: { path: mattReceiptPath(project), written: true }, operations: [{ kind: "matt", target, backup, status: "committed" }] }));
+  const beforeTarget = fs.readFileSync(path.join(target, "SKILL.md"), "utf8");
+  const beforeBackup = fs.readFileSync(path.join(backup, "SKILL.md"), "utf8");
+  const installed = installedIntent({ projectRoot: project, home });
+  const result = distribution.commit(distribution.evaluate(installed.intent).plan);
+  assert.equal(result.code, "RECOVERY_REQUIRED");
+  assert.equal(fs.readFileSync(path.join(target, "SKILL.md"), "utf8"), beforeTarget);
+  assert.equal(fs.readFileSync(path.join(backup, "SKILL.md"), "utf8"), beforeBackup);
+  assert.ok(fs.existsSync(journalFile));
+});
+
+test("Matt target classification exposes every init approval state", () => {
+  assert.equal(classifyMattTarget({ present: false }), "missing");
+  assert.equal(classifyMattTarget({ present: true, readable: false }), "unreadable");
+  assert.equal(classifyMattTarget({ present: true, actual: "candidate", expected: "candidate", recorded: "candidate", receiptTrusted: true }), "matching");
+  assert.equal(classifyMattTarget({ present: true, actual: "candidate", expected: "candidate", receiptTrusted: false }), "adoptable");
+  assert.equal(classifyMattTarget({ present: true, actual: "old", expected: "candidate", recorded: "old", receiptTrusted: false }), "safe-update");
+  assert.equal(classifyMattTarget({ present: true, actual: "changed", expected: "candidate", recorded: "old", receiptTrusted: true }), "user-modified");
+});
+
+test("legacy active Matt records survive repeated read-only Matrix updates", (t) => {
+  const { project, home } = fixture(t);
+  const distribution = createDistribution();
+  assert.equal(distribution.commit(distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none" }).plan).ok, true);
+  const manifestFile = path.join(project, ".matrix", "installation.json");
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+  manifest.version = 2;
+  manifest.orchestration = { default: "arch", available: ["prim", "arch"] };
+  manifest.platforms.codex.matt = { state: "complete", skills: { grilling: { hash: "legacy-hash" } } };
+  fs.writeFileSync(manifestFile, `${JSON.stringify(manifest, null, 2)}\n`);
+  fs.writeFileSync(path.join(project, ".matrix", "config.yaml"), "schema: matrix/config/v1\ndefault_orchestration: arch\ninstallation_scope: project\nlanguage: en\n");
+
+  for (let pass = 0; pass < 2; pass += 1) {
+    const installed = installedIntent({ projectRoot: project, home });
+    const evaluation = distribution.evaluate(installed.intent);
+    const result = distribution.commit(evaluation.plan);
+    assert.equal(result.code, "OK");
+    assert.deepEqual(JSON.parse(fs.readFileSync(manifestFile, "utf8")).platforms.codex.matt, manifest.platforms.codex.matt);
+  }
 });
 
 test("newer manifest-backed Matrix cohorts are kept without downgrade", (t) => {
@@ -333,12 +686,14 @@ test("doctor reports and replacement repairs dangling managed links", (t) => {
   assert.equal(distribution.commit(evaluation.plan).ok, true); assert.ok(fs.existsSync(path.join(target, "SKILL.md")));
 });
 
-test("a malformed Matt directory remains missing and Matt execution is sealed into the plan", (t) => {
+test("a malformed Matt directory is classified before approval and never reaches the installer", (t) => {
   const { project, home } = fixture(t); const malformed = path.join(project, ".agents", "skills", "tdd"); fs.mkdirSync(malformed, { recursive: true });
   const calls = []; const distribution = createDistribution({ mattAdapter: { installMissing(request) { calls.push(request); return { ok: false, code: "MATT_INSTALL_FAILED" }; } } });
   const evaluation = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "missing" });
   assert.ok(evaluation.observations[0].matt.missing.includes("tdd"));
-  const result = distribution.commit(evaluation.plan); assert.equal(result.code, "PARTIAL"); assert.equal(calls.length, 1); assert.deepEqual(calls[0].platforms, ["codex"]);
+  assert.equal(evaluation.observations[0].matt.classifications.tdd.state, "user-modified");
+  assert.equal(evaluation.code, "MATT_USER_MODIFIED");
+  const result = distribution.commit(evaluation.plan); assert.equal(result.code, "MATT_USER_MODIFIED"); assert.equal(calls.length, 0);
 });
 
 test("Matt success requires filesystem postconditions before Matrix reports completion", (t) => {

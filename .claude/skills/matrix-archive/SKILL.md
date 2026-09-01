@@ -16,8 +16,8 @@ Archive is Matrix-owned in both Prim and Arch. Do not invoke companion implement
 Run the read-only preflight and review its bounded effect summary. Then submit exactly the hash returned by that preflight:
 
 ```powershell
-matrix workflow archive --dry-run
-matrix workflow archive --expect-preflight <sha256-returned-by-dry-run>
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs archive --dry-run
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs archive --expect-preflight <sha256-returned-by-dry-run>
 ```
 
 Bare Archive is rejected. Runtime reacquires the project Archive boundary and recomputes the entire protected change-directory manifest before committing.
@@ -30,7 +30,7 @@ For hotfix/tweak, ask for explicit confirmation after reviewing the preflight, t
 If acceptance criteria or design must change while awaiting confirmation, use the sole Archive recovery path:
 
 ```powershell
-matrix workflow return design --reason acceptance-or-design-gap
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs return design --reason acceptance-or-design-gap
 ```
 
 After successful commit, the change is under `.matrix/archive/` and the workflow is complete.

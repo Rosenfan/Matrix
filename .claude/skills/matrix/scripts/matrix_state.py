@@ -22,10 +22,6 @@ def primary_runtime() -> str | None:
 
 
 def runtime_command(args: list[str]) -> list[str]:
-    primary = primary_runtime()
-    if primary is not None:
-        return [primary, "workflow", *args, "--json"]
-
     development = development_runtime()
     if development is not None:
         if not development.is_file():
@@ -39,6 +35,10 @@ def runtime_command(args: list[str]) -> list[str]:
     node = shutil.which("node")
     if node is not None and bundled.exists():
         return [node, str(bundled), *args]
+
+    primary = primary_runtime()
+    if primary is not None:
+        return [primary, "workflow", *args, "--json"]
 
     raise RuntimeError("Matrix CLI is absent and the bundled workflow runtime was not found.")
 

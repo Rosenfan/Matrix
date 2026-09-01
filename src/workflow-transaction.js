@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import crypto from "node:crypto";
+import { fileURLToPath } from "node:url";
 
 const JOURNAL_SCHEMA = "matrix/workflow-transaction/v1";
 const RECEIPT_SCHEMA = "matrix/workflow-transaction-receipt/v1";
@@ -9,6 +10,9 @@ const LOCK_SCHEMA = "matrix/workflow-lock/v1";
 const MAX_JOURNAL_BYTES = 1024 * 1024;
 const MAX_TRANSACTIONS = 128;
 const RECEIPT_LIMIT = 32;
+const quoteCommandPath = (value) => process.platform === "win32" ? `"${value}"` : `'${value.replaceAll("'", "'\\''")}'`;
+const workflowRuntimePath = path.join(path.dirname(fileURLToPath(import.meta.url)), "matrix-runtime.mjs");
+const workflowCommand = (argumentsText) => `node ${quoteCommandPath(workflowRuntimePath)} ${argumentsText}`;
 
 const stamp = () => new Date().toISOString().replace(/\.\d{3}Z$/, "Z");
 const fail = (code, message, extra = {}) => ({ ok: false, code, message, ...extra });
@@ -430,11 +434,11 @@ export function workflowMutationGate(cwd) {
   let pending;
   try { pending = pendingTransactions(cwd); }
   catch (error) { return recoverError(error, null); }
-  if (pending.length) return fail("WORKFLOW_RECOVERY_REQUIRED", "An unfinished Workflow transaction must be resolved before starting another mutation.", { transactions: pending.map(({ id }) => id), recovery_command: "matrix workflow doctor" });
+  if (pending.length) return fail("WORKFLOW_RECOVERY_REQUIRED", "An unfinished Workflow transaction must be resolved before starting another mutation.", { transactions: pending.map(({ id }) => id), recovery_command: workflowCommand("doctor") });
   const currentLock = readLock(cwd);
   if (!currentLock) return null;
   const owner = lockOwner(currentLock);
-  return fail(owner === "active" ? "WORKFLOW_BUSY" : owner === "absent" ? "WORKFLOW_RECOVERY_REQUIRED" : "WORKFLOW_LOCK_CONFLICT", owner === "active" ? "An active Workflow mutation owns the project boundary." : "A Workflow lock requires explicit doctor recovery.", { lock_id: currentLock.id, transaction_id: currentLock.transaction_id, recovery_command: "matrix workflow doctor" });
+  return fail(owner === "active" ? "WORKFLOW_BUSY" : owner === "absent" ? "WORKFLOW_RECOVERY_REQUIRED" : "WORKFLOW_LOCK_CONFLICT", owner === "active" ? "An active Workflow mutation owns the project boundary." : "A Workflow lock requires explicit doctor recovery.", { lock_id: currentLock.id, transaction_id: currentLock.transaction_id, recovery_command: workflowCommand("doctor") });
 }
 
 function compactReceipt(cwd, journal, disposition) {
@@ -474,7 +478,7 @@ function recoverError(error, transactionId) {
   const code = error.code && String(error.code).startsWith("WORKFLOW_") ? error.code : "WORKFLOW_PERSISTENCE_FAILED";
   return fail(code, error.message, {
     transaction_id: transactionId,
-    recovery_command: `matrix workflow doctor --repair --transaction ${transactionId} --strategy continue`
+    recovery_command: workflowCommand(`doctor --repair --transaction ${transactionId} --strategy continue`)
   });
 }
 
@@ -559,7 +563,7 @@ function repairTransaction(cwd, id, strategy) {
 }
 
 function exactCommands(transaction) {
-  return transaction.strategies.map((strategy) => `matrix workflow doctor --repair --transaction ${transaction.id} --strategy ${strategy}`);
+  return transaction.strategies.map((strategy) => workflowCommand(`doctor --repair --transaction ${transaction.id} --strategy ${strategy}`));
 }
 
 export function workflowDoctor(cwd, { repair = false, transaction = null, strategy = null, lock = null } = {}) {
@@ -585,7 +589,7 @@ export function workflowDoctor(cwd, { repair = false, transaction = null, strate
         transaction_id: currentLock.transaction_id,
         owner,
         commands: owner === "absent" && !transactions.some((item) => item.id === currentLock.transaction_id && (item.corrupt || !["committed", "rolled-back"].includes(item.status)))
-          ? [`matrix workflow doctor --repair --lock ${currentLock.id}`]
+          ? [workflowCommand(`doctor --repair --lock ${currentLock.id}`)]
           : []
       }] : [])
     ];
