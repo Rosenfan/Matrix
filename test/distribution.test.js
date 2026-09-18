@@ -42,6 +42,26 @@ function fakeCandidate(base, platforms, contentsFor) {
   return { ok: true, code: "OK", root: base, platforms: roots };
 }
 
+// Digests exactly as 0.1.4 computed them: raw bytes, no EOL normalization.
+function rawHashDirectory(directory) {
+  const hash = crypto.createHash("sha256");
+  const files = [];
+  const visit = (current, relative = "") => {
+    for (const entry of fs.readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      const child = path.join(current, entry.name);
+      const childRelative = path.join(relative, entry.name).replaceAll("\\", "/");
+      if (entry.isDirectory()) visit(child, childRelative);
+      else if (entry.isFile()) files.push([childRelative, fs.readFileSync(child)]);
+    }
+  };
+  visit(directory);
+  for (const [relative, contents] of files.sort(([left], [right]) => left.localeCompare(right))) {
+    hash.update(`${relative}\0`);
+    hash.update(contents);
+  }
+  return hash.digest("hex");
+}
+
 test("requires a platform when no verified platform can be detected", (t) => {
   const { project, home } = fixture(t);
   const result = createDistribution().evaluate({ projectRoot: project, home, language: "en" });
@@ -245,7 +265,7 @@ test("verified Arch setup records hashes and defaults first non-interactive setu
   assert.equal(distribution.commit(evaluation.plan).ok, true);
   const manifest = JSON.parse(fs.readFileSync(path.join(project, ".matrix", "installation.json"), "utf8"));
   const receipt = JSON.parse(fs.readFileSync(path.join(project, ".matrix", "matt-installation.json"), "utf8"));
-  assert.equal(manifest.version, 3);
+  assert.equal(manifest.version, 4);
   assert.deepEqual(manifest.orchestration, { default: "arch", available: ["prim", "arch"] });
   assert.equal(manifest.platforms.codex.matt, undefined);
   assert.equal(Object.keys(receipt.platforms.codex.skills).length, MATT_SKILLS.length);
@@ -570,8 +590,29 @@ test("legacy active Matt records survive repeated read-only Matrix updates", (t)
   }
 });
 
-test("newer manifest-backed Matrix cohorts are kept without downgrade", (t) => {
+test("v3 manifests from a CRLF checkout refresh safely under normalized digests", (t) => {
   const { project, home } = fixture(t);
+  const distribution = createDistribution();
+  assert.equal(distribution.commit(distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none", nonInteractive: true }).plan).ok, true);
+  const manifestFile = path.join(project, ".matrix", "installation.json");
+  // Simulate a 0.1.4-era install: manifest v3 with raw-byte hashes over CRLF content.
+  const guidance = path.join(project, ".agents", "skills", "matrix", "SKILL.md");
+  fs.writeFileSync(guidance, fs.readFileSync(guidance, "utf8").replaceAll("\r\n", "\n").replaceAll("\n", "\r\n"));
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+  manifest.version = 3;
+  manifest.catalogVersion = "0.0.9";
+  for (const record of Object.values(manifest.platforms)) {
+    for (const skill of MATRIX_SKILLS) record.skills[skill] = { hash: rawHashDirectory(path.join(record.root, skill)) };
+  }
+  fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2));
+
+  const evaluation = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "readonly", nonInteractive: true, matrixPolicy: "safe" });
+  assert.equal(evaluation.code, "OK");
+  assert.equal(distribution.commit(evaluation.plan).ok, true);
+  assert.equal(JSON.parse(fs.readFileSync(manifestFile, "utf8")).version, 4);
+});
+
+test("newer manifest-backed Matrix cohorts are kept without downgrade", (t) => {  const { project, home } = fixture(t);
   const distribution = createDistribution();
   const evaluation = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"] });
   assert.equal(distribution.commit(evaluation.plan).ok, true);

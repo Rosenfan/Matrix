@@ -193,6 +193,9 @@ function workspaceOrderGuard(cwd, p) {
   }
   return { ok: true, code: "OK", baseline_hash: baseline.hash, current_hash: current.hash };
 }
+// Same normalization contract as catalog.js hashDirectory: the Arch integrity check
+// must agree with the installer digest regardless of checkout line endings.
+const normalizeEol = (contents) => Buffer.from(contents.toString("utf8").replaceAll("\r\n", "\n").replaceAll("\r", "\n"), "utf8");
 function hashDirectory(directory) {
   const hash = crypto.createHash("sha256");
   const files = [];
@@ -207,7 +210,7 @@ function hashDirectory(directory) {
   visit(directory);
   for (const [relative, contents] of files.sort(([left], [right]) => left.localeCompare(right))) {
     hash.update(`${relative}\0`);
-    hash.update(contents);
+    hash.update(normalizeEol(contents));
   }
   return hash.digest("hex");
 }

@@ -16,13 +16,13 @@ test("package publishes under the documented Matrix name with a release gate", (
 
 test("Matrix Skill guidance has no Claude-only runtime path assumption", () => {
   for (const skill of ["matrix", "matrix-claude"]) {
-    const guidance = fs.readFileSync(path.join(root, ".claude", "skills", skill, "SKILL.md"), "utf8");
+    const guidance = fs.readFileSync(path.join(root, "assets", "skills", skill, "SKILL.md"), "utf8");
     assert.equal(guidance.includes(".claude/skills/matrix"), false, skill);
   }
 });
 
 test("Chinese release cohort contains every Matrix Skill with matching machine commands", () => {
-  const englishRoot = path.join(root, ".claude", "skills");
+  const englishRoot = path.join(root, "assets", "skills");
   const chineseRoot = path.join(root, "assets", "skills-zh-CN");
   const matrixSkills = ["matrix", "matrix-open", "matrix-design", "matrix-build", "matrix-verify", "matrix-archive", "matrix-hotfix", "matrix-tweak", "matrix-status", "matrix-claude"];
   for (const skill of matrixSkills) {
@@ -46,7 +46,7 @@ test("Chinese release cohort contains every Matrix Skill with matching machine c
 });
 
 test("Prim and Arch guidance classifies wrappers without automatically invoking them", () => {
-  for (const base of [path.join(root, ".claude", "skills"), path.join(root, "assets", "skills-zh-CN")]) {
+  for (const base of [path.join(root, "assets", "skills"), path.join(root, "assets", "skills-zh-CN")]) {
     const matrix = fs.readFileSync(path.join(base, "matrix", "SKILL.md"), "utf8");
     const build = fs.readFileSync(path.join(base, "matrix-build", "SKILL.md"), "utf8");
     assert.match(matrix, /Prim/);
@@ -61,7 +61,7 @@ test("Prim and Arch guidance classifies wrappers without automatically invoking 
 });
 
 test("published shortcut guidance shares one lightweight path with explicit approval", () => {
-  for (const base of [path.join(root, ".claude", "skills"), path.join(root, "assets", "skills-zh-CN")]) {
+  for (const base of [path.join(root, "assets", "skills"), path.join(root, "assets", "skills-zh-CN")]) {
     const open = fs.readFileSync(path.join(base, "matrix-open", "SKILL.md"), "utf8");
     const hotfix = fs.readFileSync(path.join(base, "matrix-hotfix", "SKILL.md"), "utf8");
     const tweak = fs.readFileSync(path.join(base, "matrix-tweak", "SKILL.md"), "utf8");
@@ -74,7 +74,7 @@ test("published shortcut guidance shares one lightweight path with explicit appr
 });
 
 test("every published phase Skill uses the project-bundled Runtime for workflow commands", () => {
-  for (const base of [path.join(root, ".claude", "skills"), path.join(root, "assets", "skills-zh-CN")]) {
+  for (const base of [path.join(root, "assets", "skills"), path.join(root, "assets", "skills-zh-CN")]) {
     for (const entry of fs.readdirSync(base, { withFileTypes: true }).filter((item) => item.isDirectory() && item.name.startsWith("matrix"))) {
       const guidance = fs.readFileSync(path.join(base, entry.name, "SKILL.md"), "utf8");
       assert.equal(guidance.includes("matrix workflow "), false, entry.name);
@@ -84,7 +84,7 @@ test("every published phase Skill uses the project-bundled Runtime for workflow 
 });
 
 test("English and Chinese Verify guidance require structured review evidence and a Runtime receipt", () => {
-  for (const base of [path.join(root, ".claude", "skills"), path.join(root, "assets", "skills-zh-CN")]) {
+  for (const base of [path.join(root, "assets", "skills"), path.join(root, "assets", "skills-zh-CN")]) {
     const guidance = fs.readFileSync(path.join(base, "matrix-verify", "SKILL.md"), "utf8");
     assert.match(guidance, /## Review evidence/);
     assert.match(guidance, /Standards/);

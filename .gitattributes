@@ -1,0 +1,10 @@
+# Release deliverables are hashed over EOL-normalized content, but keeping checkout
+# bytes identical to the packaged bytes removes the entire class of drift: publish
+# builds run from a clean checkout, so every source sees the same LF content.
+* text=auto
+*.png binary
+
+src/** text eol=lf
+bin/** text eol=lf
+assets/** text eol=lf
+test/** text eol=lf

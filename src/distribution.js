@@ -10,7 +10,10 @@ import { createMattAdapter, mattReceiptPath } from "./matt.js";
 import { MATT_CATALOG_DIGEST, MATT_COMPATIBILITY, MATT_CONTENT_HASHES } from "./matt-catalog.mjs";
 import { text } from "./messages.js";
 
-const VERSION = 3;
+// Manifest v4 records content digests computed over EOL-normalized bytes and the
+// assets/skills source layout; v3 manifests (raw-byte hashes, .claude/skills era)
+// stay readable and are refreshed to v4 by the next update.
+const VERSION = 4;
 const MATT_OPERATIONS = new Set(["none", "missing", "readonly"]);
 const digest = (value) => crypto.createHash("sha256").update(JSON.stringify(value)).digest("hex");
 const exists = (value) => fs.existsSync(value);

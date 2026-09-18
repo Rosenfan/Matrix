@@ -39,8 +39,8 @@ export function validateCandidate(packageRoot, expectedVersion) {
   try {
     const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
     if (manifest.name !== PACKAGE_NAME || manifest.version !== expectedVersion) return { ok: false, reason: "candidate package identity mismatch" };
-    for (const directory of [".claude/skills", "assets/skills-zh-CN", "src", "bin"]) if (!fs.existsSync(path.join(packageRoot, directory))) return { ok: false, reason: `candidate missing ${directory}` };
-    for (const languageRoot of [path.join(packageRoot, ".claude", "skills"), path.join(packageRoot, "assets", "skills-zh-CN")]) if (!fs.existsSync(path.join(languageRoot, "matrix", "SKILL.md"))) return { ok: false, reason: "candidate Matrix assets are incomplete" };
+    for (const directory of ["assets/skills", "assets/skills-zh-CN", "src", "bin"]) if (!fs.existsSync(path.join(packageRoot, directory))) return { ok: false, reason: `candidate missing ${directory}` };
+    for (const languageRoot of [path.join(packageRoot, "assets", "skills"), path.join(packageRoot, "assets", "skills-zh-CN")]) if (!fs.existsSync(path.join(languageRoot, "matrix", "SKILL.md"))) return { ok: false, reason: "candidate Matrix assets are incomplete" };
     for (const args of [["--version"], ["--help"], ["workflow", "doctor", "--json"]]) {
       const result = run(process.execPath, [path.join(packageRoot, "bin", "matrix.js"), ...args], { cwd: os.tmpdir() });
       if (!result.ok) return { ok: false, reason: `candidate command failed: matrix ${args.join(" ")}` };

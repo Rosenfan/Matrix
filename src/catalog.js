@@ -34,7 +34,7 @@ export const PLATFORMS = {
 export function sourceSkillsRoot(language = "en") {
   const localized = language === "zh-CN"
     ? path.join(packageRoot, "assets", "skills-zh-CN")
-    : path.join(packageRoot, ".claude", "skills");
+    : path.join(packageRoot, "assets", "skills");
   if (!fs.existsSync(localized)) throw new Error(`Matrix package is incomplete: ${language} assets are missing.`);
   return localized;
 }
@@ -50,6 +50,10 @@ export function installationRoot(scope, projectRoot, home) {
 export function manifestPath(scope, projectRoot, home) {
   return path.join(installationRoot(scope, projectRoot, home), "installation.json");
 }
+
+// Content digests must identify logical file content, not checkout line endings:
+// a git working tree (autocrlf CRLF), the npm tarball and a local tgz must agree.
+const normalizeEol = (contents) => Buffer.from(contents.toString("utf8").replaceAll("\r\n", "\n").replaceAll("\r", "\n"), "utf8");
 
 export function hashDirectory(directory, extraFiles = []) {
   const hash = crypto.createHash("sha256");
@@ -68,7 +72,7 @@ export function hashDirectory(directory, extraFiles = []) {
   for (const extra of extraFiles) files.set(extra.path, Buffer.from(extra.contents));
   for (const [relative, contents] of [...files.entries()].sort(([left], [right]) => left.localeCompare(right))) {
     hash.update(`${relative}\0`);
-    hash.update(contents);
+    hash.update(normalizeEol(contents));
   }
   return hash.digest("hex");
 }

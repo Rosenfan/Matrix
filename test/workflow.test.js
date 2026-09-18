@@ -10,8 +10,8 @@ import { MATT_AUTOMATIC_SKILLS, MATT_CATALOG_DIGEST, MATT_COMPATIBILITY } from "
 import { invoke } from "../src/workflow.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const stateAdapter = path.join(root, ".claude", "skills", "matrix", "scripts", "matrix_state.py");
-const claudeAdapter = path.join(root, ".claude", "skills", "matrix", "scripts", "matrix_claude.py");
+const stateAdapter = path.join(root, "assets", "skills", "matrix", "scripts", "matrix_state.py");
+const claudeAdapter = path.join(root, "assets", "skills", "matrix", "scripts", "matrix_claude.py");
 const python = spawnSync("python", ["-c", "import sys; print(sys.executable)"], { encoding: "utf8" }).stdout.trim();
 const adapterEnv = { ...process.env, PATH: path.dirname(process.execPath), MATRIX_DEVELOPMENT_RUNTIME: path.join(root, "src", "workflow.js") };
 
