@@ -1,0 +1,4 @@
+interface:
+  display_name: "Matrix Claude Handoff"
+  short_description: "Export frozen Matrix design as a Claude Code task"
+  default_prompt: "Use $matrix-claude to prepare a Claude Code task package."
