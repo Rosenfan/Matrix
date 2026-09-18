@@ -1,4 +1,0 @@
-interface:
-  display_name: "Matrix Workflow"
-  short_description: "Persistent development workflow stage"
-  default_prompt: "Use $name to continue a Matrix development workflow."

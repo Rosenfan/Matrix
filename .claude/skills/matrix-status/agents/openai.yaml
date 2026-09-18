@@ -1,4 +1,0 @@
-interface:
-  display_name: "Matrix Status"
-  short_description: "Inspect and recover active Matrix workflow state"
-  default_prompt: "Use $matrix-status to inspect the active Matrix workflow."

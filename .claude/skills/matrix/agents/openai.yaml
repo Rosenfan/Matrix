@@ -1,4 +1,0 @@
-interface:
-  display_name: "Matrix"
-  short_description: "Route, resume, and govern development changes"
-  default_prompt: "Use $matrix to start or resume a development change."
