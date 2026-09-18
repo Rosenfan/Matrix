@@ -194,13 +194,16 @@ function workspaceOrderGuard(cwd, p) {
   return { ok: true, code: "OK", baseline_hash: baseline.hash, current_hash: current.hash };
 }
 // Same normalization contract as catalog.js hashDirectory: the Arch integrity check
-// must agree with the installer digest regardless of checkout line endings.
+// must agree with the installer digest regardless of checkout line endings, and
+// generated caches must never enter either digest.
 const normalizeEol = (contents) => Buffer.from(contents.toString("utf8").replaceAll("\r\n", "\n").replaceAll("\r", "\n"), "utf8");
+const GENERATED_DIRS = new Set(["__pycache__"]);
 function hashDirectory(directory) {
   const hash = crypto.createHash("sha256");
   const files = [];
   const visit = (current, relative = "") => {
     for (const entry of fs.readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      if (entry.isDirectory() && GENERATED_DIRS.has(entry.name)) continue;
       const child = path.join(current, entry.name);
       const childRelative = path.join(relative, entry.name).replaceAll("\\", "/");
       if (entry.isDirectory()) visit(child, childRelative);

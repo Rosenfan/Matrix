@@ -53,13 +53,16 @@ export function manifestPath(scope, projectRoot, home) {
 
 // Content digests must identify logical file content, not checkout line endings:
 // a git working tree (autocrlf CRLF), the npm tarball and a local tgz must agree.
+// Generated caches (__pycache__) are skipped so dirty working trees cannot poison digests.
 const normalizeEol = (contents) => Buffer.from(contents.toString("utf8").replaceAll("\r\n", "\n").replaceAll("\r", "\n"), "utf8");
+const GENERATED_DIRS = new Set(["__pycache__"]);
 
 export function hashDirectory(directory, extraFiles = []) {
   const hash = crypto.createHash("sha256");
   const files = new Map();
   const visit = (current, relative = "") => {
     for (const entry of fs.readdirSync(current, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+      if (entry.isDirectory() && GENERATED_DIRS.has(entry.name)) continue;
       const child = path.join(current, entry.name);
       const childRelative = path.join(relative, entry.name).replaceAll("\\", "/");
       if (entry.isDirectory()) visit(child, childRelative);

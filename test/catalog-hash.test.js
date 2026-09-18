@@ -46,6 +46,12 @@ test("hashDirectory still distinguishes different content and honors extraFiles"
   assert.notEqual(withExtra, hashDirectory(left));
 });
 
+test("hashDirectory ignores generated cache directories", () => {
+  const clean = makeTree({ "scripts/tool.py": "print(1)\n" });
+  const dirty = makeTree({ "scripts/tool.py": "print(1)\n", "scripts/__pycache__/tool.cpython-313.pyc": "bytes" });
+  assert.equal(hashDirectory(dirty), hashDirectory(clean));
+});
+
 test("English release skills live in the platform-neutral assets source directory", () => {
   assert.equal(sourceSkillsRoot("en"), path.join(repoRoot, "assets", "skills"));
   assert.equal(sourceSkillsRoot("zh-CN"), path.join(repoRoot, "assets", "skills-zh-CN"));

@@ -13,7 +13,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const stateAdapter = path.join(root, "assets", "skills", "matrix", "scripts", "matrix_state.py");
 const claudeAdapter = path.join(root, "assets", "skills", "matrix", "scripts", "matrix_claude.py");
 const python = spawnSync("python", ["-c", "import sys; print(sys.executable)"], { encoding: "utf8" }).stdout.trim();
-const adapterEnv = { ...process.env, PATH: path.dirname(process.execPath), MATRIX_DEVELOPMENT_RUNTIME: path.join(root, "src", "workflow.js") };
+const adapterEnv = { ...process.env, PATH: path.dirname(process.execPath), PYTHONDONTWRITEBYTECODE: "1", MATRIX_DEVELOPMENT_RUNTIME: path.join(root, "src", "workflow.js") };
 
 function adapter(script, args, cwd) { return spawnSync(python, [script, ...args], { cwd, encoding: "utf8", env: adapterEnv }); }
 function statePath(cwd, id, archived = false) { return path.join(cwd, ".matrix", archived ? "archive" : "changes", id, "matrix.yaml"); }
