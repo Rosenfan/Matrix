@@ -57,11 +57,11 @@ test("a same-release self-consistent Runtime that differs from the release catal
   t.after(() => fs.rmSync(project, { recursive: true, force: true }));
   const matrix = path.join(project, ".agents", "skills", "matrix");
   fs.mkdirSync(path.join(matrix, "scripts"), { recursive: true });
-  fs.writeFileSync(path.join(matrix, "SKILL.md"), "# divergent 0.1.4 Runtime\n");
+  fs.writeFileSync(path.join(matrix, "SKILL.md"), "# divergent 0.1.5 Runtime\n");
   fs.writeFileSync(path.join(matrix, "scripts", "matrix-runtime.mjs"), "console.log('divergent');\n");
   fs.mkdirSync(path.join(project, ".matrix"), { recursive: true });
   fs.writeFileSync(path.join(project, ".matrix", "installation.json"), JSON.stringify({
-    catalogVersion: "0.1.4",
+    catalogVersion: "0.1.5",
     language: "en",
     catalogDigest: "self-consistent-but-not-release",
     platforms: { codex: { skills: { matrix: { hash: hashDirectory(matrix) } } } }
@@ -76,11 +76,11 @@ test("a same-release Runtime fails closed when its claimed catalog language is u
   t.after(() => fs.rmSync(project, { recursive: true, force: true }));
   const matrix = path.join(project, ".agents", "skills", "matrix");
   fs.mkdirSync(path.join(matrix, "scripts"), { recursive: true });
-  fs.writeFileSync(path.join(matrix, "SKILL.md"), "# divergent 0.1.4 Runtime\n");
+  fs.writeFileSync(path.join(matrix, "SKILL.md"), "# divergent 0.1.5 Runtime\n");
   fs.writeFileSync(path.join(matrix, "scripts", "matrix-runtime.mjs"), "console.log('divergent');\n");
   fs.mkdirSync(path.join(project, ".matrix"), { recursive: true });
   fs.writeFileSync(path.join(project, ".matrix", "installation.json"), JSON.stringify({
-    catalogVersion: "0.1.4",
+    catalogVersion: "0.1.5",
     language: "unsupported",
     catalogDigest: "self-consistent-but-not-release",
     platforms: { codex: { skills: { matrix: { hash: hashDirectory(matrix) } } } }

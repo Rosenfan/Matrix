@@ -130,7 +130,7 @@ matrix update --yes
 
 `matrix update` 会保留既有安装的 scope、平台、语言、mode 与 orchestration。它先隔离验证 npm 新包，再由新 CLI 同步 Matrix 资产；它绝不下载、安装、修复或删除 Matt Skills。Matrix 更新完成后只读报告项目 Matt 兼容状态，必要时提示 `matrix init . --with-mattpocock`。npm 与项目资产是两个事务：若 CLI 已更新但资产同步失败，可运行 `matrix update --skip-self-update` 重试。
 
-Matrix 0.1.4 固定对应 Matt Skills v1.2.3，commit 为 `6acc160e4e0cd062dbbbd7a1b26ae92855edf07e`。即使上游已有新版，`matrix init --with-mattpocock` 仍使用该确切 archive 与经过审查的 23 项兼容 manifest。官方角色中的 `implement` 与 raw `resolving-merge-conflicts` 不兼容，因此 Matrix 不安装也不管理它们。Matrix scope 只控制 Matrix Skill 的发现位置；Matt Skills 与 `.matrix/matt-installation.json` 始终属于目标项目。全局 Matt 副本会保留，但绝不用于补齐项目 readiness。
+Matrix 0.1.5 固定对应 Matt Skills v1.2.3，commit 为 `6acc160e4e0cd062dbbbd7a1b26ae92855edf07e`。即使上游已有新版，`matrix init --with-mattpocock` 仍使用该确切 archive 与经过审查的 23 项兼容 manifest。官方角色中的 `implement` 与 raw `resolving-merge-conflicts` 不兼容，因此 Matrix 不安装也不管理它们。Matrix scope 只控制 Matrix Skill 的发现位置；Matt Skills 与 `.matrix/matt-installation.json` 始终属于目标项目。全局 Matt 副本会保留，但绝不用于补齐项目 readiness。
 
 `matrix init` 选择的语言决定新 Matrix 产物的正文语言：`zh-CN` 使用中文、`en` 使用英文。Runtime 守卫依赖的 Markdown 英文标题 token 保持不变；每个 change 在创建时冻结该语言。
 
@@ -301,7 +301,7 @@ Matrix 可以推荐但绝不嵌套以下 user-invoked handoff：`setup-matt-poco
 
 Arch 在 `code-review` 后记录由 Runtime 管理的审查回执，把 fixed point 与已提交的 HEAD diff 绑定到当前 Contract、审查正文和工作区。正常的 `code-review` 回执要求 Matrix 管理资产之外的候选工作区是干净的。无可用 Git 基线、已提交 diff 为空、仍存在 staged/unstaged/untracked 候选，或正确安装的 capability 真实失败时，Matrix 可为该 revision 执行一次明确标记的同能力 fallback；其中 `uncommitted-worktree` 会同时绑定 fixed point 与完整工作区候选的内容 hash。安装完整性失败不得 fallback。只有标题或自述、但没有匹配回执时，Verify 不能推进。
 
-安装但保持 standalone 的 Skill 是 `ask-matt`、`grill-with-docs`、`triage`、`to-spec`、`to-tickets`、`grill-me`、`teach`、`wait-what`。`implement` 与 raw `resolving-merge-conflicts` 可能接管 Matrix 所有的 TDD、review、stage 或 commit 副作用，因此 0.1.4 不安装也不管理它们；已有副本会被保留并报告为未管理额外项。安装不代表自动调用；任何 companion 都不得推进、提交、归档、恢复或写 Matrix 状态。
+安装但保持 standalone 的 Skill 是 `ask-matt`、`grill-with-docs`、`triage`、`to-spec`、`to-tickets`、`grill-me`、`teach`、`wait-what`。`implement` 与 raw `resolving-merge-conflicts` 可能接管 Matrix 所有的 TDD、review、stage 或 commit 副作用，因此 0.1.5 不安装也不管理它们；已有副本会被保留并报告为未管理额外项。安装不代表自动调用；任何 companion 都不得推进、提交、归档、恢复或写 Matrix 状态。
 
 ---
 
