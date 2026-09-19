@@ -16,11 +16,22 @@ Use its `artifact_language` for all proposal prose. Keep the required English he
 
 ## Prim
 
-Use Matrix's own capability to clarify the request and write the proposal.
+Use Matrix's own capability to run a structured clarification (goal, scope, non-goals, acceptance, risks, constraints) and write the proposal.
 
 ## Arch
 
-Invoke `grilling` only when material ambiguity remains or the user asks to stress-test the request. Invoke `domain-modeling` only when domain vocabulary, invariants, or an architectural decision is unclear. Announce the capability and reason before invoking it; selecting Arch already authorizes triggered capabilities.
+Announce the capability and reason, then invoke `grilling` by default at the start of Open to clarify the request. Invoke `domain-modeling` only when domain vocabulary, invariants, or an architectural decision is unclear. Selecting Arch already authorizes triggered capabilities.
+
+**Clarification exemption**: skip the clarification pass only when the user both (1) arrives with a clear execution plan and (2) explicitly states that no clarification is needed. Even then, write the exemption record into `clarification.md`.
+
+## Clarification artifact (mandatory)
+
+Before writing the proposal, produce `<change>/clarification.md` — on every path, clarification or exemption:
+
+- Clarified: `## Questions` / `## Answers` / `## Resolved scope` (English heading tokens fixed; body in `artifact_language`).
+- Exempted: `## Exemption record` (exemption reason + the user's plan highlights + how the proposal adopts it).
+
+lightweight (hotfix/tweak) applies too, with a single round of core questions. The file is Open-phase evidence: it does not participate in Contract identity and the Runtime does not check for it; changes left in open by 0.1.5 or earlier proceed without backfilling it.
 
 If progress is blocked by facts or decisions owned by another person, explain why `to-questionnaire` fits and ask the user to invoke it. Do not invoke the wrapper yourself.
 

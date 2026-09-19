@@ -8,16 +8,17 @@ import { createMattAdapter, inspectMattInstallation } from "./matt.js";
 import { text } from "./messages.js";
 import { createUi } from "./ui.js";
 import { invoke } from "./workflow.js";
-import { compareVersions, globalBinPath, latestVersion, selfUpdate } from "./self-update.js";
+import { compareVersions, globalBinPath, latestVersion, PACKAGE_NAME, selfUpdate } from "./self-update.js";
 import { resolveProjectRuntime } from "./runtime-resolver.js";
+import { readProjectsIndex, registerProject, pruneProject } from "./project-index.js";
 import { MATT_COMPATIBILITY } from "./matt-catalog.mjs";
 
 const packagePath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "package.json");
 const version = JSON.parse(fs.readFileSync(packagePath, "utf8")).version;
-const HELP = `Matrix ${version}\n\nUsage: matrix init [directory] [options]\n       matrix update [directory] [options]\n       matrix doctor [directory] [options]\n\nOptions:\n  --language <en|zh-CN>\n  --scope <project|global>\n  --platform <claude-code|codex>  (repeatable)\n  --mode <copy|symlink>\n  --with-mattpocock | --without-mattpocock\n  --force-matt\n  --default-orchestration <prim|arch>\n  --skip-self-update  --force  --yes, -y  --dry-run  --json  --no-color`;
+const HELP = `Matrix ${version}\n\nUsage: matrix init [directory] [options]\n       matrix update [directory] [options]\n       matrix doctor [directory] [options]\n\nOptions:\n  --language <en|zh-CN>\n  --scope <project|global>\n  --platform <claude-code|codex>  (repeatable)\n  --mode <copy|symlink>\n  --with-mattpocock | --without-mattpocock\n  --force-matt  (with --with-mattpocock; replace modified Matt Skills)\n  --default-orchestration <prim|arch>\n  update only: --all | --project-only  (update scope across indexed projects)\n  --skip-self-update  --force  --yes, -y  --dry-run  --json  --no-color`;
 
 function parse(argv) {
-  const result = { command: null, directory: null, scope: null, language: null, platforms: [], mode: "copy", matt: null, mattPolicy: "preserve", defaultOrchestration: null, matrixPolicy: "safe", yes: false, dryRun: false, json: false, color: true, skipSelfUpdate: false, reexec: false };
+  const result = { command: null, directory: null, scope: null, language: null, platforms: [], mode: "copy", matt: null, mattPolicy: "preserve", defaultOrchestration: null, matrixPolicy: "safe", yes: false, dryRun: false, json: false, color: true, skipSelfUpdate: false, reexec: false, all: false, projectOnly: false };
   const values = [...argv];
   if (values[0] && !values[0].startsWith("-")) result.command = values.shift();
   while (values.length) {
@@ -32,6 +33,8 @@ function parse(argv) {
     else if (token === "--force-matt") result.mattPolicy = "replace";
     else if (token === "--default-orchestration") result.defaultOrchestration = values.shift();
     else if (token === "--force") result.matrixPolicy = "replace";
+    else if (token === "--all") result.all = true;
+    else if (token === "--project-only") result.projectOnly = true;
     else if (["--yes", "-y"].includes(token)) result.yes = true;
     else if (token === "--dry-run") result.dryRun = true;
     else if (token === "--skip-self-update") result.skipSelfUpdate = true;
@@ -69,7 +72,10 @@ async function intentFrom(options, ui) {
   if (!platforms.length && interactive && !options.yes) platforms = await ui.selectMany(text(language, "platformsQuestion"), [{ label: "Claude Code", value: "claude-code" }, { label: "Codex", value: "codex" }]);
   const matt = options.matt ?? (interactive && !options.yes ? (await ui.confirm(text(language, "mattQuestion"), true, labelsFor(language)) ? "missing" : "none") : "missing");
   const defaultOrchestration = options.defaultOrchestration ?? (interactive && !options.yes && matt === "missing"
-    ? await ui.select(text(language, "orchestrationQuestion"), [{ label: "Arch", value: "arch" }, { label: "Prim", value: "prim" }])
+    ? await ui.select(text(language, "orchestrationQuestion"), [
+        { label: "Arch", value: "arch", detail: text(language, "orchestrationArchDetail") },
+        { label: "Prim", value: "prim", detail: text(language, "orchestrationPrimDetail") }
+      ])
     : null);
   return { projectRoot: projectRoot(options.directory), language, scope, platforms, mode: options.mode, matt, mattPolicy: options.mattPolicy, defaultOrchestration, nonInteractive: options.yes || !interactive, matrixPolicy: options.matrixPolicy, dryRun: options.dryRun };
 }
@@ -123,14 +129,54 @@ async function refresh(intent, options, ui) {
   if (!options.yes && interactive && !options.dryRun && !await ui.confirm(text(intent.language, "confirm"), true, labelsFor(intent.language))) return 0;
   const result = distribution.commit(evaluation.plan);
   if (!result.ok) { ui.warn(result.error ?? result.code); return 2; }
+  if (intent.scope === "project" && !options.dryRun) {
+    try { registerProject({ projectRoot: intent.projectRoot, scope: intent.scope, platforms: intent.platforms, language: intent.language, home: intent.home }); }
+    catch { /* a broken project index must never fail an update */ }
+  }
   if (result.code === "PARTIAL") { ui.warn(result.recovery); return 1; }
   ui.success(options.dryRun ? text(intent.language, "dryRunComplete") : text(intent.language, "ready"));
   if (!options.updateMode && intent.matt === "missing" && !options.dryRun) ui.muted(text(intent.language, "mattSetupHint").replace("{release}", MATT_COMPATIBILITY.release));
   if (options.updateMode) {
-    const matt = inspectMattInstallation({ projectRoot: intent.projectRoot, home: intent.home, platforms: intent.platforms });
+    const matt = inspectMattInstallation({ projectRoot: intent.projectRoot, home: intent.home, platforms: intent.platforms, action: "matrix update --with-mattpocock" });
     ui.muted(`${text(intent.language, "mattCompatibilityStatus").replace("{release}", matt.supported.release).replace("{status}", localizedState(intent.language, matt.status))}${matt.action ? `; ${matt.action}` : ""}`);
   }
+  ui.muted(text(intent.language, "readyHint").replace("{platform}", evaluation.intent.platforms.map((id) => PLATFORMS[id].name).join(", ")));
   ui.muted(evaluation.intent.platforms.map((id) => `${PLATFORMS[id].name}: $matrix <request>`).join("\n"));
+  return 0;
+}
+
+function updateAllProjects({ intent, options, ui, root }) {
+  const index = readProjectsIndex({ home: intent.home });
+  if (!index.ok) ui.warn("Project index is unreadable; falling back to the current project only.");
+  const targets = [...new Set([...index.projects.map((entry) => entry.path), root])];
+  const bin = path.join(path.dirname(packagePath), "bin", "matrix.js");
+  const forwarded = ["--skip-self-update", "--yes", "--json"];
+  if (options.matt === "missing") forwarded.push("--with-mattpocock");
+  if (options.mattPolicy === "replace" && options.matt === "missing") forwarded.push("--force-matt");
+  let failed = 0;
+  const pruned = [];
+  for (const target of targets) {
+    if (!fs.existsSync(target)) {
+      pruneProject({ projectRoot: target, home: intent.home });
+      pruned.push(target);
+      continue;
+    }
+    const run = spawnSync(process.execPath, [bin, "update", target, ...forwarded], { encoding: "utf8" });
+    let ok = run.status === 0;
+    let detail = run.stderr?.trim();
+    if (ok) {
+      try {
+        const output = JSON.parse(run.stdout.trim().split("\n").pop());
+        ok = output.ok !== false && output.code !== "PARTIAL";
+        detail = output.code;
+      } catch { ok = false; detail = detail || "unparseable update output"; }
+    }
+    if (!ok) failed += 1;
+    (ok ? ui.muted : ui.warn)(`${ok ? "OK" : "FAILED"} ${target}${detail ? ` (${detail})` : ""}`);
+  }
+  for (const item of pruned) ui.muted(`Pruned missing project from the index: ${item}`);
+  if (failed) { ui.warn(`${failed} project update(s) failed.`); return 2; }
+  ui.success("All indexed projects are up to date.");
   return 0;
 }
 
@@ -143,8 +189,11 @@ async function update(options) {
     if (options.json) console.log(JSON.stringify(result)); else ui.warn(result.message);
     return 2;
   }
-  const forbidden = options.language || options.scope || options.platforms.length || options.matt || options.mattPolicy === "replace" || options.defaultOrchestration || options.mode !== "copy";
-  if (forbidden) throw new Error("matrix update inherits installation settings. Use matrix init to change language, scope, platform, mode, Matt skills, or orchestration.");
+  if (options.matt === "none") throw new Error("matrix update cannot remove Matt Skills. Use matrix init --without-mattpocock.");
+  if (options.mattPolicy === "replace" && options.matt !== "missing") throw new Error("matrix update --force-matt requires --with-mattpocock.");
+  const forbidden = options.language || options.scope || options.platforms.length || options.defaultOrchestration || options.mode !== "copy";
+  if (forbidden) throw new Error("matrix update inherits installation settings. Use matrix init to change language, scope, platform, mode, or orchestration.");
+  const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY && !options.json);
   const intent = { ...installed.intent, dryRun: options.dryRun };
   let npm = { status: "skipped", current: version, target: version, reason: options.skipSelfUpdate ? "disabled by --skip-self-update" : null };
   if (!options.skipSelfUpdate && !options.reexec) {
@@ -153,27 +202,48 @@ async function update(options) {
       if (comparison === null) throw new Error("unable to compare registry version");
       npm = comparison > 0 ? { status: "available", current: version, target } : { status: "skipped", current: version, target, reason: comparison === 0 ? "already latest" : "registry version is older" };
     } catch (error) {
-      const result = { ok: false, code: "SELF_UPDATE_CHECK_FAILED", npm: { status: "failed", current: version, reason: error.message }, recovery_command: "matrix update --skip-self-update" };
-      if (options.json) console.log(JSON.stringify(result)); else ui.warn(`${result.code}: ${error.message}\nRun ${result.recovery_command} to refresh assets without npm.`);
+      const result = { ok: false, code: "SELF_UPDATE_CHECK_FAILED", npm: { status: "failed", current: version, reason: error.message }, recovery_command: "matrix update --skip-self-update",
+        recovery: `Run matrix update --skip-self-update to refresh assets without npm, or install the latest CLI manually with \`npm i -g ${PACKAGE_NAME}@latest\` and retry.` };
+      if (options.json) console.log(JSON.stringify(result)); else ui.warn(`${result.code}: ${error.message}\n${result.recovery}`);
       return 2;
     }
   }
-  if (options.json && options.dryRun) { console.log(JSON.stringify({ ok: true, code: "DRY_RUN", npm, intent, matt: inspectMattInstallation({ projectRoot: root, home: intent.home, platforms: intent.platforms }) })); return 0; }
+  const mattStatus = inspectMattInstallation({ projectRoot: root, home: intent.home, platforms: intent.platforms, action: "matrix update --with-mattpocock" });
+  const mattNeedsRepair = ["incomplete", "update-required", "unverified"].includes(mattStatus.status);
+  const mattRepair = options.matt === "missing" || (mattNeedsRepair && interactive && !options.yes
+    && await ui.confirm(text(intent.language, "mattRepairQuestion").replace("{state}", localizedState(intent.language, mattStatus.status)).replace("{release}", MATT_COMPATIBILITY.release), true, labelsFor(intent.language)));
+  if (mattRepair) intent.matt = "missing";
+  if (options.json && options.dryRun) { console.log(JSON.stringify({ ok: true, code: "DRY_RUN", npm, intent, matt: mattStatus })); return 0; }
+  const scope = options.all ? "all" : options.projectOnly ? "project"
+    : interactive && !options.yes ? await ui.select(text(intent.language, "updateScopeQuestion"), [
+        { label: text(intent.language, "updateScopeCurrent"), value: "project" },
+        { label: text(intent.language, "updateScopeAll"), value: "all" }
+      ])
+    : "project";
   if (!options.json) {
     await ui.banner(); ui.info(`Matrix update: CLI ${npm.current}${npm.status === "available" ? ` → ${npm.target}` : ""}`);
     ui.muted(`Assets: ${intent.scope}, ${intent.language}, ${intent.platforms.join(", ")}`);
   }
-  const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY && !options.json);
   if (npm.status === "available") {
-    if (!options.yes && interactive && !await ui.confirm(`Upgrade Matrix CLI ${npm.current} → ${npm.target} and then refresh these assets?`, true, labelsFor(intent.language))) return 0;
-    if (options.dryRun) { if (options.json) console.log(JSON.stringify({ ok: true, code: "DRY_RUN", npm, intent, matt: inspectMattInstallation({ projectRoot: root, home: intent.home, platforms: intent.platforms }) })); else ui.success(text(intent.language, "dryRunComplete")); return 0; }
+    const repairNotice = mattRepair ? ` Matt Skills will be repaired to ${MATT_COMPATIBILITY.release} as part of the update.` : "";
+    if (!options.yes && interactive && !await ui.confirm(`Upgrade Matrix CLI ${npm.current} → ${npm.target} and then refresh these assets?${repairNotice}`, true, labelsFor(intent.language))) return 0;
+    if (options.dryRun) { if (options.json) console.log(JSON.stringify({ ok: true, code: "DRY_RUN", npm, intent, matt: mattStatus })); else ui.success(text(intent.language, "dryRunComplete")); return 0; }
     const updated = selfUpdate(version, npm.target);
-    if (!updated.ok) { const result = { ok: false, code: "SELF_UPDATE_FAILED", npm: { ...npm, status: "failed", reason: updated.reason }, recovery_command: "matrix update --skip-self-update" }; if (options.json) console.log(JSON.stringify(result)); else ui.warn(`${result.code}: ${updated.reason}`); return 2; }
+    if (!updated.ok) {
+      const result = { ok: false, code: "SELF_UPDATE_FAILED", npm: { ...npm, status: "failed", reason: updated.reason }, recovery_command: `npm i -g ${PACKAGE_NAME}@${npm.target} && matrix update --skip-self-update` };
+      if (options.json) console.log(JSON.stringify(result)); else ui.warn(`${result.code}: ${updated.reason}\nRun ${result.recovery_command}`);
+      return 2;
+    }
     const args = [globalBinPath(), "update", root, "--skip-self-update", "--_reexec", "--yes"];
-    if (options.matrixPolicy === "replace") args.push("--force"); if (options.json) args.push("--json"); if (!options.color) args.push("--no-color");
+    if (options.matrixPolicy === "replace") args.push("--force");
+    if (mattRepair) args.push("--with-mattpocock");
+    if (options.mattPolicy === "replace" && mattRepair) args.push("--force-matt");
+    if (scope === "all") args.push("--all");
+    if (options.json) args.push("--json"); if (!options.color) args.push("--no-color");
     const rerun = spawnSync(process.execPath, args, { stdio: "inherit" });
     return Number.isInteger(rerun.status) ? rerun.status : 2;
   }
+  if (scope === "all") return updateAllProjects({ intent, options, ui, root });
   if (options.json) return refresh(intent, { ...options, yes: true, updateMode: true }, ui);
   return refresh(intent, { ...options, updateMode: true }, ui);
 }
@@ -198,7 +268,7 @@ async function doctor(options) {
     ? { ...installed.intent, dryRun: true }
     : await intentFrom({ ...options, directory: root, yes: true }, ui);
   const evaluation = createDistribution().diagnose(intent);
-  const matt = inspectMattInstallation({ projectRoot: intent.projectRoot, home: intent.home, platforms: intent.platforms });
+  const matt = inspectMattInstallation({ projectRoot: intent.projectRoot, home: intent.home, platforms: intent.platforms, action: installed.ok ? "matrix update --with-mattpocock" : undefined });
   if (options.json) console.log(JSON.stringify({ ...evaluation, matt }));
   else { await ui.banner(); ui.info(text(intent.language, "doctor")); render(ui, evaluation); ui.muted(`${text(intent.language, "mattCompatibilityStatus").replace("{release}", matt.supported.release).replace("{status}", localizedState(intent.language, matt.status))}${matt.action ? `; ${matt.action}` : ""}`); }
   return evaluation.ok ? 0 : 2;

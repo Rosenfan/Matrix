@@ -765,3 +765,24 @@ test("CLI, bundled Runtime, and Python adapters preserve the final contract enve
   assert.equal(JSON.parse(pythonResult.stdout).contract_status, "approved-and-matching");
   const pythonExport = adapter(claudeAdapter, ["export", "--task-id", "PY-1"], nodeCwd); assert.equal(pythonExport.status, 0, pythonExport.stderr);
 });
+
+test("generic agent handoff exports a parameterized task package", (t) => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-export-agent-")); t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  const { base, result } = build(cwd, "agents");
+  const exported = invoke(["export", "--task-id", "TASK-9", "--agent", "opencode", "--from", "codex"], { cwd });
+  assert.equal(exported.ok, true, exported.message);
+  const content = fs.readFileSync(path.join(base, "handoff-task-TASK-9.md"), "utf8");
+  assert.match(content, /# opencode task: TASK-9/);
+  assert.match(content, /\| Implementation actor \| opencode \|/);
+  assert.match(content, /\| Decision owner \| codex \|/);
+  assert.match(content, /\| Status \| OPENCODE_QUEUED \|/);
+  assert.match(content, new RegExp(result.approved_contract_hash));
+  assert.equal(fs.readFileSync(path.join(cwd, ".matrix", "changes", "agents", "matrix.yaml"), "utf8").includes("phase: build"), true);
+  assert.equal(invoke(["export", "--task-id", "T", "--agent", "opencode", "--target", "generic"], { cwd }).code, "INVALID_INTENT");
+  assert.equal(invoke(["export", "--task-id", "T", "--agent", "Bad Agent"], { cwd }).code, "INVALID_INTENT");
+  assert.equal(invoke(["export", "--agent", "opencode"], { cwd }).code, "INVALID_INTENT");
+  assert.equal(invoke(["export", "--task-id", "T", "--from", "codex"], { cwd }).code, "INVALID_INTENT");
+  const defaulted = invoke(["export", "--task-id", "TASK-10", "--agent", "claude-code"], { cwd });
+  assert.equal(defaulted.ok, true, defaulted.message);
+  assert.match(fs.readFileSync(path.join(base, "handoff-task-TASK-10.md"), "utf8"), /\| Decision owner \| Matrix change owner \|/);
+});

@@ -3,6 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { PLATFORMS, hashDirectory } from "./catalog.js";
+import { buildNpmProcessInvocation } from "./npm-invocation.js";
 import { MATT_CATALOG_DIGEST, MATT_COMPATIBILITY, MATT_CONTENT_HASHES, MATT_INSTALLABLE_SKILLS } from "./matt-catalog.mjs";
 
 export const mattReceiptPath = (projectRoot) => path.join(path.resolve(projectRoot), ".matrix", "matt-installation.json");
@@ -21,14 +22,14 @@ function releaseOrder(left, right) {
   return 0;
 }
 
-export function inspectMattInstallation({ projectRoot, platforms, home = os.homedir(), contentHashes = MATT_CONTENT_HASHES }) {
+export function inspectMattInstallation({ projectRoot, platforms, home = os.homedir(), contentHashes = MATT_CONTENT_HASHES, action = "matrix init . --with-mattpocock" }) {
   const receipt = readJson(mattReceiptPath(projectRoot));
   const selected = [...new Set(platforms ?? Object.keys(receipt?.platforms ?? {}))];
   const localPresence = selected.reduce((count, platform) => {
     const root = PLATFORMS[platform]?.skillRoot(projectRoot);
     return count + MATT_INSTALLABLE_SKILLS.filter((skill) => root && fs.existsSync(path.join(root, skill, "SKILL.md"))).length;
   }, 0);
-  const base = { supported: MATT_COMPATIBILITY, installed: receipt?.compatibility?.release ?? "unknown", action: "matrix init . --with-mattpocock" };
+  const base = { supported: MATT_COMPATIBILITY, installed: receipt?.compatibility?.release ?? "unknown", action };
   if (!receipt) return { ...base, status: localPresence ? "unverified" : "incomplete", platforms: [] };
   const order = releaseOrder(receipt.compatibility?.release, MATT_COMPATIBILITY.release);
   if (order !== 0 || receipt.compatibility?.commit !== MATT_COMPATIBILITY.commit || receipt.catalogDigest !== MATT_CATALOG_DIGEST) {
@@ -56,13 +57,7 @@ export function inspectMattInstallation({ projectRoot, platforms, home = os.home
 }
 
 export function buildProcessInvocation({ command, args, platform = process.platform, nodeExecutable = process.execPath, npmCliPath }) {
-  if (platform !== "win32" || command !== "npx") return { executable: command, args, shell: false };
-  const candidates = [npmCliPath, process.env.npm_execpath, path.join(path.dirname(nodeExecutable), "node_modules", "npm", "bin", "npm-cli.js")].filter(Boolean);
-  const cli = candidates.find((candidate) => npmCliPath || fs.existsSync(candidate));
-  if (!cli) throw new Error("npm CLI was not found beside the Node runtime.");
-  const [yes, packageSpec, ...commandArgs] = args;
-  if (yes !== "--yes" || !packageSpec) throw new Error("Windows npx invocation must use fixed npm exec arguments.");
-  return { executable: nodeExecutable, args: [cli, "exec", yes, packageSpec, "--", ...commandArgs], shell: false };
+  return buildNpmProcessInvocation({ command, args, platform, nodeExecutable, npmCliPath });
 }
 
 export function defaultProcessRunner({ command, args, cwd, timeout, stdio = "inherit" }) {

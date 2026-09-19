@@ -131,7 +131,7 @@ matrix update --skip-self-update
 matrix update --yes
 ```
 
-`matrix update` preserves the installation's scope, platforms, language, mode, and orchestration. It first validates a newer npm package in isolation, then re-runs the new CLI to refresh Matrix assets. It never downloads, installs, repairs, or deletes Matt Skills; after the Matrix update it reports the local Matt compatibility status and, when needed, points to `matrix init . --with-mattpocock`. npm and project assets are separate transactions: if asset refresh fails after a CLI upgrade, run `matrix update --skip-self-update` to retry.
+`matrix update` preserves the installation's scope, platforms, language, mode, and orchestration. It first validates a newer npm package in isolation, then re-runs the new CLI to refresh Matrix assets. When the local Matt Skills are incomplete or outdated, an interactive `matrix update` asks once and repairs them to the supported release in the same run — CLI upgrade, asset refresh, and Matt repair complete in a single command (`--with-mattpocock` gives non-interactive/CI the same behavior; `--force-matt` additionally replaces locally modified Matt Skills and requires that flag; Matt Skills are never removed by `matrix update`). `--all` extends the run to every indexed project (`~/.matrix/projects.json`); each project updates in isolation and missing directories are pruned from the index. npm and project assets are separate transactions: if asset refresh fails after a CLI upgrade, run `matrix update --skip-self-update` to retry. On Windows the self-update chain runs npm through Node (no shell), so one-command upgrades work without manual steps.
 
 Matrix 0.1.5 is bound to Matt Skills v1.2.3 at commit `6acc160e4e0cd062dbbbd7a1b26ae92855edf07e`. `matrix init --with-mattpocock` always uses that exact archive and its reviewed 23-Skill compatible manifest, even if upstream has a newer release. The two official but incompatible Skills, `implement` and raw `resolving-merge-conflicts`, are not Matrix-managed or installed. Matrix scope controls Matrix Skill discovery only: Matt Skills and `.matrix/matt-installation.json` are always project-local. Global Matt copies are preserved but never used to complete project readiness.
 
@@ -153,7 +153,7 @@ Matrix installs:
 - `matrix-hotfix/` — Shortcut for small bugs
 - `matrix-tweak/` — Shortcut for bounded changes
 - `matrix-status/` — Check current state
-- `matrix-claude/` — Optional: export for Claude Code
+- `matrix-handoff/` — Optional: export to any implementation agent (Claude Code, opencode, ...)
 
 ---
 
@@ -255,28 +255,29 @@ Hotfix and tweak reference the same internal `lightweight` transition profile. T
 
 ---
 
-## Special Feature: matrix-claude
+## Special Feature: matrix-handoff
 
-**Default usage**: Just use the main workflow (`$matrix`). Whether you're using Codex or Claude Code, the standard flow works for both:
+**Default usage**: Just use the main workflow (`$matrix`). Whether you're using Codex, Claude Code, zcode, or opencode, the standard flow works for all of them:
 
 ```
 $matrix → open → design → build → verify → archive
 ```
 
-**When to use `$matrix-claude`**: Only when you want to **split the work across tools** — use Codex for design, then hand off to Claude Code for implementation.
+**When to use `$matrix-handoff`**: Only when you want to **split the work across tools** — design in one agent, implement in another.
 
 | Scenario | What to Do |
 |----------|------------|
 | Use one tool for everything (default) | Just use `$matrix`, no extra steps |
-| Codex designs + Codex implements | Standard flow: design → build → verify |
-| Codex designs + Claude Code implements | design → `$matrix-claude` → Claude Code → verify |
+| Same agent designs and implements | Standard flow: design → build → verify |
+| Codex designs + Claude Code implements | design → `$matrix-handoff` → `export --agent claude-code` → Claude Code → verify |
+| zcode designs + opencode implements | design → `$matrix-handoff` → `export --agent opencode` → opencode → verify |
 
-### How matrix-claude Works
+### How matrix-handoff Works
 
-1. Design phase completes, guard passes
-2. Run `$matrix-claude` → exports frozen design as `artifacts/claude-task.md`
-3. Claude Code reads the task package and implements
-4. Claude Code produces evidence in `artifacts/verification.md`
+1. Design phase completes, guard passes, and you choose the implementation agent at the Design -> Build decision point
+2. Run `$matrix-handoff` → exports the frozen contract as `artifacts/handoff-task-<task-id>.md` (`export --agent <agent-id>`; `--target generic` remains as the legacy Claude Code form, `artifacts/claude-task.md`)
+3. The implementation agent reads the task package and implements
+4. The implementation agent produces evidence in `artifacts/verification.md`
 5. Return to Matrix: build guard → verify → archive
 
 The sidecar does NOT change Matrix state. It's a pure export — like taking a snapshot of the design for another tool to consume.

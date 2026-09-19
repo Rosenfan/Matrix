@@ -9,7 +9,7 @@ export const LANGUAGE_IDS = ["en", "zh-CN"];
 export const PLATFORM_IDS = ["claude-code", "codex"];
 export const MATRIX_SKILLS = [
   "matrix", "matrix-open", "matrix-design", "matrix-build", "matrix-verify",
-  "matrix-archive", "matrix-hotfix", "matrix-tweak", "matrix-status", "matrix-claude"
+  "matrix-archive", "matrix-hotfix", "matrix-tweak", "matrix-status", "matrix-handoff"
 ];
 export const MATT_SKILLS = MATT_INSTALLABLE_SKILLS;
 export const UNMANAGED_MATT_SKILLS = MATT_ROLES.incompatible;

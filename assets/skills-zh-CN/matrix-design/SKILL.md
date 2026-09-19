@@ -20,5 +20,22 @@ design 和 plan 正文使用 `node <matrix-skill-directory>/scripts/matrix-runti
 
 ```powershell
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs guard design
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build
 ```
+
+## 执行主体确认点（Build 前）
+
+`guard design` 通过后、`transition build` 之前，必须暂停并向用户确认执行主体，未确认不得推进：
+
+- **选项 A：当前 agent / 原模型继续（默认）**——直接推进：
+  ```powershell
+  node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build
+  ```
+  随后进入 `$matrix-build` 在本会话内实现。
+- **选项 B：切换模型、保留本 agent**——用户在自己的客户端完成模型切换（例如设计用强模型、实现用高性价比模型），回到会话确认后按选项 A 推进。Matrix 无法感知客户端模型，只提供强制暂停点。
+- **选项 C：切换执行 agent**——先推进进 Build 批准冻结 Contract，再用 `$matrix-handoff` 为目标 agent 导出有界任务包（例如 Codex 设计、Claude Code 实现，或 zcode 设计、opencode 实现）。实现 agent 完成并补齐 `## Build evidence` 后：
+  ```powershell
+  node <matrix-skill-directory>/scripts/matrix-runtime.mjs guard build
+  node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition verify
+  ```
+
+所选选项必须写入 `design.md` 的 `## Decisions`，随 Contract 冻结。

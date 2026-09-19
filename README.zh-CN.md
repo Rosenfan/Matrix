@@ -128,7 +128,7 @@ matrix update --skip-self-update
 matrix update --yes
 ```
 
-`matrix update` 会保留既有安装的 scope、平台、语言、mode 与 orchestration。它先隔离验证 npm 新包，再由新 CLI 同步 Matrix 资产；它绝不下载、安装、修复或删除 Matt Skills。Matrix 更新完成后只读报告项目 Matt 兼容状态，必要时提示 `matrix init . --with-mattpocock`。npm 与项目资产是两个事务：若 CLI 已更新但资产同步失败，可运行 `matrix update --skip-self-update` 重试。
+`matrix update` 会保留既有安装的 scope、平台、语言、mode 与 orchestration。它先隔离验证 npm 新包，再由新 CLI 同步 Matrix 资产。当本地 Matt Skills 不完整或过期时，交互式 `matrix update` 会询问一次，并在同一轮把 Matt 修复到受支持 release——CLI 升级、资产刷新、Matt 修复一条命令完成（`--with-mattpocock` 为自动化/CI 提供等价的非交互行为；`--force-matt` 可额外替换被本地修改的 Matt Skills，且必须与 `--with-mattpocock` 同传；`matrix update` 绝不删除 Matt Skills）。`--all` 可将更新扩展到全部已索引项目（`~/.matrix/projects.json`），各项目隔离更新，失效目录自动从索引清理。npm 与项目资产是两个事务：若 CLI 已更新但资产同步失败，可运行 `matrix update --skip-self-update` 重试。Windows 上自升级链路经 Node 调用 npm（不经 shell），一条命令升级无需手动步骤。
 
 Matrix 0.1.5 固定对应 Matt Skills v1.2.3，commit 为 `6acc160e4e0cd062dbbbd7a1b26ae92855edf07e`。即使上游已有新版，`matrix init --with-mattpocock` 仍使用该确切 archive 与经过审查的 23 项兼容 manifest。官方角色中的 `implement` 与 raw `resolving-merge-conflicts` 不兼容，因此 Matrix 不安装也不管理它们。Matrix scope 只控制 Matrix Skill 的发现位置；Matt Skills 与 `.matrix/matt-installation.json` 始终属于目标项目。全局 Matt 副本会保留，但绝不用于补齐项目 readiness。
 
@@ -150,7 +150,7 @@ Matrix 将安装：
 - `matrix-hotfix/` — 小型 Bug 快捷方式
 - `matrix-tweak/` — 有界变更快捷方式
 - `matrix-status/` — 检查当前状态
-- `matrix-claude/` — 可选：导出供 Claude Code 使用
+- `matrix-handoff/` — 可选：导出给任意实现 agent（Claude Code、opencode 等）
 
 ---
 
@@ -252,28 +252,29 @@ hotfix 与 tweak 引用同一个内部 `lightweight` 迁移 profile，只在入�
 
 ---
 
-## 特别功能：matrix-claude
+## 特别功能：matrix-handoff
 
-**默认用法**：直接使用主流程即可。无论你用 Codex 还是 Claude Code，标准流程都适用：
+**默认用法**：直接使用主流程即可。无论你用 Codex、Claude Code、zcode 还是 opencode，标准流程都适用：
 
 ```
 $matrix → open → design → build → verify → archive
 ```
 
-**何时使用 `$matrix-claude`**：仅当你想**跨工具拆分工作**时 —— 用 Codex 设计，然后交给 Claude Code 实现。
+**何时使用 `$matrix-handoff`**：仅当你想**跨工具拆分工作**时 —— 用一个 agent 设计，交给另一个 agent 实现。
 
 | 场景 | 操作 |
 |------|------|
 | 一个工具完成所有工作（默认） | 直接用 `$matrix`，无需额外步骤 |
-| Codex 设计 + Codex 实现 | 标准流程：design → build → verify |
-| Codex 设计 + Claude Code 实现 | design → build（批准 Contract）→ `$matrix-claude` → Claude Code → verify |
+| 同一 agent 设计 + 实现 | 标准流程：design → build → verify |
+| Codex 设计 + Claude Code 实现 | design → build（批准 Contract）→ `$matrix-handoff` → `export --agent claude-code` → Claude Code → verify |
+| zcode 设计 + opencode 实现 | design → build（批准 Contract）→ `$matrix-handoff` → `export --agent opencode` → opencode → verify |
 
-### matrix-claude 工作原理
+### matrix-handoff 工作原理
 
-1. 设计阶段完成，守卫通过
-2. 运行 `$matrix-claude` → 导出冻结的设计为 `artifacts/claude-task.md`
-3. Claude Code 读取任务包并实现
-4. Claude Code 在 `artifacts/verification.md` 中产生证据
+1. 设计阶段完成，守卫通过，并在 design→build 决策点选择实现 agent
+2. 运行 `$matrix-handoff` → 导出冻结 Contract 为 `artifacts/handoff-task-<task-id>.md`（`export --agent <agent-id>`；`--target generic` 为兼容的 Claude Code 旧形态，产出 `artifacts/claude-task.md`）
+3. 实现 agent 读取任务包并实现
+4. 实现 agent 在 `artifacts/verification.md` 中产生证据
 5. 返回 Matrix：构建守卫 → 验证 → 归档
 
 此 sidecar 不会改变 Matrix 状态。它只是纯粹的导出 —— 就像为另一个工具拍一张设计快照。

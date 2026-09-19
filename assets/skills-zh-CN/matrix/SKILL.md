@@ -64,10 +64,10 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs doctor --repair --lock 
 
 full 的 `design -> build` 会批准 proposal/design/plan；lightweight 的 `open -> build --confirmed` 只批准紧凑 proposal，并拒绝初始化后、批准前发生的项目实现改动。Contract 后续漂移都会阻断推进。
 
-## 可选 Claude 交接
+## 可选 agent 交接（Implementation Handoff）
 
-`$matrix-claude` 只在已批准的 Build 中使用，导出同一 Contract 快照给 Claude Code。它不拥有阶段推进或验收；直接由 Codex 实现仍使用原有 Matrix 主流程。
-只有用户明确选择“Codex 设计、Claude Code 实现”时才使用，不得自动插入标准流程。
+`$matrix-handoff` 只在已批准的 Build 中使用，通过 `export --agent <agent-id>` 将 Contract 快照导出为用户选择的实现 agent 的有界任务包（例如 Codex 设计、Claude Code 实现，或 zcode 设计、opencode 实现）。它不拥有阶段推进或验收；由当前 agent 继续实现仍使用原有 Matrix 主流程。
+只有用户明确选择切换实现 agent 时才使用，不得自动插入标准流程。
 
 ## 显式 Matt handoff
 
@@ -80,4 +80,5 @@ Matrix 不嵌套 user-invoked Skill。适用时只解释原因，并让用户显
 - 成功 Archive 必须使用两步乐观提交：先运行 `node <matrix-skill-directory>/scripts/matrix-runtime.mjs archive --dry-run`，再将其精确 hash 传给 `node <matrix-skill-directory>/scripts/matrix-runtime.mjs archive --expect-preflight <sha256>`；不得绕过预演。
 - `node <matrix-skill-directory>/scripts/matrix-runtime.mjs doctor` 始终只读；transaction 与陈旧锁 repair 必须显式绑定 doctor 报告的 identity，不得手工编辑或删除 `.matrix/transactions/`、`.matrix/workflow.lock`。
 - 重大架构/范围决定和 archive/commit 前应暂停等待用户确认。
+- 进入 Build 前（full 在 design guard 之后；lightweight 并入 `transition build --confirmed` 的暂停）必须呈现执行主体选择——当前 agent/原模型继续、用户客户端切换模型、或经 `$matrix-handoff` 切换实现 agent——并将决策随 Contract 记录。
 - shortcut 范围扩大时执行 `node <matrix-skill-directory>/scripts/matrix-runtime.mjs return design --reason design-gap`；Runtime 将其升级为 full。

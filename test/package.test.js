@@ -15,7 +15,7 @@ test("package publishes under the documented Matrix name with a release gate", (
 });
 
 test("Matrix Skill guidance has no Claude-only runtime path assumption", () => {
-  for (const skill of ["matrix", "matrix-claude"]) {
+  for (const skill of ["matrix", "matrix-handoff"]) {
     const guidance = fs.readFileSync(path.join(root, "assets", "skills", skill, "SKILL.md"), "utf8");
     assert.equal(guidance.includes(".claude/skills/matrix"), false, skill);
   }
@@ -24,7 +24,7 @@ test("Matrix Skill guidance has no Claude-only runtime path assumption", () => {
 test("Chinese release cohort contains every Matrix Skill with matching machine commands", () => {
   const englishRoot = path.join(root, "assets", "skills");
   const chineseRoot = path.join(root, "assets", "skills-zh-CN");
-  const matrixSkills = ["matrix", "matrix-open", "matrix-design", "matrix-build", "matrix-verify", "matrix-archive", "matrix-hotfix", "matrix-tweak", "matrix-status", "matrix-claude"];
+  const matrixSkills = ["matrix", "matrix-open", "matrix-design", "matrix-build", "matrix-verify", "matrix-archive", "matrix-hotfix", "matrix-tweak", "matrix-status", "matrix-handoff"];
   for (const skill of matrixSkills) {
     const guidance = fs.readFileSync(path.join(chineseRoot, skill, "SKILL.md"), "utf8");
     assert.ok(fs.existsSync(path.join(englishRoot, skill, "SKILL.md")), skill);
@@ -33,7 +33,7 @@ test("Chinese release cohort contains every Matrix Skill with matching machine c
   }
   assert.match(fs.readFileSync(path.join(chineseRoot, "matrix", "SKILL.md"), "utf8"), /matrix-runtime\.mjs inspect/);
   assert.match(fs.readFileSync(path.join(chineseRoot, "matrix-build", "SKILL.md"), "utf8"), /matrix-runtime\.mjs transition verify/);
-  assert.match(fs.readFileSync(path.join(chineseRoot, "matrix-claude", "SKILL.md"), "utf8"), /matrix-runtime\.mjs export --task-id/);
+  assert.match(fs.readFileSync(path.join(chineseRoot, "matrix-handoff", "SKILL.md"), "utf8"), /matrix-runtime\.mjs export --task-id/);
   for (const command of [
     "matrix-runtime.mjs return design --reason design-gap",
     "matrix-runtime.mjs return build --reason verification-failed",

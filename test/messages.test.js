@@ -15,3 +15,17 @@ test("Chinese installer prompts, confirmations, states, and actions are localize
   assert.equal(text("zh-CN", "yes"), "是");
   assert.equal(text("zh-CN", "actionBackupReplace"), "备份并替换");
 });
+
+test("update collaboration prompts exist in both languages", () => {
+  for (const language of ["en", "zh-CN"]) {
+    assert.match(text(language, "mattRepairQuestion"), /\{state\}/);
+    assert.match(text(language, "mattRepairQuestion"), /\{release\}/);
+    assert.match(text(language, "readyHint"), /\$matrix/);
+    assert.ok(text(language, "updateScopeQuestion").length > 0);
+    assert.ok(text(language, "updateScopeCurrent").length > 0);
+    assert.ok(text(language, "updateScopeAll").length > 0);
+    assert.ok(text(language, "orchestrationArchDetail").includes("Matt"));
+    assert.ok(text(language, "orchestrationPrimDetail").length > 0);
+  }
+  assert.match(text("zh-CN", "orchestrationPrimDetail"), /不依赖/);
+});

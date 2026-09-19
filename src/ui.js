@@ -63,8 +63,16 @@ export function createUi({ color = stdout.isTTY, animate = true } = {}) {
     async select(question, choices, initial = 0) {
       if (!stdin.isTTY || !stdout.isTTY) return choices[initial].value;
       let selected = initial;
+      let renderedLines = 0;
       readline.emitKeypressEvents(stdin); const wasRaw = stdin.isRaw; stdin.setRawMode(true); stdin.resume(); stdout.write(`? ${question}\n`);
-      const render = (clear = false) => { if (clear) stdout.write(`\u001b[${choices.length}A`); choices.forEach((choice, index) => { stdout.write("\u001b[2K"); stdout.write(`${index === selected ? paint("blue", ">") : " "} ${index === selected ? paint("blue", choice.label) : choice.label}\n`); }); };
+      const render = (clear = false) => {
+        if (clear) stdout.write(`\u001b[${renderedLines}A`);
+        renderedLines = 0;
+        choices.forEach((choice, index) => {
+          stdout.write("\u001b[2K"); stdout.write(`${index === selected ? paint("blue", ">") : " "} ${index === selected ? paint("blue", choice.label) : choice.label}\n`); renderedLines += 1;
+          if (choice.detail) { stdout.write("\u001b[2K"); stdout.write(`  ${paint("dim", choice.detail)}\n`); renderedLines += 1; }
+        });
+      };
       render();
       return new Promise((resolve, reject) => {
         const cleanup = () => { stdin.off("keypress", onKeypress); stdin.setRawMode(Boolean(wasRaw)); stdin.pause(); };

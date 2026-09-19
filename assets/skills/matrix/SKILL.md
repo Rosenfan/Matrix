@@ -66,10 +66,10 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs doctor --repair --trans
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs doctor --repair --lock <id>
 ```
 
-## Optional Claude handoff
+## Optional implementation handoff
 
-`$matrix-claude` is an optional sidecar command used after the approved Design -> Build transition. It exports the matching approved contract to a Claude Code task package. It never changes the Matrix phase, workflow, guard result, or runtime state.
-Use it only when the user explicitly chooses Codex design with Claude Code implementation; never inject it into the standard path.
+`$matrix-handoff` is an optional sidecar command used after the approved Design -> Build transition. It exports the matching approved contract as a bounded task package for the implementation agent the user chooses (`export --agent <agent-id>`, for example Codex designing and Claude Code implementing, or zcode designing and opencode implementing). It never changes the Matrix phase, workflow, guard result, or runtime state.
+Use it only when the user explicitly chooses a different implementation agent; never inject it into the standard path.
 
 ## Cross-Cutting Skills
 
@@ -84,4 +84,5 @@ Matrix never nests user-invoked Matt Skills. When relevant, explain the reason a
 - `node <matrix-skill-directory>/scripts/matrix-runtime.mjs doctor` is read-only. Every transaction or stale-lock repair must explicitly bind the identity reported by doctor; do not edit or delete `.matrix/transactions/` or `.matrix/workflow.lock`.
 - Do not replace required evidence with an assertion that work is complete.
 - Pause for user confirmation at material architecture/scope decisions and before archive/commit.
+- Before entering Build (full: after the design guard; lightweight: merged into the `transition build --confirmed` pause), present the implementation-actor choice — continue with the current agent/model, switch the model in the user's client, or switch the implementation agent via `$matrix-handoff` — and record the decision with the Contract.
 - On shortcut scope expansion, run `node <matrix-skill-directory>/scripts/matrix-runtime.mjs return design --reason design-gap`; Runtime upgrades the change to `full`. Never silently continue the old contract.

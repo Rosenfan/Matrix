@@ -2,6 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
+import { buildNpmProcessInvocation } from "./npm-invocation.js";
 
 export const PACKAGE_NAME = "@rosenfan/matrix";
 const REGISTRY = "https://registry.npmjs.org/@rosenfan%2fmatrix/latest";
@@ -30,7 +31,13 @@ export async function latestVersion(fetchImpl = fetch) {
 }
 
 function run(command, args, options = {}) {
-  const result = spawnSync(command, args, { encoding: "utf8", ...options });
+  let invocation;
+  try {
+    invocation = buildNpmProcessInvocation({ command, args });
+  } catch (error) {
+    return { ok: false, status: null, error: error.message, stdout: "", stderr: "" };
+  }
+  const result = spawnSync(invocation.executable, invocation.args, { encoding: "utf8", ...options });
   return { ok: !result.error && result.status === 0, status: result.status, error: result.error?.message, stdout: result.stdout ?? "", stderr: result.stderr ?? "" };
 }
 

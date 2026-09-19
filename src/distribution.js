@@ -200,7 +200,7 @@ export function recoverPendingTransaction(intent, { allowMattWrites = true } = {
   const file = transactionPath(intent); const journal = readJson(file);
   if (!journal) return { ok: true, recovered: false };
   if (!allowMattWrites && ((journal.operations ?? []).some((operation) => operation.kind === "matt") || journal.mattReceipt?.written || journal.mattReceipt?.backup)) {
-    return { ok: false, code: "RECOVERY_REQUIRED", recovery: `A pending Matt init transaction must be recovered by matrix init --with-mattpocock before Matrix update can continue. Keep ${file}.` };
+    return { ok: false, code: "RECOVERY_REQUIRED", recovery: `A pending Matt transaction must be recovered before Matrix update can continue. Run matrix init --with-mattpocock, or matrix update --with-mattpocock on an installed project. Keep ${file}.` };
   }
   const restoreMetadata = (entry) => {
     if (!entry) return;

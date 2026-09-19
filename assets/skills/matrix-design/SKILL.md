@@ -44,9 +44,9 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs guard design
 
 ## Implementation Decision Point
 
-After the design guard passes, the user chooses:
+After the design guard passes and before `transition build`, pause and present the implementation-actor choice to the user. Do not transition without an explicit choice:
 
-### Option A: Continue with Codex (default)
+### Option A: Continue with the current agent / model (default)
 
 Run transition and enter `$matrix-build`:
 
@@ -56,14 +56,18 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build
 
 Then enter `$matrix-build` to implement directly in this session.
 
-### Option B: Use Claude Code for implementation
+### Option B: Switch the model, keep this agent
 
-First approve the frozen contract by transitioning to Build, then run `$matrix-claude` to export a bounded task package. This:
+The user switches the model in their own client (for example, a stronger model for design, an efficient one for implementation), returns to this session, and confirms. Then run transition exactly as in Option A. Matrix cannot see the client-side model; it provides the mandatory pause point only.
+
+### Option C: Switch the implementation agent
+
+First approve the frozen contract by transitioning to Build, then run `$matrix-handoff` to export a bounded task package for the chosen agent (for example Codex designs, Claude Code implements; or zcode designs, opencode implements). This:
 - Does not change the Build phase or state beyond the preceding transition
-- Creates `artifacts/claude-task.md` with all implementation details
+- Creates `artifacts/handoff-task-<task-id>.md` with all implementation details
 - Includes acceptance criteria, test seams, and required commands
 
-After Claude Code completes and returns results, run the Build guard and enter `$matrix-verify`:
+After the implementation agent completes and returns results, run the Build guard and enter `$matrix-verify`:
 
 ```powershell
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs guard build
@@ -71,3 +75,5 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition verify
 ```
 
 Then enter `$matrix-verify` to verify the implementation.
+
+Record the chosen option in `design.md` under `## Decisions` so it freezes with the Contract.

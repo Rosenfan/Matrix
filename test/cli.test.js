@@ -6,6 +6,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { hashDirectory } from "../src/catalog.js";
+import { readProjectsIndex } from "../src/project-index.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -133,4 +134,60 @@ test("JSON update commits the Matrix asset refresh before reporting status", (t)
   assert.equal(result.status, 0, result.stderr);
   assert.equal(JSON.parse(result.stdout).code, "OK");
   assert.equal(fs.readFileSync(path.join(matrix, "SKILL.md"), "utf8").includes("managed old release"), false);
+});
+
+test("matrix update rejects Matt removal and orphan force flags", (t) => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-cli-update-flags-"));
+  t.after(() => fs.rmSync(project, { recursive: true, force: true }));
+  const installed = spawnSync(process.execPath, ["bin/matrix.js", "init", project, "--yes", "--platform", "codex", "--without-mattpocock"], { cwd: root, encoding: "utf8" });
+  assert.equal(installed.status, 0, installed.stderr);
+  const removal = spawnSync(process.execPath, ["bin/matrix.js", "update", project, "--skip-self-update", "--without-mattpocock"], { cwd: root, encoding: "utf8" });
+  assert.notEqual(removal.status, 0);
+  assert.match(`${removal.stdout}${removal.stderr}`, /cannot remove Matt Skills/);
+  const orphanForce = spawnSync(process.execPath, ["bin/matrix.js", "update", project, "--skip-self-update", "--force-matt"], { cwd: root, encoding: "utf8" });
+  assert.notEqual(orphanForce.status, 0);
+  assert.match(`${orphanForce.stdout}${orphanForce.stderr}`, /--force-matt requires --with-mattpocock/);
+});
+
+test("update --all refreshes every indexed project and prunes missing directories", (t) => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-cli-update-all-"));
+  t.after(() => fs.rmSync(workspace, { recursive: true, force: true }));
+  const home = path.join(workspace, "home");
+  fs.mkdirSync(home, { recursive: true });
+  const isolatedEnv = { ...process.env, HOME: home, USERPROFILE: home };
+  const first = path.join(workspace, "first");
+  const second = path.join(workspace, "second");
+  fs.mkdirSync(first, { recursive: true });
+  fs.mkdirSync(second, { recursive: true });
+  for (const project of [first, second]) {
+    const installed = spawnSync(process.execPath, ["bin/matrix.js", "init", project, "--yes", "--platform", "codex", "--without-mattpocock"], { cwd: root, encoding: "utf8", env: isolatedEnv });
+    assert.equal(installed.status, 0, installed.stderr);
+  }
+  const updateAll = spawnSync(process.execPath, ["bin/matrix.js", "update", first, "--all", "--skip-self-update", "--yes"], { cwd: root, encoding: "utf8", env: isolatedEnv });
+  assert.equal(updateAll.status, 0, updateAll.stderr + updateAll.stdout);
+  
+  const index = readProjectsIndex({ home });
+  assert.equal(index.ok, true);
+  assert.deepEqual(index.projects.map((entry) => entry.path).sort(), [first, second].map((item) => path.resolve(item)).sort());
+  fs.rmSync(second, { recursive: true, force: true });
+  const rerun = spawnSync(process.execPath, ["bin/matrix.js", "update", first, "--all", "--skip-self-update", "--yes"], { cwd: root, encoding: "utf8", env: isolatedEnv });
+  assert.equal(rerun.status, 0, rerun.stderr + rerun.stdout);
+  assert.match(rerun.stdout, /Pruned missing project/);
+  assert.deepEqual(readProjectsIndex({ home }).projects.map((entry) => entry.path), [path.resolve(first)]);
+});
+
+test("a corrupt project index degrades to current-project-only updating", (t) => {
+  const workspace = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-cli-corrupt-index-"));
+  t.after(() => fs.rmSync(workspace, { recursive: true, force: true }));
+  const home = path.join(workspace, "home");
+  fs.mkdirSync(path.join(home, ".matrix"), { recursive: true });
+  fs.writeFileSync(path.join(home, ".matrix", "projects.json"), "{ broken");
+  const project = path.join(workspace, "project");
+  fs.mkdirSync(project, { recursive: true });
+  const isolatedEnv = { ...process.env, HOME: home, USERPROFILE: home };
+  const installed = spawnSync(process.execPath, ["bin/matrix.js", "init", project, "--yes", "--platform", "codex", "--without-mattpocock"], { cwd: root, encoding: "utf8", env: isolatedEnv });
+  assert.equal(installed.status, 0, installed.stderr);
+  const update = spawnSync(process.execPath, ["bin/matrix.js", "update", project, "--all", "--skip-self-update", "--yes"], { cwd: root, encoding: "utf8", env: isolatedEnv });
+  assert.equal(update.status, 0, update.stderr + update.stdout);
+  assert.match(update.stdout, /unreadable|OK/);
 });
