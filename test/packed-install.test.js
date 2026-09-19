@@ -7,6 +7,12 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
+// Installation runs register the project into the user-wide index; tests must
+// never write there. Redirect HOME/USERPROFILE for this suite's processes.
+const isolatedHome = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-test-home-"));
+process.env.HOME = isolatedHome;
+process.env.USERPROFILE = isolatedHome;
 const run = (command, args, options) => {
   const npmCli = path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
   const executable = command === "npm" ? process.execPath : command;

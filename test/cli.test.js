@@ -10,6 +10,12 @@ import { readProjectsIndex } from "../src/project-index.js";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
+// Installation runs register the project into the user-wide index; tests must
+// never write there. Redirect HOME/USERPROFILE for this suite's processes.
+const isolatedHome = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-test-home-"));
+process.env.HOME = isolatedHome;
+process.env.USERPROFILE = isolatedHome;
+
 test("non-interactive Codex initialization emits one JSON preview and performs no Matt install when disabled", (t) => {
   const project = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-cli-"));
   t.after(() => fs.rmSync(project, { recursive: true, force: true }));
