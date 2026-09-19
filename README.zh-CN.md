@@ -130,7 +130,7 @@ matrix update --yes
 
 `matrix update` 会保留既有安装的 scope、平台、语言、mode 与 orchestration。它先隔离验证 npm 新包，再由新 CLI 同步 Matrix 资产。当本地 Matt Skills 不完整或过期时，交互式 `matrix update` 会询问一次，并在同一轮把 Matt 修复到受支持 release——CLI 升级、资产刷新、Matt 修复一条命令完成（`--with-mattpocock` 为自动化/CI 提供等价的非交互行为；`--force-matt` 可额外替换被本地修改的 Matt Skills，且必须与 `--with-mattpocock` 同传；`matrix update` 绝不删除 Matt Skills）。`--all` 可将更新扩展到全部已索引项目（`~/.matrix/projects.json`），各项目隔离更新，失效目录自动从索引清理。npm 与项目资产是两个事务：若 CLI 已更新但资产同步失败，可运行 `matrix update --skip-self-update` 重试。Windows 上自升级链路经 Node 调用 npm（不经 shell），一条命令升级无需手动步骤。
 
-Matrix 0.1.5 固定对应 Matt Skills v1.2.3，commit 为 `6acc160e4e0cd062dbbbd7a1b26ae92855edf07e`。即使上游已有新版，`matrix init --with-mattpocock` 仍使用该确切 archive 与经过审查的 23 项兼容 manifest。官方角色中的 `implement` 与 raw `resolving-merge-conflicts` 不兼容，因此 Matrix 不安装也不管理它们。Matrix scope 只控制 Matrix Skill 的发现位置；Matt Skills 与 `.matrix/matt-installation.json` 始终属于目标项目。全局 Matt 副本会保留，但绝不用于补齐项目 readiness。
+Matrix 0.1.6 固定对应 Matt Skills v1.2.3，commit 为 `6acc160e4e0cd062dbbbd7a1b26ae92855edf07e`。即使上游已有新版，`matrix init --with-mattpocock` 仍使用该确切 archive 与经过审查的 23 项兼容 manifest。官方角色中的 `implement` 与 raw `resolving-merge-conflicts` 不兼容，因此 Matrix 不安装也不管理它们。Matrix scope 只控制 Matrix Skill 的发现位置；Matt Skills 与 `.matrix/matt-installation.json` 始终属于目标项目。全局 Matt 副本会保留，但绝不用于补齐项目 readiness。
 
 `matrix init` 选择的语言决定新 Matrix 产物的正文语言：`zh-CN` 使用中文、`en` 使用英文。Runtime 守卫依赖的 Markdown 英文标题 token 保持不变；每个 change 在创建时冻结该语言。
 

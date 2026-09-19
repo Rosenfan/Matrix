@@ -1,6 +1,6 @@
 {
   "name": "@rosenfan/matrix",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Evidence-driven development workflow with Prim and Arch agent-skill orchestration.",
   "license": "MIT",
   "type": "module",

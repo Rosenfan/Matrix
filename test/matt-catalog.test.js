@@ -5,9 +5,9 @@ import {
   MATT_COMPATIBILITY, MATT_CONTENT_HASHES, MATT_INSTALLABLE_SKILLS, MATT_OFFICIAL_SKILLS, MATT_ROLES, MATT_AUTOMATIC_SKILLS
 } from "../src/matt-catalog.mjs";
 
-test("Matrix 0.1.5 freezes the reviewed Matt Skills v1.2.3 release and all official roles", () => {
+test("Matrix 0.1.6 freezes the reviewed Matt Skills v1.2.3 release and all official roles", () => {
   assert.deepEqual(MATT_COMPATIBILITY, {
-    matrixVersion: "0.1.5",
+    matrixVersion: "0.1.6",
     release: "v1.2.3",
     commit: "6acc160e4e0cd062dbbbd7a1b26ae92855edf07e",
     archive: "https://github.com/mattpocock/skills/archive/6acc160e4e0cd062dbbbd7a1b26ae92855edf07e.tar.gz",
