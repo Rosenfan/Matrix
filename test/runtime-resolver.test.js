@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
-import { hashDirectory } from "../src/catalog.js";
+import { MATRIX_VERSION, hashDirectory } from "../src/catalog.js";
 import { createDistribution } from "../src/distribution.js";
 import { resolveProjectRuntime } from "../src/runtime-resolver.js";
 
@@ -61,7 +61,7 @@ test("a same-release self-consistent Runtime that differs from the release catal
   fs.writeFileSync(path.join(matrix, "scripts", "matrix-runtime.mjs"), "console.log('divergent');\n");
   fs.mkdirSync(path.join(project, ".matrix"), { recursive: true });
   fs.writeFileSync(path.join(project, ".matrix", "installation.json"), JSON.stringify({
-    catalogVersion: "0.1.6",
+    catalogVersion: MATRIX_VERSION,
     language: "en",
     catalogDigest: "self-consistent-but-not-release",
     platforms: { codex: { skills: { matrix: { hash: hashDirectory(matrix) } } } }
@@ -80,7 +80,7 @@ test("a same-release Runtime fails closed when its claimed catalog language is u
   fs.writeFileSync(path.join(matrix, "scripts", "matrix-runtime.mjs"), "console.log('divergent');\n");
   fs.mkdirSync(path.join(project, ".matrix"), { recursive: true });
   fs.writeFileSync(path.join(project, ".matrix", "installation.json"), JSON.stringify({
-    catalogVersion: "0.1.6",
+    catalogVersion: MATRIX_VERSION,
     language: "unsupported",
     catalogDigest: "self-consistent-but-not-release",
     platforms: { codex: { skills: { matrix: { hash: hashDirectory(matrix) } } } }
