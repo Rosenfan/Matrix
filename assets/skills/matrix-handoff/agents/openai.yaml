@@ -1,4 +1,4 @@
 interface:
-  display_name: "Matrix Claude Handoff"
-  short_description: "Export frozen Matrix design as a Claude Code task"
-  default_prompt: "Use $matrix-claude to prepare a Claude Code task package."
+  display_name: "Matrix Implementation Handoff"
+  short_description: "Export an approved Matrix Contract as a bounded task package"
+  default_prompt: "Use $matrix-handoff to export the approved Contract to an implementation agent."
