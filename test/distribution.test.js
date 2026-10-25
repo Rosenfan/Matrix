@@ -70,12 +70,13 @@ test("requires a platform when no verified platform can be detected", (t) => {
 
 test("distribution installs only compatible reviewed Skills while Arch invokes the automatic cohort", () => {
   assert.deepEqual(MATT_SKILLS, MATT_OFFICIAL_SKILLS.filter((skill) => !MATT_ROLES.incompatible.includes(skill)));
-  assert.equal(MATT_SKILLS.length, 23);
+  assert.equal(MATT_SKILLS.length, 25);
   assert.equal(MATT_AUTOMATIC_SKILLS.length, 10);
   assert.equal(MATT_AUTOMATIC_SKILLS.includes("implement"), false);
+  assert.equal(MATT_AUTOMATIC_SKILLS.includes("implement-spec"), false);
   assert.equal(MATT_AUTOMATIC_SKILLS.includes("wayfinder"), false);
   assert.equal(MATT_SKILLS.includes("implement"), false);
-  assert.equal(MATT_SKILLS.includes("resolving-merge-conflicts"), false);
+  assert.equal(MATT_SKILLS.includes("implement-spec"), false);
 });
 
 test("installed update intent follows a retained project manifest before global config", (t) => {

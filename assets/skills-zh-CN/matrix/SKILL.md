@@ -28,7 +28,7 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs init <change-id> --work
 ## 编排模式
 
 - **Prim**：各阶段使用 Matrix 自身能力，不依赖 Matt Skills。
-- **Arch**：仅在任务事实满足触发条件时，调用活动 Change 冻结的十项自动能力。Matrix 0.1.4 审查 Matt Skills v1.2.3 官方 25 项角色，只把其中 23 项兼容 Skill 安装在项目本地；排除 `implement` 与 raw `resolving-merge-conflicts`。
+- **Arch**：仅在任务事实满足触发条件时，调用活动 Change 冻结的十项自动能力。Matrix 0.1.7 审查 Matt Skills v1.3.1 官方 27 项角色，只把其中 25 项兼容 Skill 安装在项目本地；排除 `implement` 与 `implement-spec`。
 
 两种编排模式使用已选定的 workflow profile：`full` 走 `open → design → build → verify → archive`；`hotfix` 与 `tweak` 共用内部 `lightweight` profile，走 `open → build → verify → archive`，仅证据策略不同。Arch 能力不得写 Matrix 状态、推进阶段、提交、归档或创建竞争工作流。
 
@@ -71,7 +71,7 @@ full 的 `design -> build` 会批准 proposal/design/plan；lightweight 的 `ope
 
 ## 显式 Matt handoff
 
-Matrix 不嵌套 user-invoked Skill。适用时只解释原因，并让用户显式调用：一次性配置使用 `setup-matt-pocock-skills`，工作流外架构扫描使用 `improve-codebase-architecture`，独立大型候选生成使用 `wayfinder`，上下文边界使用 `handoff`，他人掌握阻塞事实时使用 `to-questionnaire`。`ask-matt`、`grill-with-docs`、`triage`、`to-spec`、`to-tickets`、`grill-me`、`teach`、`wait-what` 保持 standalone。Matrix 不安装也不管理 `implement` 或 raw `resolving-merge-conflicts`；已有副本保留为未管理额外项，活动 Change 内不得建议使用。
+Matrix 不嵌套 user-invoked Skill。适用时只解释原因，并让用户显式调用：一次性配置使用 `setup-matt-pocock-skills`，工作流外架构扫描使用 `improve-codebase-architecture`，独立大型候选生成使用 `wayfinder`，上下文边界使用 `handoff`，会话复盘改进 agent 环境使用 `retro`，他人掌握阻塞事实时使用 `to-questionnaire`。`ask-matt`、`grill-with-docs`、`triage`、`to-spec`、`to-tickets`、`grill-me`、`teach`、`wait-what`、`pr` 保持 standalone。Matrix 不安装也不管理 `implement` 与 `implement-spec`；已有副本（含遗留的 `resolving-merge-conflicts`）保留为未管理额外项，活动 Change 内不得建议使用。
 
 ## 规则
 

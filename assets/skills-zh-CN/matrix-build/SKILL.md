@@ -14,7 +14,7 @@ Build 证据与面向用户的说明使用 `artifact_language`；Runtime 所需�
 - **Prim**：使用 Matrix 自身实现与测试能力。
 - **Arch**：可测试行为变化时调用 `tdd`；真实失败且根因未知时调用 `diagnosing-bugs`；批准 Contract 修改 agent-facing 指令时调用 `writing-for-agents`；只有 Contract 需要人工执行 shell 步骤时，才用 `wizard` 生成并静态验证脚本，绝不端到端执行或收集秘密。
 
-进行中的 merge/rebase 冲突由 Matrix 自身治理，不调用会 stage、continue 或 commit 的 raw `resolving-merge-conflicts`。活动 Change 内不得调用 `implement`。
+进行中的 merge/rebase 冲突由 Matrix 自身治理，不得把生命周期控制交给遗留的 `resolving-merge-conflicts` 副本或任何会自行 stage、continue、commit 的 skill。活动 Change 内不得调用 `implement` 与 `implement-spec`。
 
 调用前说明能力与原因。companion 不得 commit、review、transition、archive 或扩大范围。正确安装的能力失败时最多执行一次同能力 Matrix fallback，并记录调用、失败、fallback 与证据；安装完整性问题必须停止并修复。
 

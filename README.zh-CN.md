@@ -69,7 +69,7 @@ verify --acceptance-or-design-gap------> design
 
 ## 前置条件
 
-- 已安装 [Claude Code](https://docs.anthropic.com/claude-code) 和/或 Codex，作为 Skill 宿主
+- 已安装 [Claude Code](https://docs.anthropic.com/claude-code)、[Codex](https://openai.com/codex)、[ZCode](https://zcode.ai) 或 [Deep Code](https://github.com/lessweb/deepcode-cli)（DeepSeek）之一，作为 Skill 宿主
 - Node.js 18+，且 `npm` 已加入 PATH（用于 Matrix CLI）
 - Python 仅在兼容窗口内的旧适配器路径使用；新安装使用内置 Node workflow runtime
 - Git 仅在从 GitHub 安装或参与 Matrix 开发时需要
@@ -96,7 +96,7 @@ matrix init
 - 选择 Matrix Skill 发现入口安装到当前项目或全局
 - 复制 skills（推荐）或为本地开发创建符号链接
 - 安全地重新配置已有安装，并自动备份被替换的 Matrix 文件
-- 审查 Matt Skills v1.2.3 官方 25 项角色，并在目标项目安装其中 23 项兼容 Skill
+- 审查 Matt Skills v1.3.1 官方 27 项角色，并在目标项目安装其中 25 项兼容 Skill
 - 选择 Prim 或 Arch 作为项目默认值，且不禁用另一种可用模式
 
 自动化或 CI 环境可以使用：
@@ -130,7 +130,9 @@ matrix update --yes
 
 `matrix update` 会保留既有安装的 scope、平台、语言、mode 与 orchestration。它先隔离验证 npm 新包，再由新 CLI 同步 Matrix 资产。当本地 Matt Skills 不完整或过期时，交互式 `matrix update` 会询问一次，并在同一轮把 Matt 修复到受支持 release——CLI 升级、资产刷新、Matt 修复一条命令完成（`--with-mattpocock` 为自动化/CI 提供等价的非交互行为；`--force-matt` 可额外替换被本地修改的 Matt Skills，且必须与 `--with-mattpocock` 同传；`matrix update` 绝不删除 Matt Skills）。`--all` 可将更新扩展到全部已索引项目（`~/.matrix/projects.json`），各项目隔离更新，失效目录自动从索引清理。npm 与项目资产是两个事务：若 CLI 已更新但资产同步失败，可运行 `matrix update --skip-self-update` 重试。Windows 上自升级链路经 Node 调用 npm（不经 shell），一条命令升级无需手动步骤。
 
-Matrix 0.1.6 固定对应 Matt Skills v1.2.3，commit 为 `6acc160e4e0cd062dbbbd7a1b26ae92855edf07e`。即使上游已有新版，`matrix init --with-mattpocock` 仍使用该确切 archive 与经过审查的 23 项兼容 manifest。官方角色中的 `implement` 与 raw `resolving-merge-conflicts` 不兼容，因此 Matrix 不安装也不管理它们。Matrix scope 只控制 Matrix Skill 的发现位置；Matt Skills 与 `.matrix/matt-installation.json` 始终属于目标项目。全局 Matt 副本会保留，但绝不用于补齐项目 readiness。
+Matrix 0.1.7 固定对应 Matt Skills v1.3.1，commit 为 `24fe0ef7737efae15c87225755e9f6f5965e4888`。即使上游已有新版，`matrix init --with-mattpocock` 仍使用该确切 archive 与经过审查的 25 项兼容 manifest。官方角色中的 `implement` 与 `implement-spec` 不兼容，因此 Matrix 不安装也不管理它们。Matrix scope 只控制 Matrix Skill 的发现位置；Matt Skills 与 `.matrix/matt-installation.json` 始终属于目标项目。全局 Matt 副本会保留，但绝不用于补齐项目 readiness。
+
+DeepSeek 平台面向 [Deep Code CLI](https://github.com/lessweb/deepcode-cli)（项目级 `.deepcode/skills/`）。由于 skills 安装器不提供 Deep Code agent，Matrix 先以 Codex 布局产出候选，再在提交前重映射到 `.deepcode/skills/`。支持 project scope 安装；global scope 下 Deep Code 读取 `~/.agents/skills/`（与 Codex 共用路径），不是受支持的 DeepSeek 目标。
 
 `matrix init` 选择的语言决定新 Matrix 产物的正文语言：`zh-CN` 使用中文、`en` 使用英文。Runtime 守卫依赖的 Markdown 英文标题 token 保持不变；每个 change 在创建时冻结该语言。
 
@@ -283,7 +285,7 @@ $matrix → open → design → build → verify → archive
 
 ## 与 Matt Pocock Skills 的集成
 
-Prim 使用 Matrix 自身能力。Matrix 会审查 Matt v1.2.3 官方 25 项角色，安装其中 23 项兼容 Skill，但 Arch 只自动调用以下十项经过审查的能力：
+Prim 使用 Matrix 自身能力。Matrix 会审查 Matt v1.3.1 官方 27 项角色，安装其中 25 项兼容 Skill，但 Arch 只自动调用以下十项经过审查的能力：
 
 | 阶段 | 能力 | 触发条件 |
 |---|---|---|
@@ -298,11 +300,11 @@ Prim 使用 Matrix 自身能力。Matrix 会审查 Matt v1.2.3 官方 25 项角�
 | build | `/wizard` | Contract 需要生成人工执行的 shell 步骤；Matrix 不端到端运行 |
 | verify | `/code-review` | 需要 Standards 与 Spec 双轴证据 |
 
-Matrix 可以推荐但绝不嵌套以下 user-invoked handoff：`setup-matt-pocock-skills`、`improve-codebase-architecture`、`wayfinder`、`handoff`、`to-questionnaire`。它们由用户在活动阶段外显式运行，选中的结果可以再进入受治理 Change。
+Matrix 可以推荐但绝不嵌套以下 user-invoked handoff：`setup-matt-pocock-skills`、`improve-codebase-architecture`、`wayfinder`、`handoff`、`retro`、`to-questionnaire`。它们由用户在活动阶段外显式运行，选中的结果可以再进入受治理 Change。
 
 Arch 在 `code-review` 后记录由 Runtime 管理的审查回执，把 fixed point 与已提交的 HEAD diff 绑定到当前 Contract、审查正文和工作区。正常的 `code-review` 回执要求 Matrix 管理资产之外的候选工作区是干净的。无可用 Git 基线、已提交 diff 为空、仍存在 staged/unstaged/untracked 候选，或正确安装的 capability 真实失败时，Matrix 可为该 revision 执行一次明确标记的同能力 fallback；其中 `uncommitted-worktree` 会同时绑定 fixed point 与完整工作区候选的内容 hash。安装完整性失败不得 fallback。只有标题或自述、但没有匹配回执时，Verify 不能推进。
 
-安装但保持 standalone 的 Skill 是 `ask-matt`、`grill-with-docs`、`triage`、`to-spec`、`to-tickets`、`grill-me`、`teach`、`wait-what`。`implement` 与 raw `resolving-merge-conflicts` 可能接管 Matrix 所有的 TDD、review、stage 或 commit 副作用，因此 0.1.5 不安装也不管理它们；已有副本会被保留并报告为未管理额外项。安装不代表自动调用；任何 companion 都不得推进、提交、归档、恢复或写 Matrix 状态。
+安装但保持 standalone 的 Skill 是 `ask-matt`、`grill-with-docs`、`triage`、`to-spec`、`to-tickets`、`grill-me`、`teach`、`wait-what`、`pr`。`implement` 与 `implement-spec` 可能接管 Matrix 所有的 TDD、review、stage 或 commit 副作用，因此 0.1.7 不安装也不管理它们；已有副本（含遗留的 `resolving-merge-conflicts`）会被保留并报告为未管理额外项。安装不代表自动调用；任何 companion 都不得推进、提交、归档、恢复或写 Matrix 状态。
 
 ---
 

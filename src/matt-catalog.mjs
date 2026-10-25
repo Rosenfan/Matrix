@@ -1,11 +1,11 @@
 import crypto from "node:crypto";
 
 export const MATT_COMPATIBILITY = Object.freeze({
-  matrixVersion: "0.1.6",
-  release: "v1.2.3",
-  commit: "6acc160e4e0cd062dbbbd7a1b26ae92855edf07e",
-  archive: "https://github.com/mattpocock/skills/archive/6acc160e4e0cd062dbbbd7a1b26ae92855edf07e.tar.gz",
-  skillsCli: "skills@1.5.22"
+  matrixVersion: "0.1.7",
+  release: "v1.3.1",
+  commit: "24fe0ef7737efae15c87225755e9f6f5965e4888",
+  archive: "https://github.com/mattpocock/skills/archive/24fe0ef7737efae15c87225755e9f6f5965e4888.tar.gz",
+  skillsCli: "skills@1.7.4"
 });
 
 export const MATT_ROLES = Object.freeze({
@@ -14,12 +14,12 @@ export const MATT_ROLES = Object.freeze({
     "tdd", "diagnosing-bugs", "code-review", "wizard", "writing-for-agents"
   ]),
   handoff: Object.freeze([
-    "setup-matt-pocock-skills", "improve-codebase-architecture", "wayfinder", "handoff", "to-questionnaire"
+    "setup-matt-pocock-skills", "improve-codebase-architecture", "wayfinder", "handoff", "to-questionnaire", "retro"
   ]),
   standalone: Object.freeze([
-    "ask-matt", "grill-with-docs", "triage", "to-spec", "to-tickets", "grill-me", "teach", "wait-what"
+    "ask-matt", "grill-with-docs", "triage", "to-spec", "to-tickets", "grill-me", "teach", "wait-what", "pr"
   ]),
-  incompatible: Object.freeze(["implement", "resolving-merge-conflicts"])
+  incompatible: Object.freeze(["implement", "implement-spec"])
 });
 
 export const MATT_AUTOMATIC_SKILLS = MATT_ROLES.automatic;
@@ -29,35 +29,37 @@ export const MATT_INSTALLABLE_SKILLS = Object.freeze([
   ...MATT_ROLES.standalone
 ]);
 export const MATT_OFFICIAL_SKILLS = Object.freeze(Object.values(MATT_ROLES).flat());
-// Content identities produced by skills@1.5.22 --copy from the exact v1.2.3 archive.
+// Content identities produced by skills@1.7.4 --copy from the exact v1.3.1 archive.
 // They let init classify existing project files before any target mutation without
 // bundling or redistributing Matt's Skill contents.
 export const MATT_CONTENT_HASHES = Object.freeze({
-  "grilling": "f6b0b6a07f6f51a7b39dfed4c737bd5990149e6ac227265dc457eb962e40fde6",
-  "domain-modeling": "8d774870ffd93ad77b07f56bbe59fb76c8f9e246fe49e0181ed65a519fc28929",
-  "research": "3bbc342f7484484d31118fd7cb148690aba2600b318d6b680edc6ce2c2399948",
-  "prototype": "08f5e9d003dfcbc274f4a31864c9fcbc2962ad8574f40e7bba7d78193f5d349f",
-  "codebase-design": "0050828acbec9af9711ac1376749acaf358fb1bbfd98c80fc20df7a26658ccd7",
-  "tdd": "775d2b0eb45fdf7a102f0ec0cfca8448c5d441c49373e0a89bc7a22dbe892c3c",
-  "diagnosing-bugs": "9fc5749a1671a7c894cc538fbbedda19890bd20f297eb6095ba0969a933ed2dc",
-  "code-review": "e4c202dae670331dab5aef98a05594a45ec3b8210a8f9c2ab8a8bba848da4c8e",
-  "wizard": "991cb02af3f4584b07f5b6ce30176d05bf2622152a8776db9832825f80601e3d",
-  "writing-for-agents": "f58ac3a5e4034da89bd31ff86ffdc74df9e986ef818055d9a399f05fc3b37a1b",
-  "setup-matt-pocock-skills": "cb2d75f72fb70ba283a5d76f2722d090a00cb4d3e227e32b05a547193e561800",
-  "improve-codebase-architecture": "986e4245d52053692fc866c4c3065a3b944fc2f27a1ea99785a2b116d785e964",
-  "wayfinder": "a99de1eab6ae2950b5d4146abfd58257a3e0cfdcbd5e9611f27b2a485fd52242",
-  "handoff": "9f8a832aafee3eec6dae6902d758b2438fefb116a6afb9914777238538b14d2b",
-  "to-questionnaire": "9a27c55ce8d45b8a7f1a7309bece202bebcd7cab359f551aeeeb3d5c320a3b55",
-  "ask-matt": "55c6191c39ad1727d8285225db5a97e622026f6c861f1c924dbc92d8c433e344",
-  "grill-with-docs": "05c1b216a482ea0fd5a5281e96b0f1b5fd5e1c1e9edd572709c71944ef6fd7d6",
-  "triage": "7009d742e1cf0e40b0d8de8fc47ece25161795da595bd7017a170426dbb51d9a",
-  "to-spec": "969b7955a044939809487b416d1e907021c6ad4b07bd5979f46e2f1c629ffd01",
-  "to-tickets": "b7c6499e10c567abdbfca7f5c730f2de91584a517816ace5aaaff49f4790e947",
-  "grill-me": "cec05582f13830a7bd63984474b999c806a7b93935ed638a27f32eac1b7f976b",
-  "teach": "209d2ead53b2c6eba2425198f6f09eb51fd2bde490c34da2d93b187b4b749414",
-  "wait-what": "345b8e9aba9f134944f37ae7807cadd19c1b6866d77e3414f2e8f3835061aac0",
+  "grilling": "229e9190ddcdf65fcfa68aeebe6edfcf3b039967e4d5321c48325ea197836b88",
+  "domain-modeling": "332c4e23360e692a488fa25fe878596f91e4eaf125f48ea280dca151f3798eaa",
+  "research": "8766e592808cb8e6951dd8e4d414f4fef3ee9dde1c487b2e5af7461027f794e2",
+  "prototype": "5fc3162feb286bc773e21c208c440de81f66ef36e6ae2fd2189a54756af4468c",
+  "codebase-design": "17a6a1ab67eff070a38564834d6e3ff82bc2d46cdc888a57f6bc18c3efe6442b",
+  "tdd": "cf0a63fd20988baef0a31d2d8467e70319fdc75d5bb3eaa60620abcedb97574c",
+  "diagnosing-bugs": "bc1ade4a8b7e988aed02c251d3d0d8cdbedc74ce3361a244e2cf12cbb6744d74",
+  "code-review": "9a883c4392f27b6d45c6a51d12d168897ba7707a5e70f8d45a042b41db58d5a5",
+  "wizard": "b2793f1654b9c518eb85386cc51f9218030c6dc83772bea3c128cb156c972300",
+  "writing-for-agents": "46d0c6f716d2c4cbb27ea157fd3e18675389fecf3d722343f05c82b7c1e61bf8",
+  "setup-matt-pocock-skills": "7fd2c1e02b10bdd59f2c15a7cbc364e247286884c1c5cdd21704f7cbc769b42a",
+  "improve-codebase-architecture": "4502270f003e0702f19da6c2436daffe0f9d4dafcea3de2759347b99c5a5c404",
+  "wayfinder": "a774efe838aede8db313dbf3cd16660075803b3ed3657d3297ec913ea67fad49",
+  "handoff": "5aff146205749c5daab83c1f0299b910a1caaa403bcd37f59f35513a6c13dc12",
+  "to-questionnaire": "51d0425a65248e2d5ca1b4d06e4f854cb131e49a43326f54a81690ce28e27535",
+  "retro": "e7b2f28bf8e88e539791db6f9ec566252b56afc179d5b881486340a477ec59bd",
+  "ask-matt": "b1cf1467569d4199e6cec74a3fa9036d42bb208e76084e5d5030e23cd7f1f1dc",
+  "grill-with-docs": "bbf60554b6f102ed734211b26c5d3cc237be19e0dd5d93c1a8dea1367d6ebc23",
+  "triage": "f44745c02d710fee1bd12e036f8a4d53a4615018c255dd90dba7ec09a23ebb6d",
+  "to-spec": "23e7133ad3781b22ddc23335c88a975b71ebc809a7b5f734b158bb05abaaa5e8",
+  "to-tickets": "b7296c8466d53eb832047afad28932db82b1f31da4b647ec0c63a5af824a8bbc",
+  "grill-me": "b37db6d78417792b8dd9a478bc8fcdf7a008dcb94cb172247b01fda6205ba6e3",
+  "teach": "78966fd2b3ab60f3c08c25660d7a237325c1a243a9ba1103e7dc77edf9713825",
+  "wait-what": "ea4bde2069b457b52a0b2ba39bfc686a54fff73b79c91ef974224d0215298a9f",
+  "pr": "4f2bdb1aaf75c6cd0f4696889ff1022cff86ab81c3c1e3a1ba4ce00964d98146",
   "implement": "3180dbe245245f99dceb669e597cf633935cc87be0ca3c39a86dde54e62a4db9",
-  "resolving-merge-conflicts": "cf66bf26fb8a943d426271120f033825f7ed591349812ff4f636d3db56c976dc"
+  "implement-spec": "9f2d9a27a67a0edee8bcc1c12c5dae69ea77ffaf2a4898a939c6afd0c7db7f47"
 });
 export const MATT_CATALOG_DIGEST = crypto.createHash("sha256").update(JSON.stringify({
   compatibility: MATT_COMPATIBILITY,

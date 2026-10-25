@@ -33,7 +33,7 @@ An explicit mode wins; otherwise Runtime uses the project `default_orchestration
 ## Orchestration
 
 - **Prim** uses Matrix's own capability in every phase and never requires Matt Skills.
-- **Arch** conditionally invokes the ten reviewed automatic capabilities frozen by the active Change. Matrix 0.1.4 reviews all 25 official Matt Skills v1.2.3 roles and installs only the 23 compatible Skills project-locally; `implement` and raw `resolving-merge-conflicts` are excluded.
+- **Arch** conditionally invokes the ten reviewed automatic capabilities frozen by the active Change. Matrix 0.1.7 reviews all 27 official Matt Skills v1.3.1 roles and installs only the 25 compatible Skills project-locally; `implement` and `implement-spec` are excluded.
 
 Both orchestration modes use the same selected workflow profile. `full` uses `open → design → build → verify → archive`; `hotfix` and `tweak` share one internal `lightweight` profile, `open → build → verify → archive`, with different evidence policies. Companion Skills never write Matrix state, transition, commit, archive, or create competing workflow artifacts.
 
@@ -73,7 +73,7 @@ Use it only when the user explicitly chooses a different implementation agent; n
 
 ## Cross-Cutting Skills
 
-Matrix never nests user-invoked Matt Skills. When relevant, explain the reason and ask the user to invoke one explicitly: `setup-matt-pocock-skills` for one-time setup, `improve-codebase-architecture` for an out-of-band scan, `wayfinder` for generating a separate large-effort candidate, `handoff` at a context boundary, or `to-questionnaire` when another person owns blocking facts. `ask-matt`, `grill-with-docs`, `triage`, `to-spec`, `to-tickets`, `grill-me`, `teach`, and `wait-what` remain standalone. Matrix does not install or manage `implement` or raw `resolving-merge-conflicts`; preserve pre-existing copies as unmanaged extras and never suggest them inside an active Change.
+Matrix never nests user-invoked Matt Skills. When relevant, explain the reason and ask the user to invoke one explicitly: `setup-matt-pocock-skills` for one-time setup, `improve-codebase-architecture` for an out-of-band scan, `wayfinder` for generating a separate large-effort candidate, `handoff` at a context boundary, `retro` for a post-session agent-environment retrospective, or `to-questionnaire` when another person owns blocking facts. `ask-matt`, `grill-with-docs`, `triage`, `to-spec`, `to-tickets`, `grill-me`, `teach`, `wait-what`, and `pr` remain standalone. Matrix does not install or manage `implement` or `implement-spec`; preserve pre-existing copies (including any legacy `resolving-merge-conflicts`) as unmanaged extras and never suggest them inside an active Change.
 
 ## Rules
 

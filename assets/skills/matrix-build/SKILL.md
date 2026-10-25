@@ -20,7 +20,7 @@ Use Matrix's own implementation and test discipline.
 - invoke `writing-for-agents` when the approved Contract changes agent-facing instructions;
 - invoke `wizard` only to generate and statically verify human-run shell steps required by the Contract; never execute the wizard end-to-end or collect secrets.
 
-Resolve an in-progress merge/rebase through Matrix-owned conflict handling. Do not invoke raw `resolving-merge-conflicts`, because it can stage, continue, and commit outside Matrix lifecycle ownership. Never invoke `implement` inside an active Change.
+Resolve an in-progress merge/rebase through Matrix-owned conflict handling; never hand lifecycle control to a legacy `resolving-merge-conflicts` copy or any skill that stages, continues, or commits on its own. Never invoke `implement` or `implement-spec` inside an active Change.
 
 Announce each triggered capability and reason. No companion may commit, review, transition, archive, or broaden scope. A correctly installed capability gets at most one Matrix-owned fallback for that same capability; record the Skill, failure, fallback, and evidence. Installation-integrity failure stops the phase.
 

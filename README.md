@@ -69,7 +69,7 @@ Each phase:
 
 ## Prerequisites
 
-- [Claude Code](https://docs.anthropic.com/claude-code) and/or Codex installed as the Skill host
+- [Claude Code](https://docs.anthropic.com/claude-code), [Codex](https://openai.com/codex), [ZCode](https://zcode.ai), or [Deep Code](https://github.com/lessweb/deepcode-cli) (DeepSeek) installed as the Skill host
 - Node.js 18+ and `npm` on `PATH` (for the Matrix CLI)
 - Python is optional during the compatibility window; new installations use the bundled Node workflow runtime.
 - Git is only needed when installing from GitHub or contributing to Matrix.
@@ -93,10 +93,10 @@ matrix init
 
 The interactive setup lets you:
 
-- Choose English or Chinese, project or global Matrix discovery scope, and Claude Code, Codex, or both
+- Choose English or Chinese, project or global Matrix discovery scope, and any combination of Claude Code, Codex, ZCode, and DeepSeek (Deep Code)
 - Copy skills (recommended) or symlink them for local development
 - Safely reconfigure an existing installation with an automatic backup
-- Review all 25 official Matt Skills v1.2.3 roles and install the 23 compatible Skills into the target project
+- Review all 27 official Matt Skills v1.3.1 roles and install the 25 compatible Skills into the target project
 - Choose **Prim** or **Arch** as the project default without disabling the other available mode
 
 For automation and CI:
@@ -133,7 +133,9 @@ matrix update --yes
 
 `matrix update` preserves the installation's scope, platforms, language, mode, and orchestration. It first validates a newer npm package in isolation, then re-runs the new CLI to refresh Matrix assets. When the local Matt Skills are incomplete or outdated, an interactive `matrix update` asks once and repairs them to the supported release in the same run — CLI upgrade, asset refresh, and Matt repair complete in a single command (`--with-mattpocock` gives non-interactive/CI the same behavior; `--force-matt` additionally replaces locally modified Matt Skills and requires that flag; Matt Skills are never removed by `matrix update`). `--all` extends the run to every indexed project (`~/.matrix/projects.json`); each project updates in isolation and missing directories are pruned from the index. npm and project assets are separate transactions: if asset refresh fails after a CLI upgrade, run `matrix update --skip-self-update` to retry. On Windows the self-update chain runs npm through Node (no shell), so one-command upgrades work without manual steps.
 
-Matrix 0.1.6 is bound to Matt Skills v1.2.3 at commit `6acc160e4e0cd062dbbbd7a1b26ae92855edf07e`. `matrix init --with-mattpocock` always uses that exact archive and its reviewed 23-Skill compatible manifest, even if upstream has a newer release. The two official but incompatible Skills, `implement` and raw `resolving-merge-conflicts`, are not Matrix-managed or installed. Matrix scope controls Matrix Skill discovery only: Matt Skills and `.matrix/matt-installation.json` are always project-local. Global Matt copies are preserved but never used to complete project readiness.
+Matrix 0.1.7 is bound to Matt Skills v1.3.1 at commit `24fe0ef7737efae15c87225755e9f6f5965e4888`. `matrix init --with-mattpocock` always uses that exact archive and its reviewed 25-Skill compatible manifest, even if upstream has a newer release. The two official but incompatible Skills, `implement` and `implement-spec`, are not Matrix-managed or installed. Matrix scope controls Matrix Skill discovery only: Matt Skills and `.matrix/matt-installation.json` are always project-local. Global Matt copies are preserved but never used to complete project readiness.
+
+DeepSeek support targets the [Deep Code CLI](https://github.com/lessweb/deepcode-cli) (project-level `.deepcode/skills/`). Because the skills installer does not ship a Deep Code agent, Matrix produces the candidate in the Codex layout and remaps it to `.deepcode/skills/` before commit. Project-scope installation is supported; global-scope Deep Code reads `~/.agents/skills/` (shared with Codex) and is therefore not a supported DeepSeek target.
 
 The language selected by `matrix init` controls the prose in new Matrix artifacts. Markdown headings required by Matrix guards remain stable English tokens; the artifact body is Chinese for `zh-CN` and English for `en`. A change freezes this language at creation time.
 
@@ -286,7 +288,7 @@ The sidecar does NOT change Matrix state. It's a pure export — like taking a s
 
 ## Integration with Matt Pocock's Skills
 
-Prim uses Matrix's own capability. Matrix reviews all 25 official Matt v1.2.3 roles, installs the 23 compatible Skills, and lets Arch automatically invoke only this reviewed ten-capability cohort:
+Prim uses Matrix's own capability. Matrix reviews all 27 official Matt v1.3.1 roles, installs the 25 compatible Skills, and lets Arch automatically invoke only this reviewed ten-capability cohort:
 
 | Phase | Capability | Trigger |
 |---|---|---|
@@ -301,11 +303,11 @@ Prim uses Matrix's own capability. Matrix reviews all 25 official Matt v1.2.3 ro
 | build | `/wizard` | The Contract requires generated human-run shell steps; Matrix never runs them end-to-end |
 | verify | `/code-review` | Standards and Spec review evidence is required |
 
-Matrix may recommend but never nest these user-invoked handoffs: `setup-matt-pocock-skills`, `improve-codebase-architecture`, `wayfinder`, `handoff`, and `to-questionnaire`. The user explicitly runs them outside the active phase; selected output may enter a governed Change.
+Matrix may recommend but never nest these user-invoked handoffs: `setup-matt-pocock-skills`, `improve-codebase-architecture`, `wayfinder`, `handoff`, `retro`, and `to-questionnaire`. The user explicitly runs them outside the active phase; selected output may enter a governed Change.
 
 Arch records a Runtime-managed review receipt after `code-review`, binding its fixed point and committed HEAD diff to the current Contract, review evidence, and workspace. A normal `code-review` receipt requires a clean candidate worktree outside Matrix-managed assets. When Git has no usable baseline, the committed diff is empty, staged/unstaged/untracked candidate files still exist, or the correctly installed capability fails, Matrix may perform one explicitly labelled same-capability fallback for that revision. The `uncommitted-worktree` fallback binds both the fixed point and a content hash of the complete worktree candidate. Installation-integrity failures never fall back. A heading or self-description without the matching receipt cannot advance Verify.
 
-Installed standalone Skills are `ask-matt`, `grill-with-docs`, `triage`, `to-spec`, `to-tickets`, `grill-me`, `teach`, and `wait-what`. `implement` and raw `resolving-merge-conflicts` are incompatible because they can take over TDD/review/staging/commit effects owned by Matrix, so 0.1.5 neither installs nor manages them. Pre-existing copies are preserved and reported as unmanaged extras. Installation never grants automatic invocation, and no companion may transition, commit, archive, recover, or write Matrix state.
+Installed standalone Skills are `ask-matt`, `grill-with-docs`, `triage`, `to-spec`, `to-tickets`, `grill-me`, `teach`, `wait-what`, and `pr`. `implement` and `implement-spec` are incompatible because they can take over TDD/review/staging/commit effects owned by Matrix, so 0.1.7 neither installs nor manages them. Pre-existing copies (including any legacy `resolving-merge-conflicts`) are preserved and reported as unmanaged extras. Installation never grants automatic invocation, and no companion may transition, commit, archive, recover, or write Matrix state.
 
 ---
 
