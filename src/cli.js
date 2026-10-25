@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { PLATFORMS } from "./catalog.js";
+import { PLATFORMS, PLATFORM_IDS } from "./catalog.js";
 import { createDistribution, installedIntent } from "./distribution.js";
 import { createMattAdapter, inspectMattInstallation } from "./matt.js";
 import { text } from "./messages.js";
@@ -15,7 +15,7 @@ import { MATT_COMPATIBILITY } from "./matt-catalog.mjs";
 
 const packagePath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "package.json");
 const version = JSON.parse(fs.readFileSync(packagePath, "utf8")).version;
-const HELP = `Matrix ${version}\n\nUsage: matrix init [directory] [options]\n       matrix update [directory] [options]\n       matrix doctor [directory] [options]\n\nOptions:\n  --language <en|zh-CN>\n  --scope <project|global>\n  --platform <claude-code|codex>  (repeatable)\n  --mode <copy|symlink>\n  --with-mattpocock | --without-mattpocock\n  --force-matt  (with --with-mattpocock; replace modified Matt Skills)\n  --default-orchestration <prim|arch>\n  update only: --all | --project-only  (update scope across indexed projects)\n  --skip-self-update  --force  --yes, -y  --dry-run  --json  --no-color`;
+const HELP = `Matrix ${version}\n\nUsage: matrix init [directory] [options]\n       matrix update [directory] [options]\n       matrix doctor [directory] [options]\n\nOptions:\n  --language <en|zh-CN>\n  --scope <project|global>\n  --platform <${PLATFORM_IDS.join("|")}>  (repeatable)\n  --mode <copy|symlink>\n  --with-mattpocock | --without-mattpocock\n  --force-matt  (with --with-mattpocock; replace modified Matt Skills)\n  --default-orchestration <prim|arch>\n  update only: --all | --project-only  (update scope across indexed projects)\n  --skip-self-update  --force  --yes, -y  --dry-run  --json  --no-color`;
 
 function parse(argv) {
   const result = { command: null, directory: null, scope: null, language: null, platforms: [], mode: "copy", matt: null, mattPolicy: "preserve", defaultOrchestration: null, matrixPolicy: "safe", yes: false, dryRun: false, json: false, color: true, skipSelfUpdate: false, reexec: false, all: false, projectOnly: false };
@@ -69,7 +69,7 @@ async function intentFrom(options, ui) {
   const language = options.language ?? (options.yes ? "en" : await ui.select("Language / 语言", [{ label: "English", value: "en" }, { label: "中文", value: "zh-CN" }]));
   const scope = options.scope ?? (options.yes ? "project" : await ui.select(text(language, "scopeQuestion"), [{ label: text(language, "project"), value: "project" }, { label: text(language, "global"), value: "global" }]));
   let platforms = options.platforms;
-  if (!platforms.length && interactive && !options.yes) platforms = await ui.selectMany(text(language, "platformsQuestion"), [{ label: "Claude Code", value: "claude-code" }, { label: "Codex", value: "codex" }]);
+  if (!platforms.length && interactive && !options.yes) platforms = await ui.selectMany(text(language, "platformsQuestion"), PLATFORM_IDS.map((id) => ({ label: PLATFORMS[id].name, value: id })));
   const matt = options.matt ?? (interactive && !options.yes ? (await ui.confirm(text(language, "mattQuestion"), true, labelsFor(language)) ? "missing" : "none") : "missing");
   const defaultOrchestration = options.defaultOrchestration ?? (interactive && !options.yes && matt === "missing"
     ? await ui.select(text(language, "orchestrationQuestion"), [
@@ -115,12 +115,12 @@ async function refresh(intent, options, ui) {
   }
   if (options.json) {
     if (!evaluation.ok || options.dryRun) {
-      const output = options.updateMode ? { ...evaluation, matt: inspectMattInstallation({ projectRoot: intent.projectRoot, home: intent.home, platforms: intent.platforms }) } : evaluation;
+      const output = options.updateMode ? { ...evaluation, matt: inspectMattInstallation({ projectRoot: intent.projectRoot, home: intent.home, platforms: intent.platforms, action: "matrix update --with-mattpocock" }) } : evaluation;
       console.log(JSON.stringify(output)); return evaluation.ok ? 0 : 2;
     }
     const result = distribution.commit(evaluation.plan);
     const output = { ...evaluation, ...result, intent: evaluation.intent, observations: evaluation.observations, actions: evaluation.actions,
-      ...(options.updateMode ? { matt: inspectMattInstallation({ projectRoot: intent.projectRoot, home: intent.home, platforms: intent.platforms }) } : {}) };
+      ...(options.updateMode ? { matt: inspectMattInstallation({ projectRoot: intent.projectRoot, home: intent.home, platforms: intent.platforms, action: "matrix update --with-mattpocock" }) } : {}) };
     console.log(JSON.stringify(output));
     return !result.ok ? 2 : result.code === "PARTIAL" ? 1 : 0;
   }

@@ -7,6 +7,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import { hashDirectory } from "../src/catalog.js";
 import { readProjectsIndex } from "../src/project-index.js";
+import { MATT_COMPATIBILITY } from "../src/matt-catalog.mjs";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -25,6 +26,15 @@ test("non-interactive Codex initialization emits one JSON preview and performs n
   const installed = spawnSync(process.execPath, ["bin/matrix.js", "init", project, "--yes", "--platform", "codex", "--without-mattpocock"], { cwd: root, encoding: "utf8" });
   assert.equal(installed.status, 0);
   assert.ok(fs.existsSync(path.join(project, ".agents", "skills", "matrix", "SKILL.md")));
+});
+
+test("non-interactive initialization accepts the zcode and deepseek platforms", (t) => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-cli-new-platforms-"));
+  t.after(() => fs.rmSync(project, { recursive: true, force: true }));
+  const installed = spawnSync(process.execPath, ["bin/matrix.js", "init", project, "--yes", "--platform", "zcode", "--platform", "deepseek", "--without-mattpocock"], { cwd: root, encoding: "utf8" });
+  assert.equal(installed.status, 0, installed.stderr);
+  assert.ok(fs.existsSync(path.join(project, ".zcode", "skills", "matrix", "SKILL.md")));
+  assert.ok(fs.existsSync(path.join(project, ".deepcode", "skills", "matrix", "SKILL.md")));
 });
 
 test("doctor emits a single structured diagnosis without writing", (t) => {
@@ -64,7 +74,7 @@ test("Chinese doctor localizes Matt states and diagnostics", (t) => {
   const result = spawnSync(process.execPath, ["bin/matrix.js", "doctor", project, "--language", "zh-CN", "--platform", "codex", "--no-color"], { cwd: root, encoding: "utf8" });
   assert.equal(result.status, 2);
   assert.match(result.stdout, /Matt Pocock Skills 状态为\s*未安装/);
-  assert.match(result.stdout, /Matt v1\.2\.3：不完整/);
+  assert.match(result.stdout, new RegExp(`Matt ${MATT_COMPATIBILITY.release}：不完整`));
   assert.equal(result.stdout.includes("skills are missing"), false);
 });
 
@@ -103,7 +113,7 @@ test("update inherits the existing installation language and skips npm on reques
   const output = JSON.parse(update.stdout);
   assert.equal(output.intent.language, "zh-CN");
   assert.equal(output.matt.status, "incomplete");
-  assert.equal(output.matt.action, "matrix init . --with-mattpocock");
+  assert.equal(output.matt.action, "matrix update --with-mattpocock");
   assert.equal(fs.existsSync(path.join(project, ".matrix", "matt-installation.json")), false);
 });
 

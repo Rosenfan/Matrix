@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { MATT_INSTALLABLE_SKILLS, MATT_ROLES } from "./matt-catalog.mjs";
 
 export const LANGUAGE_IDS = ["en", "zh-CN"];
-export const PLATFORM_IDS = ["claude-code", "codex"];
+export const PLATFORM_IDS = ["claude-code", "codex", "zcode", "deepseek"];
 export const MATRIX_SKILLS = [
   "matrix", "matrix-open", "matrix-design", "matrix-build", "matrix-verify",
   "matrix-archive", "matrix-hotfix", "matrix-tweak", "matrix-status", "matrix-handoff"
@@ -28,6 +28,20 @@ export const PLATFORMS = {
     id: "codex", name: "Codex", skillsCliAgent: "codex",
     skillRoot(base) { return path.join(base, ".agents", "skills"); },
     legacyRoots(base) { return [path.join(base, ".codex", "skills")]; }
+  },
+  zcode: {
+    id: "zcode", name: "ZCode", skillsCliAgent: "zcode",
+    skillRoot(base) { return path.join(base, ".zcode", "skills"); },
+    legacyRoots() { return []; }
+  },
+  deepseek: {
+    id: "deepseek", name: "DeepSeek (Deep Code)", skillsCliAgent: "codex",
+    // The skills CLI has no Deep Code agent, so the Matt candidate is produced in
+    // the Codex layout and remapped to skillRoot before commit (project scope
+    // only: global Deep Code reads ~/.agents/skills, shared with Codex).
+    candidateLayout(base) { return path.join(base, ".agents", "skills"); },
+    skillRoot(base) { return path.join(base, ".deepcode", "skills"); },
+    legacyRoots() { return []; }
   }
 };
 

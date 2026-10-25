@@ -129,3 +129,42 @@ test("Matt inspector does not guess a version without a project receipt", (t) =>
   assert.equal(result.installed, "unknown");
   assert.equal(result.action, "matrix init . --with-mattpocock");
 });
+
+test("deepseek candidates are remapped from the codex layout to .deepcode/skills", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-matt-remap-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const adapter = createMattAdapter({
+    makeTemporary: () => root,
+    run({ cwd }) {
+      const target = path.join(cwd, ".agents", "skills", "tdd");
+      fs.mkdirSync(target, { recursive: true });
+      fs.writeFileSync(path.join(target, "SKILL.md"), "# tdd\n");
+    },
+    verifyCandidate: () => {}
+  });
+  const result = adapter.prepareCandidate({ platforms: ["deepseek"], skills: ["tdd"] });
+  assert.equal(result.ok, true, result.message);
+  assert.equal(fs.existsSync(path.join(root, ".agents", "skills", "tdd", "SKILL.md")), false);
+  assert.equal(fs.existsSync(path.join(root, ".deepcode", "skills", "tdd", "SKILL.md")), true);
+  assert.equal(path.resolve(result.platforms.deepseek), path.resolve(path.join(root, ".deepcode", "skills")));
+});
+
+test("a shared codex layout survives the deepseek remap inside one candidate run", (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-matt-remap-shared-"));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const adapter = createMattAdapter({
+    makeTemporary: () => root,
+    run({ cwd }) {
+      const target = path.join(cwd, ".agents", "skills", "tdd");
+      fs.mkdirSync(target, { recursive: true });
+      fs.writeFileSync(path.join(target, "SKILL.md"), "# tdd\n");
+    },
+    verifyCandidate: () => {}
+  });
+  const result = adapter.prepareCandidate({ platforms: ["codex", "deepseek"], skills: ["tdd"] });
+  assert.equal(result.ok, true, result.message);
+  assert.equal(fs.existsSync(path.join(root, ".agents", "skills", "tdd", "SKILL.md")), true);
+  assert.equal(fs.existsSync(path.join(root, ".deepcode", "skills", "tdd", "SKILL.md")), true);
+  assert.equal(path.resolve(result.platforms.codex), path.resolve(path.join(root, ".agents", "skills")));
+  assert.equal(path.resolve(result.platforms.deepseek), path.resolve(path.join(root, ".deepcode", "skills")));
+});

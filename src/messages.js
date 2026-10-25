@@ -5,7 +5,7 @@ export const messages = {
     project: "Project (current directory)", global: "Global Matrix Skills",
     copy: "Copy (recommended)", symlink: "Symlink (advanced)",
     matrix: "Matrix", matt: "Matt Pocock skills", installed: "installed", ready: "Matrix is ready.",
-    noPlatform: "No verified platform was detected. Select Claude Code, Codex, or both.",
+    noPlatform: "No verified platform was detected. Select Claude Code, Codex, ZCode, or DeepSeek (Deep Code).",
     preview: "Planned changes", confirm: "Apply these changes?", doctor: "Installation diagnosis",
     languageQuestion: "Language", scopeQuestion: "Installation scope", platformsQuestion: "Platforms", orchestrationQuestion: "Default orchestration",
     orchestrationArchDetail: "Orchestrates the installed Matt Skills cohort (requires Matt Skills).", orchestrationPrimDetail: "Uses Matrix's own capabilities only (no Matt dependency).",
@@ -37,7 +37,7 @@ export const messages = {
     project: "项目（当前目录）", global: "全局 Matrix Skills",
     copy: "复制（推荐）", symlink: "符号链接（高级）",
     matrix: "Matrix", matt: "Matt Pocock skills", installed: "已安装", ready: "Matrix 已就绪。",
-    noPlatform: "未检测到已验证的平台。请选择 Claude Code、Codex，或两者。",
+    noPlatform: "未检测到已验证的平台。请选择 Claude Code、Codex、ZCode 或 DeepSeek（Deep Code）。",
     preview: "计划变更", confirm: "确认应用这些变更？", doctor: "安装诊断",
     matrixModifiedDiagnostic: "{platform}：现有 Matrix 资产无法确认由 Matrix 管理。", mattModifiedDiagnostic: "{platform}：Matt Skills 存在本地修改或不可读内容，需要单独授权替换。", archIncompleteDiagnostic: "Arch 需要精确匹配已审查集合和可信项目 receipt。请使用 --with-mattpocock 重试。", matrixStateDiagnostic: "{platform}：Matrix 状态为 {state}。", mattStateDiagnostic: "{platform}：Matt Pocock Skills 状态为 {state}。", codexLegacyDiagnostic: "检测到 Codex 旧版 .codex/skills；Matrix 不会写入该目录。", unmanagedExtraDiagnostic: "{platform}：将保留但不会调用这些非托管附加 Skills：{skills}。"
   }

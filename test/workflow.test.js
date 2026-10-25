@@ -138,7 +138,7 @@ test("Arch requires verified project-wide installation facts and freezes Arch in
   assert.equal(created.ok, true, created.message);
   assert.equal(created.orchestration, "arch");
   assert.match(fs.readFileSync(statePath(cwd, "arch-change"), "utf8"), new RegExp(`^arch_catalog_digest: ${MATT_CATALOG_DIGEST}$`, "m"));
-  assert.match(fs.readFileSync(statePath(cwd, "arch-change"), "utf8"), /^matt_release: v1\.2\.3$/m);
+  assert.match(fs.readFileSync(statePath(cwd, "arch-change"), "utf8"), new RegExp(`^matt_release: ${MATT_COMPATIBILITY.release}$`, "m"));
   assert.equal(invoke(["inspect"], { cwd, mattContentHashes }).orchestration, "arch");
   fs.rmSync(path.join(cwd, ".agents", "skills", "tdd", "SKILL.md"));
   const damaged = invoke(["inspect"], { cwd, mattContentHashes });

@@ -33,9 +33,11 @@ test("packed artifact runs recoverable Claude Code and Codex lifecycles without 
   const project = path.join(temporary, "project");
   fs.mkdirSync(project);
   const binary = path.join(prefix, "node_modules", "@rosenfan", "matrix", "bin", "matrix.js");
-  run(process.execPath, [binary, "init", project, "--yes", "--language", "zh-CN", "--platform", "claude-code", "--platform", "codex", "--without-mattpocock"], { cwd: temporary });
+  run(process.execPath, [binary, "init", project, "--yes", "--language", "zh-CN", "--platform", "claude-code", "--platform", "codex", "--platform", "zcode", "--platform", "deepseek", "--without-mattpocock"], { cwd: temporary });
   assert.ok(fs.existsSync(path.join(project, ".agents", "skills", "matrix", "SKILL.md")));
   assert.ok(fs.existsSync(path.join(project, ".claude", "skills", "matrix", "SKILL.md")));
+  assert.ok(fs.existsSync(path.join(project, ".zcode", "skills", "matrix", "SKILL.md")));
+  assert.ok(fs.existsSync(path.join(project, ".deepcode", "skills", "matrix", "SKILL.md")));
 
   const codexRuntime = path.join(project, ".agents", "skills", "matrix", "scripts", "matrix-runtime.mjs");
   const claudeRuntime = path.join(project, ".claude", "skills", "matrix", "scripts", "matrix-runtime.mjs");

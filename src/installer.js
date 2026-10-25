@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { createDistribution } from "./distribution.js";
-import { MATRIX_SKILLS, MATT_SKILLS, PLATFORMS, sourceSkillsRoot } from "./catalog.js";
+import { MATRIX_SKILLS, MATT_SKILLS, PLATFORMS, PLATFORM_IDS, sourceSkillsRoot } from "./catalog.js";
 
 export { MATRIX_SKILLS, MATT_SKILLS, sourceSkillsRoot };
 
@@ -25,8 +25,8 @@ function requireExists(destination, skill) {
 }
 
 export function installMatrix({ destination, mode = "copy", conflict = "error", dryRun = false }) {
-  const platform = destination?.includes(".agents") ? "codex" : "claude-code";
   const projectRoot = path.resolve(destination, "..", "..");
+  const platform = PLATFORM_IDS.find((id) => PLATFORMS[id].skillRoot(projectRoot) === path.resolve(destination)) ?? "claude-code";
   const distribution = createDistribution();
   const evaluation = distribution.evaluate({ projectRoot, scope: "project", platforms: [platform], mode, matrixPolicy: conflict === "replace" ? "replace" : "safe", dryRun });
   if (!evaluation.ok) throw new Error(evaluation.diagnostics?.[0]?.message ?? evaluation.code);

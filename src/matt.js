@@ -77,6 +77,23 @@ export function createMattAdapter({
     }
   }
 } = {}) {
+  // Platforms whose skills-CLI agent writes a different layout than the target
+  // skill root (deepseek: CLI agent codex → .agents/skills, target .deepcode/skills)
+  // get their candidate remapped right after that platform's CLI run. When another
+  // platform in the same candidate run shares the produced layout, the remap must
+  // copy instead of rename so the shared source survives for that platform.
+  const remapCandidateLayout = (platform, root, platforms) => {
+    const config = PLATFORMS[platform];
+    if (typeof config.candidateLayout !== "function") return;
+    const sourceRoot = config.candidateLayout(root);
+    const targetRoot = config.skillRoot(root);
+    if (path.resolve(sourceRoot) === path.resolve(targetRoot) || !fs.existsSync(sourceRoot)) return;
+    const shared = platforms.some((other) => other !== platform
+      && path.resolve(PLATFORMS[other].candidateLayout?.(root) ?? PLATFORMS[other].skillRoot(root)) === path.resolve(sourceRoot));
+    fs.mkdirSync(path.dirname(targetRoot), { recursive: true });
+    if (shared) fs.cpSync(sourceRoot, targetRoot, { recursive: true });
+    else fs.renameSync(sourceRoot, targetRoot);
+  };
   return {
     installMissing() {
       return {
@@ -94,6 +111,7 @@ export function createMattAdapter({
           const args = ["--yes", MATT_COMPATIBILITY.skillsCli, "add", MATT_COMPATIBILITY.archive, "--yes", "--copy", "--agent", PLATFORMS[platform].skillsCliAgent];
           for (const skill of skills) args.push("--skill", skill);
           run({ command: "npx", args, cwd: root, timeout, stdio });
+          remapCandidateLayout(platform, root, platforms);
           attempted.push(platform);
         }
         verifyCandidate({ root, platforms, skills });

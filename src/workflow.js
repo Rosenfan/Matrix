@@ -49,6 +49,14 @@ const LEGACY_ARCH_SKILLS = [
   "grilling", "domain-modeling", "research", "wayfinder", "prototype",
   "codebase-design", "tdd", "diagnosing-bugs", "resolving-merge-conflicts", "code-review"
 ];
+// The bundled runtime is injected without catalog.js, so this platform→skill-root
+// mapping mirrors catalog.js PLATFORMS and is pinned by a parity test.
+export const PLATFORM_SKILL_ROOTS = Object.freeze({
+  "claude-code": ".claude/skills",
+  codex: ".agents/skills",
+  zcode: ".zcode/skills",
+  deepseek: ".deepcode/skills"
+});
 const ARTIFACT_POLICY = {
   proposal: ["## Goal", "## Scope", "## Non-goals", "## Acceptance", "## Risks"],
   design: ["## Decisions", "## Boundaries", "## Test seams", "## Risks"],
@@ -249,9 +257,11 @@ function archIntegrity(cwd, flow = null, contentHashes = MATT_CONTENT_HASHES) {
   }
   const findings = [];
   for (const [platform, record] of platforms) {
+    const relativeRoot = PLATFORM_SKILL_ROOTS[platform];
     for (const skill of legacy ? LEGACY_ARCH_SKILLS : MATT_AUTOMATIC_SKILLS) {
+      if (!relativeRoot) { findings.push({ platform, skill, reason: "unsupported" }); continue; }
       const installed = legacy ? record?.matt?.skills?.[skill] : mattReceipt?.platforms?.[platform]?.skills?.[skill];
-      const expectedRoot = path.join(cwd, platform === "codex" ? ".agents" : ".claude", "skills", skill);
+      const expectedRoot = path.join(cwd, relativeRoot, skill);
       const target = legacy ? installed?.root : expectedRoot;
       if (!legacy && installed?.root && path.resolve(installed.root) !== path.resolve(expectedRoot)) {
         findings.push({ platform, skill, reason: "non-project" });
@@ -385,7 +395,7 @@ function managedReviewPrefixes(cwd) {
   const { manifest, mattReceipt } = orchestrationConfig(cwd);
   const prefixes = [];
   for (const [platform, record] of Object.entries(manifest?.platforms ?? {})) {
-    const root = platform === "codex" ? ".agents/skills" : platform === "claude-code" ? ".claude/skills" : null;
+    const root = PLATFORM_SKILL_ROOTS[platform];
     if (!root) continue;
     for (const skill of Object.keys(record?.skills ?? {})) prefixes.push(`${root}/${skill}`);
     for (const skill of Object.keys(mattReceipt?.platforms?.[platform]?.skills ?? {})) prefixes.push(`${root}/${skill}`);

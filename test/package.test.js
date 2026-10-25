@@ -55,7 +55,8 @@ test("Prim and Arch guidance classifies wrappers without automatically invoking 
     assert.match(matrix, /setup-matt-pocock-skills/);
     assert.equal(fs.readFileSync(path.join(base, "matrix-open", "SKILL.md"), "utf8").includes("`grill-with-docs`"), false);
     assert.match(build, /(?:Never invoke|不得调用) `implement`/);
-    assert.match(build, /raw `resolving-merge-conflicts`/);
+    assert.match(build, /`implement-spec`/);
+    assert.match(build, /`resolving-merge-conflicts`/);
     assert.equal(fs.readFileSync(path.join(base, "matrix-verify", "SKILL.md"), "utf8").includes("`improve-codebase-architecture`"), false);
   }
 });

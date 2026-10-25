@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { MATRIX_VERSION, PLATFORMS, hashDirectory, releaseCatalog } from "./catalog.js";
+import { MATRIX_VERSION, PLATFORMS, PLATFORM_IDS, hashDirectory, releaseCatalog } from "./catalog.js";
 
 function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return null; }
@@ -28,7 +28,7 @@ export function resolveProjectRuntime({ projectRoot = process.cwd() } = {}) {
   let currentCatalog = null;
   let catalogUnavailable = false;
   try { currentCatalog = releaseCatalog(manifest.language ?? "en"); } catch { catalogUnavailable = true; }
-  for (const platform of ["codex", "claude-code"]) {
+  for (const platform of PLATFORM_IDS) {
     const expected = manifest.platforms?.[platform]?.skills?.matrix?.hash;
     if (!expected) continue;
     const matrixRoot = path.join(PLATFORMS[platform].skillRoot(root), "matrix");

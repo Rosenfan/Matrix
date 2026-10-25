@@ -79,6 +79,16 @@ test("distribution installs only compatible reviewed Skills while Arch invokes t
   assert.equal(MATT_SKILLS.includes("implement-spec"), false);
 });
 
+test("distribution installs Matrix skills into the zcode and deepseek skill roots", (t) => {
+  const { project, home } = fixture(t);
+  const distribution = createDistribution();
+  const committed = distribution.commit(distribution.evaluate({ projectRoot: project, home, scope: "project", platforms: ["zcode", "deepseek"], matt: "none" }).plan);
+  assert.equal(committed.ok, true, JSON.stringify(committed));
+  assert.equal(fs.existsSync(path.join(project, ".zcode", "skills", "matrix", "SKILL.md")), true);
+  assert.equal(fs.existsSync(path.join(project, ".deepcode", "skills", "matrix", "SKILL.md")), true);
+  assert.equal(fs.existsSync(path.join(project, ".matrix", "installation.json")), true);
+});
+
 test("installed update intent follows a retained project manifest before global config", (t) => {
   const { project, home } = fixture(t);
   const distribution = createDistribution();
