@@ -23,6 +23,8 @@ wheels/
 # Node.js
 node_modules/
 *.tgz
+# Zero-dependency package: an empty lockfile has no value and goes stale
+package-lock.json
 
 # Virtual environments
 .venv/
@@ -43,6 +45,7 @@ Thumbs.db
 
 # Matrix runtime and local development state
 .matrix/
+.zcode/
 .agents/
 .codex/
 .comet/
