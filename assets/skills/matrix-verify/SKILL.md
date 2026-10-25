@@ -13,8 +13,8 @@ Write verification prose in `artifact_language` from inspect while preserving th
 
 This phase can receive implementation from two sources:
 
-1. **Direct Codex implementation** — from `$matrix-build` phase
-2. **Claude Code implementation** — from `$matrix-claude` sidecar
+1. **Direct implementation** — from the `$matrix-build` phase in this session
+2. **Handed-off implementation** — from a `$matrix-handoff` task package executed by another implementation agent
 
 Regardless of source, the verification process is the same: check that implementation evidence meets the plan's requirements.
 
@@ -27,7 +27,7 @@ Before starting verification, ensure:
 - [ ] All commands from the plan's `## Validation` section have been run
 - [ ] Test results are recorded
 
-If these are missing (e.g., Claude Code didn't produce complete evidence), return to `$matrix-build` or ask Claude Code to补充.
+If these are missing (for example, a handed-off agent did not produce complete evidence), return to `$matrix-build` or ask the implementation agent to fill in the missing evidence.
 
 ## Orchestration
 
@@ -55,7 +55,7 @@ Never label fallback output as a successful `code-review` run. `empty-head-diff`
 ## Failure Handling
 
 If verification or review fails:
-- If the issue is in the implementation, run `node <matrix-skill-directory>/scripts/matrix-runtime.mjs return build --reason verification-failed`, then enter `$matrix-build` or ask Claude Code to fix.
+- If the issue is in the implementation, run `node <matrix-skill-directory>/scripts/matrix-runtime.mjs return build --reason verification-failed`, then enter `$matrix-build` or ask the implementation agent to fix it.
 - If the issue is in the acceptance criteria or design, run `node <matrix-skill-directory>/scripts/matrix-runtime.mjs return design --reason acceptance-or-design-gap`, then enter `$matrix-design`.
 
 Both Return paths rotate the current `verification.md` and any `review-receipt.json` into revisioned evidence history. Do not copy stale conclusions or receipts back into the new current evidence.

@@ -34,3 +34,5 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs return design --reason 
 ```
 
 提交成功后，变更位于 `.matrix/archive/`，工作流完成。
+
+可选：当本次会话产生了值得保留的发现（反复出现的摩擦、缺失的护栏、不清晰的指针等），可建议用户显式运行 `retro`（user-invoked Matt handoff）把它们转化为 agent 环境改进。仅建议，绝不在工作流内代为调用。

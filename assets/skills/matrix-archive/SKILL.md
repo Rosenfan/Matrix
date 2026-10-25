@@ -34,3 +34,5 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs return design --reason 
 ```
 
 After successful commit, the change is under `.matrix/archive/` and the workflow is complete.
+
+Optionally, when the session produced findings worth keeping (repeated friction, missing guardrails, unclear pointers), recommend that the user run `retro` (a user-invoked Matt handoff) to turn them into agent-environment improvements. Recommend only; never invoke it inside the workflow.
