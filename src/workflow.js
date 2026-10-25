@@ -337,8 +337,8 @@ function readFlow(p) {
   return normalizeFlow(parsed);
 }
 function flowContent(flow) {
-  const order = ["schema", "id", "workflow", "workflow_profile", "orchestration", "artifact_language", "arch_catalog_digest", "matt_release", "status", "phase", "revision", "approved_contract_hash", "contract_approved_revision", "title", "created_at", "updated_at", "acceptance", "scope"];
-  return `${order.filter((key) => (!["workflow_profile", "artifact_language", "arch_catalog_digest", "matt_release"].includes(key) || flow[key])).map((key) => `${key}: ${flow[key] ?? ""}`).join("\n")}\n`;
+  const order = ["schema", "id", "workflow", "workflow_profile", "orchestration", "artifact_language", "arch_catalog_digest", "matt_release", "status", "phase", "revision", "approved_contract_hash", "contract_approved_revision", "implementation_actor", "title", "created_at", "updated_at", "acceptance", "scope"];
+  return `${order.filter((key) => (!["workflow_profile", "artifact_language", "arch_catalog_digest", "matt_release", "implementation_actor"].includes(key) || flow[key])).map((key) => `${key}: ${flow[key] ?? ""}`).join("\n")}\n`;
 }
 function active(cwd) { const activeFile = path.join(rootFor(cwd), "active.json"); if (!fs.existsSync(activeFile)) return null; return read(activeFile).change_id; }
 function meaningful(file, headings) {
@@ -705,7 +705,7 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null, m
     const operations = [
       ...(!fs.existsSync(path.join(p.root, "archive")) ? [workflowMkdirOperation(cwd, path.join(p.root, "archive"))] : []),
       workflowMkdirOperation(cwd, p.artifacts),
-      ...(!fs.existsSync(path.join(p.root, "config.yaml")) ? [workflowWriteOperation(cwd, path.join(p.root, "config.yaml"), `schema: matrix/config/v1\nauto_transition: true\ndefault_orchestration: ${configured.defaultOrchestration}\ninstallation_scope: project\nlanguage: ${configured.artifactLanguage}\n`)] : []),
+      ...(!fs.existsSync(path.join(p.root, "config.yaml")) ? [workflowWriteOperation(cwd, path.join(p.root, "config.yaml"), `schema: matrix/config/v1\ndefault_orchestration: ${configured.defaultOrchestration}\ninstallation_scope: project\nlanguage: ${configured.artifactLanguage}\n`)] : []),
       ...(!fs.existsSync(path.join(p.root, ".gitignore")) ? [workflowWriteOperation(cwd, path.join(p.root, ".gitignore"), "active.json\ninstallation.json\nmatt-installation.json\nchanges/*/events.jsonl\nchanges/*/artifacts/handoff.md\n")] : []),
       workflowWriteOperation(cwd, p.flow, flowContent(flow)),
       ...(workspaceBaseline ? [workflowWriteOperation(cwd, p.workspaceBaseline, `${JSON.stringify(workspaceBaseline, null, 2)}\n`)] : []),
@@ -867,7 +867,13 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null, m
   if (command === "transition") {
     const to = args[0];
     const confirmed = args.includes("--confirmed");
-    if (args.slice(1).some((arg) => arg !== "--confirmed")) return fail("INVALID_INTENT", "Transition accepts only a target phase and optional --confirmed.");
+    const executorFlag = args.indexOf("--executor");
+    const executor = executorFlag >= 0 ? args[executorFlag + 1] : null;
+    if (args.slice(1).some((arg, offset) => {
+      const index = offset + 1;
+      if (index === executorFlag || index === executorFlag + 1) return false;
+      return arg !== "--confirmed";
+    })) return fail("INVALID_INTENT", "Transition accepts only a target phase, optional --confirmed, and optional --executor <choice>.");
     if (flow.status !== "active") return fail("CHANGE_NOT_ACTIVE", `Matrix change is ${flow.status}.`);
     const profile = workflowProfile(p, flow);
     if (profile.next[flow.phase] !== to) return fail("ILLEGAL_TRANSITION", `Illegal ${profile.id} transition ${flow.phase} -> ${to}.`);
@@ -877,14 +883,24 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null, m
       const order = workspaceOrderGuard(cwd, p);
       if (!order.ok) return order;
     }
+    // The implementation-actor gate is runtime-enforced, not prompt-level: Build
+    // may not be entered until the actor choice is recorded explicitly.
+    if (to === "build") {
+      if (executor != null && !/^(current|model|handoff:[a-z0-9]+(?:-[a-z0-9]+)*)$/.test(executor)) {
+        return fail("INVALID_INTENT", "Executor choice must be current, model, or handoff:<agent-id>.");
+      }
+      if (!executor) {
+        return fail("EXECUTOR_CONFIRMATION_REQUIRED", "Present the implementation-actor choice to the user before Build: continue with the current agent/model, switch the model in the user's client, or hand off to another agent. Then rerun with --executor <current|model|handoff:<agent-id>>.");
+      }
+    }
     const before = flow.phase;
     const approval = to === "build" ? contractState(p, flow) : null;
     if (approval && approval.status !== "approved-and-matching" && approval.status !== "unapproved") return { ...contractFailure(flow, approval), change_id: id };
     if (to === "build" && approval.snapshot.missing) return { ...fail("GUARD_FAILED", "Workflow contract artifacts are incomplete."), change_id: id };
-    const next = { ...flow, schema: "matrix/change/v2", phase: to, revision: flow.revision + 1, updated_at: stamp(), ...(to === "build" ? { approved_contract_hash: approval.snapshot.hash, contract_approved_revision: flow.revision + 1 } : {}) };
+    const next = { ...flow, schema: "matrix/change/v2", phase: to, revision: flow.revision + 1, updated_at: stamp(), ...(to === "build" ? { approved_contract_hash: approval.snapshot.hash, contract_approved_revision: flow.revision + 1, implementation_actor: executor } : {}) };
     const nextProfile = workflowProfile(p, next);
     const details = to === "build"
-      ? { approved_contract_hash: next.approved_contract_hash, contract_approved_revision: next.contract_approved_revision, ...(shortcut(flow) ? { confirmed, profile: nextProfile.id } : {}) }
+      ? { approved_contract_hash: next.approved_contract_hash, contract_approved_revision: next.contract_approved_revision, implementation_actor: next.implementation_actor, ...(shortcut(flow) ? { confirmed, profile: nextProfile.id } : {}) }
       : shortcut(flow) ? { profile: nextProfile.id } : {};
     const resultFields = { ok: true, code: "OK", change_id: id, workflow: next.workflow, profile: nextProfile.id, evidence_policy: evidencePolicy(next, nextProfile), orchestration: next.orchestration, artifact_language: next.artifact_language ?? artifactLanguage, status: next.status, phase: to, revision: next.revision, next_skill: skill(to), ...contractFields(next, contractState(p, next)) };
     return runWorkflowTransaction({

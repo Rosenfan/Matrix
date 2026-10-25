@@ -40,12 +40,12 @@ const configContent = (existing, defaultOrchestration, scope, language) => {
   const values = {
     ...existing,
     schema: "matrix/config/v1",
-    auto_transition: existing.auto_transition === "false" ? "false" : "true",
     default_orchestration: defaultOrchestration,
     installation_scope: scope,
     language
   };
-  const preferred = ["schema", "auto_transition", "default_orchestration", "installation_scope", "language"];
+  delete values.auto_transition;
+  const preferred = ["schema", "default_orchestration", "installation_scope", "language"];
   const keys = [...preferred, ...Object.keys(values).filter((key) => !preferred.includes(key)).sort()];
   return `${keys.map((key) => `${key}: ${values[key]}`).join("\n")}\n`;
 };

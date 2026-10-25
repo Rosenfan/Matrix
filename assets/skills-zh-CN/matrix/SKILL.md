@@ -80,5 +80,5 @@ Matrix 不嵌套 user-invoked Skill。适用时只解释原因，并让用户显
 - 成功 Archive 必须使用两步乐观提交：先运行 `node <matrix-skill-directory>/scripts/matrix-runtime.mjs archive --dry-run`，再将其精确 hash 传给 `node <matrix-skill-directory>/scripts/matrix-runtime.mjs archive --expect-preflight <sha256>`；不得绕过预演。
 - `node <matrix-skill-directory>/scripts/matrix-runtime.mjs doctor` 始终只读；transaction 与陈旧锁 repair 必须显式绑定 doctor 报告的 identity，不得手工编辑或删除 `.matrix/transactions/`、`.matrix/workflow.lock`。
 - 重大架构/范围决定和 archive/commit 前应暂停等待用户确认。
-- 进入 Build 前（full 在 design guard 之后；lightweight 并入 `transition build --confirmed` 的暂停）必须呈现执行主体选择——当前 agent/原模型继续、用户客户端切换模型、或经 `$matrix-handoff` 切换实现 agent——并将决策随 Contract 记录。
+- 进入 Build 前（full 在 design guard 之后；lightweight 并入 `transition build --confirmed` 的暂停）必须呈现执行主体选择——当前 agent/原模型继续、用户客户端切换模型、或经 `$matrix-handoff` 切换实现 agent——并以 `transition build --executor <current|model|handoff:<agent-id>>` 把选择传给 Runtime（lightweight 同时携带 `--confirmed`）。缺省时 Runtime 拒绝进入 Build，并把选择存为 `implementation_actor`。
 - shortcut 范围扩大时执行 `node <matrix-skill-directory>/scripts/matrix-runtime.mjs return design --reason design-gap`；Runtime 将其升级为 full。

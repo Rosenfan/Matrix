@@ -48,6 +48,6 @@ Companion output is evidence for the Matrix proposal. It must not create another
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs guard open
 # full
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition design
-# hotfix/tweak, only after explicit confirmation
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build --confirmed
+# hotfix/tweak, only after explicit confirmation (actor choice merged into the same pause)
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build --confirmed --executor <choice>
 ```

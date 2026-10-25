@@ -219,8 +219,8 @@ matrix workflow guard open
 # Advance (only if guard passes)
 matrix workflow transition design
 
-# Lightweight: approve the compact proposal and enter Build
-matrix workflow transition build --confirmed
+# Lightweight: approve the compact proposal and enter Build (executor choice merged into the same pause)
+matrix workflow transition build --confirmed --executor <current|model|handoff:<agent-id>>
 
 # Return from verification failure; stale evidence is retained in history
 matrix workflow return build --reason verification-failed

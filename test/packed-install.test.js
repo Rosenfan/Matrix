@@ -48,12 +48,12 @@ test("packed artifact runs recoverable Claude Code and Codex lifecycles without 
   run(process.execPath, [codexRuntime, "transition", "design"], { cwd: project });
   fs.writeFileSync(path.join(artifacts, "design.md"), "## Decisions\nDecision text.\n\n## Boundaries\nBounded scope.\n\n## Test seams\nSeam text.\n\n## Risks\nKnown risk.");
   fs.writeFileSync(path.join(artifacts, "plan.md"), "## Steps\nStep text.\n\n## Validation\nValidation text.\n\n## Stop conditions\nStop on scope change.");
-  run(process.execPath, [claudeRuntime, "transition", "build"], { cwd: project });
+  run(process.execPath, [claudeRuntime, "transition", "build", "--executor", "current"], { cwd: project });
 
   fs.writeFileSync(path.join(artifacts, "verification.md"), "## Build evidence\nInitial build evidence that must be invalidated.");
   run(process.execPath, [codexRuntime, "return", "design", "--reason", "design-gap"], { cwd: project });
   assert.ok(fs.existsSync(path.join(artifacts, "evidence-history", "revision-3-verification.md")));
-  run(process.execPath, [claudeRuntime, "transition", "build"], { cwd: project });
+  run(process.execPath, [claudeRuntime, "transition", "build", "--executor", "current"], { cwd: project });
 
   fs.writeFileSync(path.join(artifacts, "verification.md"), "## Build evidence\nFresh build evidence after the design Return.");
   run(process.execPath, [codexRuntime, "transition", "verify"], { cwd: project });
@@ -70,7 +70,7 @@ test("packed artifact runs recoverable Claude Code and Codex lifecycles without 
 
   fs.writeFileSync(path.join(artifacts, "design.md"), "## Decisions\nConfirmed final decision text.\n\n## Boundaries\nFinal bounded scope.\n\n## Test seams\nConfirmed seam text.\n\n## Risks\nKnown risk.");
   fs.writeFileSync(path.join(artifacts, "plan.md"), "## Steps\nConfirmed final step text.\n\n## Validation\nConfirmed validation text.\n\n## Stop conditions\nStop on scope change.");
-  run(process.execPath, [claudeRuntime, "transition", "build"], { cwd: project });
+  run(process.execPath, [claudeRuntime, "transition", "build", "--executor", "current"], { cwd: project });
   fs.writeFileSync(path.join(artifacts, "verification.md"), "## Build evidence\nFresh final build evidence with sufficient detail.");
   run(process.execPath, [codexRuntime, "transition", "verify"], { cwd: project });
   fs.writeFileSync(path.join(artifacts, "verification.md"), "## Build evidence\nFresh final build evidence with sufficient detail.\n\n## Test evidence\nFresh final tests passed with sufficient detail.\n\n## Review evidence\n### Standards\nNo blocking standards findings.\n\n### Spec\nNo blocking specification findings.");

@@ -216,8 +216,8 @@ matrix workflow guard open
 # 推进（仅在守卫通过时）
 matrix workflow transition design
 
-# lightweight：确认紧凑 proposal 后进入 Build
-matrix workflow transition build --confirmed
+# lightweight：确认紧凑 proposal 后进入 Build（执行主体选择并入同一次暂停）
+matrix workflow transition build --confirmed --executor <current|model|handoff:<agent-id>>
 
 # 验证失败时返回 Build；旧证据保留在历史目录
 matrix workflow return build --reason verification-failed

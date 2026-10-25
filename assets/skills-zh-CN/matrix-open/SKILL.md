@@ -35,6 +35,6 @@ companion 输出只能作为当前 proposal 的证据，不得创建第二套工
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs guard open
 # full
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition design
-# hotfix/tweak，仅在用户明确确认后
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build --confirmed
+# hotfix/tweak，仅在用户明确确认后（执行主体选择并入同一次暂停）
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build --confirmed --executor <choice>
 ```

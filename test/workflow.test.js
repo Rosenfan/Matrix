@@ -44,7 +44,7 @@ function writeShortcutVerification(base, workflow) {
   fs.writeFileSync(path.join(base, "verification.md"), `## Build evidence\nImplemented the approved bounded change and recorded its commands.\n\n## Test evidence\nFocused and adjacent tests passed.${specific}\n\n## Review evidence\n### Standards\nNo blocking standards findings.\n\n### Spec\nNo blocking specification findings.`);
 }
 function start(cwd, id = "change") { assert.equal(invoke(["init", id, "--title", id], { cwd }).ok, true); return artifacts(cwd, id); }
-function build(cwd, id = "change") { const base = start(cwd, id); writeContract(base); assert.equal(invoke(["transition", "design"], { cwd }).ok, true); const result = invoke(["transition", "build"], { cwd }); assert.equal(result.ok, true, result.message); return { base, result }; }
+function build(cwd, id = "change") { const base = start(cwd, id); writeContract(base); assert.equal(invoke(["transition", "design"], { cwd }).ok, true); const result = invoke(["transition", "build", "--executor", "current"], { cwd }); assert.equal(result.ok, true, result.message); return { base, result }; }
 function verify(cwd, id = "change") { const { base } = build(cwd, id); fs.writeFileSync(path.join(base, "verification.md"), "## Build evidence\nBuild passed with enough detail."); assert.equal(invoke(["transition", "verify"], { cwd }).ok, true); fs.writeFileSync(path.join(base, "verification.md"), "## Build evidence\nBuild passed.\n\n## Test evidence\nTests passed with enough detail.\n\n## Review evidence\n### Standards\nNo blocking standards findings.\n\n### Spec\nNo blocking specification findings."); return base; }
 function archivePhase(cwd, id = "change") { const base = verify(cwd, id); assert.equal(invoke(["transition", "archive"], { cwd }).ok, true); return base; }
 function preflight(cwd) { const result = invoke(["archive", "--dry-run"], { cwd }); assert.equal(result.ok, true, result.message); return result; }
@@ -86,7 +86,7 @@ function archVerify(cwd, id = "arch-review") {
   const base = artifacts(cwd, id);
   writeContract(base);
   assert.equal(invoke(["transition", "design"], { cwd, mattContentHashes }).ok, true);
-  assert.equal(invoke(["transition", "build"], { cwd, mattContentHashes }).ok, true);
+  assert.equal(invoke(["transition", "build", "--executor", "current"], { cwd, mattContentHashes }).ok, true);
   fs.writeFileSync(path.join(base, "verification.md"), "## Build evidence\nBuild passed with enough detail.");
   assert.equal(invoke(["transition", "verify"], { cwd, mattContentHashes }).ok, true);
   fs.writeFileSync(path.join(base, "verification.md"), "## Build evidence\nBuild passed.\n\n## Test evidence\nTests passed with enough detail.\n\n## Review evidence\n### Standards\nNo blocking standards findings.\n\n### Spec\nNo blocking specification findings.");
@@ -206,7 +206,7 @@ test("every Verify requires distinct substantive Standards and Spec review axes"
     assert.equal(invoke(["init", id, "--title", id, "--workflow", workflow], { cwd }).ok, true);
     const shortcutBase = artifacts(cwd, id);
     writeShortcutProposal(shortcutBase, workflow);
-    assert.equal(invoke(["transition", "build", "--confirmed"], { cwd }).ok, true);
+    assert.equal(invoke(["transition", "build", "--executor", "current", "--confirmed"], { cwd }).ok, true);
     writeShortcutBuildEvidence(shortcutBase, workflow);
     assert.equal(invoke(["transition", "verify"], { cwd }).ok, true);
     const specific = workflow === "hotfix"
@@ -368,10 +368,10 @@ test("hotfix and tweak share one lightweight lifecycle with distinct evidence po
     writeShortcutProposal(base, workflow);
     assert.equal(invoke(["transition", "design"], { cwd }).code, "ILLEGAL_TRANSITION");
     const state = fs.readFileSync(statePath(cwd, id), "utf8"); const history = fs.readFileSync(path.join(cwd, ".matrix", "changes", id, "events.jsonl"), "utf8");
-    assert.equal(invoke(["transition", "build"], { cwd }).code, "CONFIRMATION_REQUIRED");
+    assert.equal(invoke(["transition", "build", "--executor", "current"], { cwd }).code, "CONFIRMATION_REQUIRED");
     assert.equal(fs.readFileSync(statePath(cwd, id), "utf8"), state);
     assert.equal(fs.readFileSync(path.join(cwd, ".matrix", "changes", id, "events.jsonl"), "utf8"), history);
-    const approved = invoke(["transition", "build", "--confirmed"], { cwd });
+    const approved = invoke(["transition", "build", "--executor", "current", "--confirmed"], { cwd });
     assert.equal(approved.ok, true, approved.message);
     assert.equal(approved.profile, "lightweight");
     assert.equal(approved.contract_status, "approved-and-matching");
@@ -407,17 +407,17 @@ test("lightweight approval detects only workspace changes made after initializat
   const base = artifacts(cwd, "ordered"); writeShortcutProposal(base, "tweak");
   fs.writeFileSync(path.join(cwd, "implemented-too-early.txt"), "implementation");
   const state = fs.readFileSync(statePath(cwd, "ordered"), "utf8"); const history = fs.readFileSync(path.join(cwd, ".matrix", "changes", "ordered", "events.jsonl"), "utf8");
-  assert.equal(invoke(["transition", "build", "--confirmed"], { cwd }).code, "PREMATURE_IMPLEMENTATION");
+  assert.equal(invoke(["transition", "build", "--executor", "current", "--confirmed"], { cwd }).code, "PREMATURE_IMPLEMENTATION");
   assert.equal(fs.readFileSync(statePath(cwd, "ordered"), "utf8"), state);
   assert.equal(fs.readFileSync(path.join(cwd, ".matrix", "changes", "ordered", "events.jsonl"), "utf8"), history);
   fs.rmSync(path.join(cwd, "implemented-too-early.txt"));
-  assert.equal(invoke(["transition", "build", "--confirmed"], { cwd }).ok, true);
+  assert.equal(invoke(["transition", "build", "--executor", "current", "--confirmed"], { cwd }).ok, true);
 
   const damaged = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-workspace-baseline-missing-")); t.after(() => fs.rmSync(damaged, { recursive: true, force: true }));
   assert.equal(invoke(["init", "damaged", "--title", "Damaged", "--workflow", "tweak"], { cwd: damaged }).ok, true);
   writeShortcutProposal(artifacts(damaged, "damaged"), "tweak");
   fs.rmSync(path.join(damaged, ".matrix", "changes", "damaged", "workspace-baseline.json"));
-  assert.equal(invoke(["transition", "build", "--confirmed"], { cwd: damaged }).code, "WORKSPACE_BASELINE_MISSING");
+  assert.equal(invoke(["transition", "build", "--executor", "current", "--confirmed"], { cwd: damaged }).code, "WORKSPACE_BASELINE_MISSING");
 });
 
 test("lightweight workspace baseline uses Git enumeration when available", (t) => {
@@ -430,7 +430,7 @@ test("lightweight workspace baseline uses Git enumeration when available", (t) =
   const baseline = JSON.parse(fs.readFileSync(path.join(cwd, ".matrix", "changes", "git-order", "workspace-baseline.json"), "utf8"));
   assert.equal(baseline.provider, "git");
   writeShortcutProposal(artifacts(cwd, "git-order"), "tweak");
-  assert.equal(invoke(["transition", "build", "--confirmed"], { cwd }).ok, true);
+  assert.equal(invoke(["transition", "build", "--executor", "current", "--confirmed"], { cwd }).ok, true);
 });
 
 test("legacy v0.1.2 shortcut Design remains resumable and scope expansion upgrades to full", (t) => {
@@ -449,12 +449,12 @@ test("legacy v0.1.2 shortcut Design remains resumable and scope expansion upgrad
   fs.writeFileSync(statePath(legacy, "legacy"), fs.readFileSync(statePath(legacy, "legacy"), "utf8").replace(/^workflow_profile:.*\r?\n/m, "").replace("phase: open", "phase: design").replace("revision: 1", "revision: 2"));
   fs.rmSync(path.join(legacy, ".matrix", "changes", "legacy", "workspace-baseline.json"));
   assert.equal(invoke(["inspect"], { cwd: legacy }).profile, "legacy-full");
-  assert.equal(invoke(["transition", "build"], { cwd: legacy }).ok, true);
+  assert.equal(invoke(["transition", "build", "--executor", "current"], { cwd: legacy }).ok, true);
 
   const current = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-upgrade-shortcut-")); t.after(() => fs.rmSync(current, { recursive: true, force: true }));
   assert.equal(invoke(["init", "upgrade", "--title", "Upgrade", "--workflow", "tweak"], { cwd: current }).ok, true);
   writeShortcutProposal(artifacts(current, "upgrade"), "tweak");
-  assert.equal(invoke(["transition", "build", "--confirmed"], { cwd: current }).ok, true);
+  assert.equal(invoke(["transition", "build", "--executor", "current", "--confirmed"], { cwd: current }).ok, true);
   const upgraded = invoke(["return", "design", "--reason", "design-gap"], { cwd: current });
   assert.equal(upgraded.ok, true);
   assert.equal(upgraded.workflow, "full");
@@ -561,7 +561,7 @@ test("Archive preflight has a fixed public identity vector and globally sorted t
   const base = archivePhase(cwd, "vector"); normalizeArchiveTimes(cwd, "vector");
   fs.mkdirSync(path.join(base, "a")); fs.mkdirSync(path.join(base, "empty"));
   fs.writeFileSync(path.join(base, "a", "z.txt"), "nested"); fs.writeFileSync(path.join(base, "a.txt"), "sibling");
-  assert.equal(preflight(cwd).preflight_hash, "sha256:8c1c198db12093b086a3aaa58f1918366d79bc2f963f37e5fd87824f4085b259");
+  assert.equal(preflight(cwd).preflight_hash, "sha256:477a665b8f2bb59aaeaa514bc773ca4a665a4ac4c75210eff1b4e2b8ccb90b4e");
 });
 
 test("Archive preflight rejects drift, cross-change reuse, lock contention, and unsupported entries without mutation", (t) => {
@@ -785,4 +785,31 @@ test("generic agent handoff exports a parameterized task package", (t) => {
   const defaulted = invoke(["export", "--task-id", "TASK-10", "--agent", "claude-code"], { cwd });
   assert.equal(defaulted.ok, true, defaulted.message);
   assert.match(fs.readFileSync(path.join(base, "handoff-task-TASK-10.md"), "utf8"), /\| Decision owner \| Matrix change owner \|/);
+});
+
+test("Build entry is gated on an explicit runtime-enforced executor choice", (t) => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-executor-gate-"));
+  t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  const base = start(cwd, "full-executor");
+  writeContract(base);
+  assert.equal(invoke(["transition", "design"], { cwd }).ok, true);
+  assert.equal(invoke(["transition", "build"], { cwd }).code, "EXECUTOR_CONFIRMATION_REQUIRED");
+  assert.equal(invoke(["transition", "build", "--executor", "not-a-choice"], { cwd }).code, "INVALID_INTENT");
+  const entered = invoke(["transition", "build", "--executor", "handoff:claude-code"], { cwd });
+  assert.equal(entered.ok, true, entered.message);
+  assert.match(fs.readFileSync(statePath(cwd, "full-executor"), "utf8"), /^implementation_actor: handoff:claude-code$/m);
+  assert.ok(fs.readFileSync(path.join(path.dirname(statePath(cwd, "full-executor")), "events.jsonl"), "utf8").includes(String.raw`"implementation_actor":"handoff:claude-code"`));
+  assert.equal(invoke(["inspect"], { cwd }).phase, "build");
+});
+
+test("lightweight Build entry keeps confirmation and requires the executor choice", (t) => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-executor-lightweight-"));
+  t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  assert.equal(invoke(["init", "tweak-executor", "--title", "Executor tweak", "--workflow", "tweak"], { cwd }).ok, true);
+  writeShortcutProposal(artifacts(cwd, "tweak-executor"), "tweak");
+  assert.equal(invoke(["transition", "build", "--confirmed"], { cwd }).code, "EXECUTOR_CONFIRMATION_REQUIRED");
+  assert.equal(invoke(["transition", "build", "--executor", "current"], { cwd }).code, "CONFIRMATION_REQUIRED");
+  const entered = invoke(["transition", "build", "--confirmed", "--executor", "model"], { cwd });
+  assert.equal(entered.ok, true, entered.message);
+  assert.match(fs.readFileSync(statePath(cwd, "tweak-executor"), "utf8"), /^implementation_actor: model$/m);
 });
