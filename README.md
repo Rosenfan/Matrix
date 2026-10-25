@@ -69,7 +69,7 @@ Each phase:
 
 ## Prerequisites
 
-- [Claude Code](https://docs.anthropic.com/claude-code), [Codex](https://openai.com/codex), [ZCode](https://zcode.ai), or [Deep Code](https://github.com/lessweb/deepcode-cli) (DeepSeek) installed as the Skill host
+- [Claude Code](https://docs.anthropic.com/claude-code), [Codex](https://openai.com/codex), or [ZCode](https://zcode.ai) installed as the Skill host (agents that read the Agent Skills open-standard `.agents/skills` directory — opencode, Kimi Code, and other compatible tools — share the Codex installation)
 - Node.js 18+ and `npm` on `PATH` (for the Matrix CLI)
 - Python is optional during the compatibility window; new installations use the bundled Node workflow runtime.
 - Git is only needed when installing from GitHub or contributing to Matrix.
@@ -93,7 +93,7 @@ matrix init
 
 The interactive setup lets you:
 
-- Choose English or Chinese, project or global Matrix discovery scope, and any combination of Claude Code, Codex, ZCode, and DeepSeek (Deep Code)
+- Choose English or Chinese, project or global Matrix discovery scope, and any combination of Claude Code, Codex, and ZCode
 - Copy skills (recommended) or symlink them for local development
 - Safely reconfigure an existing installation with an automatic backup
 - Review all 27 official Matt Skills v1.3.1 roles and install the 25 compatible Skills into the target project
@@ -135,7 +135,7 @@ matrix update --yes
 
 Matrix 0.1.7 is bound to Matt Skills v1.3.1 at commit `24fe0ef7737efae15c87225755e9f6f5965e4888`. `matrix init --with-mattpocock` always uses that exact archive and its reviewed 25-Skill compatible manifest, even if upstream has a newer release. The two official but incompatible Skills, `implement` and `implement-spec`, are not Matrix-managed or installed. Matrix scope controls Matrix Skill discovery only: Matt Skills and `.matrix/matt-installation.json` are always project-local. Global Matt copies are preserved but never used to complete project readiness.
 
-DeepSeek support targets the [Deep Code CLI](https://github.com/lessweb/deepcode-cli) (project-level `.deepcode/skills/`). Because the skills installer does not ship a Deep Code agent, Matrix produces the candidate in the Codex layout and remaps it to `.deepcode/skills/` before commit. Project-scope installation is supported; global-scope Deep Code reads `~/.agents/skills/` (shared with Codex) and is therefore not a supported DeepSeek target.
+Matrix ships dedicated platform entries only for agents with their own skill-directory convention: Claude Code (`.claude/skills`), Codex (`.agents/skills`), and ZCode (`.zcode/skills`). Installing the Codex platform also serves every agent that reads the Agent Skills open-standard `.agents/skills` directory by default — opencode, Kimi Code, and other compatible tools pick up Matrix and Matt Skills from there without a separate Matrix platform.
 
 The language selected by `matrix init` controls the prose in new Matrix artifacts. Markdown headings required by Matrix guards remain stable English tokens; the artifact body is Chinese for `zh-CN` and English for `en`. A change freezes this language at creation time.
 

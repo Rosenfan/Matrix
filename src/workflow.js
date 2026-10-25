@@ -54,8 +54,7 @@ const LEGACY_ARCH_SKILLS = [
 export const PLATFORM_SKILL_ROOTS = Object.freeze({
   "claude-code": ".claude/skills",
   codex: ".agents/skills",
-  zcode: ".zcode/skills",
-  deepseek: ".deepcode/skills"
+  zcode: ".zcode/skills"
 });
 const ARTIFACT_POLICY = {
   proposal: ["## Goal", "## Scope", "## Non-goals", "## Acceptance", "## Risks"],

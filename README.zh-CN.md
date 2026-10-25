@@ -69,7 +69,7 @@ verify --acceptance-or-design-gap------> design
 
 ## 前置条件
 
-- 已安装 [Claude Code](https://docs.anthropic.com/claude-code)、[Codex](https://openai.com/codex)、[ZCode](https://zcode.ai) 或 [Deep Code](https://github.com/lessweb/deepcode-cli)（DeepSeek）之一，作为 Skill 宿主
+- 已安装 [Claude Code](https://docs.anthropic.com/claude-code)、[Codex](https://openai.com/codex) 或 [ZCode](https://zcode.ai) 之一，作为 Skill 宿主（默认读取 Agent Skills 开放标准 `.agents/skills` 目录的 agent（如 opencode、Kimi Code 等兼容工具）直接共享 Codex 平台的安装产物）
 - Node.js 18+，且 `npm` 已加入 PATH（用于 Matrix CLI）
 - Python 仅在兼容窗口内的旧适配器路径使用；新安装使用内置 Node workflow runtime
 - Git 仅在从 GitHub 安装或参与 Matrix 开发时需要
@@ -132,7 +132,7 @@ matrix update --yes
 
 Matrix 0.1.7 固定对应 Matt Skills v1.3.1，commit 为 `24fe0ef7737efae15c87225755e9f6f5965e4888`。即使上游已有新版，`matrix init --with-mattpocock` 仍使用该确切 archive 与经过审查的 25 项兼容 manifest。官方角色中的 `implement` 与 `implement-spec` 不兼容，因此 Matrix 不安装也不管理它们。Matrix scope 只控制 Matrix Skill 的发现位置；Matt Skills 与 `.matrix/matt-installation.json` 始终属于目标项目。全局 Matt 副本会保留，但绝不用于补齐项目 readiness。
 
-DeepSeek 平台面向 [Deep Code CLI](https://github.com/lessweb/deepcode-cli)（项目级 `.deepcode/skills/`）。由于 skills 安装器不提供 Deep Code agent，Matrix 先以 Codex 布局产出候选，再在提交前重映射到 `.deepcode/skills/`。支持 project scope 安装；global scope 下 Deep Code 读取 `~/.agents/skills/`（与 Codex 共用路径），不是受支持的 DeepSeek 目标。
+Matrix 只为拥有独立 skill 目录约定的 agent 内置平台条目：Claude Code（`.claude/skills`）、Codex（`.agents/skills`）与 ZCode（`.zcode/skills`）。安装 Codex 平台即同时覆盖所有默认读取 Agent Skills 开放标准 `.agents/skills` 目录的工具——opencode、Kimi Code 等兼容 agent 无需单独的 Matrix 平台条目即可使用 Matrix 与 Matt Skills。
 
 `matrix init` 选择的语言决定新 Matrix 产物的正文语言：`zh-CN` 使用中文、`en` 使用英文。Runtime 守卫依赖的 Markdown 英文标题 token 保持不变；每个 change 在创建时冻结该语言。
 

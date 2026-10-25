@@ -28,13 +28,14 @@ test("non-interactive Codex initialization emits one JSON preview and performs n
   assert.ok(fs.existsSync(path.join(project, ".agents", "skills", "matrix", "SKILL.md")));
 });
 
-test("non-interactive initialization accepts the zcode and deepseek platforms", (t) => {
+test("non-interactive initialization accepts the zcode platform", (t) => {
   const project = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-cli-new-platforms-"));
   t.after(() => fs.rmSync(project, { recursive: true, force: true }));
-  const installed = spawnSync(process.execPath, ["bin/matrix.js", "init", project, "--yes", "--platform", "zcode", "--platform", "deepseek", "--without-mattpocock"], { cwd: root, encoding: "utf8" });
+  const installed = spawnSync(process.execPath, ["bin/matrix.js", "init", project, "--yes", "--platform", "zcode", "--without-mattpocock"], { cwd: root, encoding: "utf8" });
   assert.equal(installed.status, 0, installed.stderr);
   assert.ok(fs.existsSync(path.join(project, ".zcode", "skills", "matrix", "SKILL.md")));
-  assert.ok(fs.existsSync(path.join(project, ".deepcode", "skills", "matrix", "SKILL.md")));
+  const rejected = spawnSync(process.execPath, ["bin/matrix.js", "init", project, "--yes", "--platform", "deepseek", "--without-mattpocock", "--dry-run"], { cwd: root, encoding: "utf8" });
+  assert.notEqual(rejected.status, 0);
 });
 
 test("doctor emits a single structured diagnosis without writing", (t) => {
