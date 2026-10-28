@@ -707,6 +707,30 @@ test("a durable transaction journal restores a committed target and prior manife
   assert.equal(fs.readFileSync(path.join(target, "SKILL.md"), "utf8"), "old"); assert.equal(fs.readFileSync(manifest, "utf8"), "old manifest");
 });
 
+test("a recorded backup that never landed on disk leaves the pre-transaction target intact", (t) => {
+  const { project, home } = fixture(t);
+  const target = path.join(project, ".agents", "skills", "matrix");
+  fs.mkdirSync(target, { recursive: true }); fs.writeFileSync(path.join(target, "SKILL.md"), "original");
+  fs.mkdirSync(path.join(project, ".matrix"), { recursive: true });
+  const backup = path.join(project, ".matrix", "backups", "eperm", "codex", "matrix");
+  fs.writeFileSync(path.join(project, ".matrix", "transaction.json"), JSON.stringify({ id: "eperm", stagingRoot: path.join(project, ".matrix", "staging", "eperm"), manifest: { path: path.join(project, ".matrix", "installation.json"), existed: false, backup: null }, operations: [{ target, backup, status: "backing-up" }] }));
+  const recovered = recoverPendingTransaction({ projectRoot: project, home, scope: "project" });
+  assert.equal(recovered.ok, true); assert.equal(recovered.recovered, true);
+  assert.equal(fs.readFileSync(path.join(target, "SKILL.md"), "utf8"), "original");
+  assert.equal(fs.existsSync(path.join(project, ".matrix", "transaction.json")), false);
+});
+
+test("rollback still removes targets this transaction installed fresh", (t) => {
+  const { project, home } = fixture(t);
+  const target = path.join(project, ".agents", "skills", "matrix");
+  fs.mkdirSync(target, { recursive: true }); fs.writeFileSync(path.join(target, "SKILL.md"), "fresh install");
+  fs.mkdirSync(path.join(project, ".matrix"), { recursive: true });
+  fs.writeFileSync(path.join(project, ".matrix", "transaction.json"), JSON.stringify({ id: "fresh", stagingRoot: path.join(project, ".matrix", "staging", "fresh"), manifest: { path: path.join(project, ".matrix", "installation.json"), existed: false, backup: null }, operations: [{ target, backup: null, status: "committed" }] }));
+  const recovered = recoverPendingTransaction({ projectRoot: project, home, scope: "project" });
+  assert.equal(recovered.ok, true); assert.equal(recovered.recovered, true);
+  assert.equal(fs.existsSync(target), false);
+});
+
 test("a completed transaction journal only finalizes cleanup and never rolls back new assets", (t) => {
   const { project, home } = fixture(t); const target = path.join(project, ".agents", "skills", "matrix");
   fs.mkdirSync(target, { recursive: true }); fs.writeFileSync(path.join(target, "SKILL.md"), "new");

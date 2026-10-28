@@ -218,8 +218,15 @@ export function recoverPendingTransaction(intent, { allowMattWrites = true } = {
       return { ok: true, recovered: true, receipt: `Finalized completed Matrix transaction ${journal.id}.` };
     }
     for (const operation of [...(journal.operations ?? [])].reverse()) {
-      if (operation.status !== "pending") removeEntry(operation.target);
-      if (operation.backup && pathExists(operation.backup)) { fs.mkdirSync(path.dirname(operation.target), { recursive: true }); fs.renameSync(operation.backup, operation.target); }
+      if (operation.status === "pending") continue;
+      // A recorded backup missing from disk means its rename never completed
+      // (e.g. a transient Windows handle on the target), so the target is
+      // still the pre-transaction original and must be left in place.
+      if (operation.backup && pathExists(operation.backup)) {
+        removeEntry(operation.target);
+        fs.mkdirSync(path.dirname(operation.target), { recursive: true });
+        fs.renameSync(operation.backup, operation.target);
+      } else if (!operation.backup) removeEntry(operation.target);
     }
     restoreMetadata(journal.config);
     restoreMetadata(journal.manifest);
