@@ -299,7 +299,10 @@ test("submit failure budget caps repeated check failures into await-user", async
 test("huge command output never kills the check; the tail is preserved and the log is marked truncated", async (t) => {
   const cwd = project(t);
   const created = await start(cwd);
-  const emit = "node -e \"process.stdout.write('x'.repeat(4 * 1024 * 1024) + String.fromCharCode(10) + 'TAIL-MARKER' + String.fromCharCode(10)); process.exit(0)\"";
+  // No process.exit: exiting right after a large pipe write truncates the output
+  // before it drains (Node flushes pipes best-effort on exit), which would test
+  // the emitter's bug instead of the runtime's truncation marking.
+  const emit = "node -e \"process.stdout.write('x'.repeat(4 * 1024 * 1024) + String.fromCharCode(10) + 'TAIL-MARKER' + String.fromCharCode(10))\"";
   const framed = await invokeRun(["frame", "--goal", "loud build", "--accept", "A1=exit code is what counts", "--check", `C1=${emit}`, "--expect-revision", String(created.revision)], { cwd, command: plainCommand });
   const submitted = await invokeRun(["submit", "--summary", "candidate", "--expect-revision", String(framed.revision)], { cwd, command: plainCommand });
   assert.equal(submitted.code, "OK");

@@ -14,9 +14,14 @@ const isolatedHome = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-test-home-"))
 process.env.HOME = isolatedHome;
 process.env.USERPROFILE = isolatedHome;
 const run = (command, args, options) => {
-  const npmCli = path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js");
-  const executable = command === "npm" ? process.execPath : command;
-  const invocation = command === "npm" ? [npmCli, ...args] : args;
+  // npm lives in different layouts per platform: <node>/node_modules/npm on Windows,
+  // <node>/lib/node_modules/npm elsewhere. Fall back to PATH when neither resolves.
+  const npmCandidates = process.platform === "win32"
+    ? [path.join(path.dirname(process.execPath), "node_modules", "npm", "bin", "npm-cli.js")]
+    : [path.resolve(path.dirname(process.execPath), "..", "lib", "node_modules", "npm", "bin", "npm-cli.js")];
+  const npmCli = npmCandidates.find((candidate) => fs.existsSync(candidate));
+  const executable = command === "npm" ? (npmCli ? process.execPath : command) : command;
+  const invocation = command === "npm" ? (npmCli ? [npmCli, ...args] : args) : args;
   const result = spawnSync(executable, invocation, { encoding: "utf8", ...options });
   assert.equal(result.status, 0, `${command} ${args.join(" ")} failed:\n${result.stderr ?? result.error?.message}`);
   return result;

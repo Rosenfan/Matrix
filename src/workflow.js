@@ -48,6 +48,12 @@ const ORCHESTRATIONS = ["prim", "arch"];
 const quoteCommandPath = (value) => process.platform === "win32" ? `"${value}"` : `'${value.replaceAll("'", "'\\''")}'`;
 const workflowCommand = (argumentsText) => `node ${quoteCommandPath(fileURLToPath(import.meta.url))} ${argumentsText}`;
 const runCommand = (argumentsText) => workflowCommand(`run ${argumentsText}`);
+// Entry detection must survive symlinks (macOS /tmp -> /private/tmp, per-user bin links):
+// the loader resolves import.meta.url through realpath, so argv[1] is resolved the same way.
+function entryHref(argv1) {
+  try { return pathToFileURL(path.resolve(fs.realpathSync(argv1))).href; }
+  catch { return pathToFileURL(path.resolve(argv1)).href; }
+}
 const LEGACY_ARCH_SKILLS = [
   "grilling", "domain-modeling", "research", "wayfinder", "prototype",
   "codebase-design", "tdd", "diagnosing-bugs", "resolving-merge-conflicts", "code-review"
@@ -1108,7 +1114,7 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null, m
   return fail("INVALID_INTENT", `Unknown workflow command: ${command}.`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === entryHref(process.argv[1])) {
   // `run` commands resolve asynchronously; v2 results are plain values.
   Promise.resolve(invoke(process.argv.slice(2))).then((result) => {
     console.log(JSON.stringify(result));

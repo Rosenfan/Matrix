@@ -132,6 +132,6 @@ test("a different-release project Runtime is authoritative but requires explicit
   assert.equal(invoked.status, 2);
   const failure = JSON.parse(invoked.stdout);
   assert.equal(failure.code, "PROJECT_RUNTIME_VERSION_MISMATCH");
-  assert.match(failure.recovery_command, /matrix-runtime\.mjs" inspect$/);
+  assert.match(failure.recovery_command, /matrix-runtime\.mjs["'] inspect$/);
   assert.equal(invoked.stdout.includes("UNSAFE_AUTO_EXECUTION"), false);
 });
