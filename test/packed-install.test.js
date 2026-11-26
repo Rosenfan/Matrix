@@ -86,4 +86,21 @@ test("packed artifact runs recoverable Claude Code and Codex lifecycles without 
   assert.equal(fs.existsSync(path.join(project, ".matrix", "active.json")), false);
   assert.match(fs.readFileSync(path.join(project, ".matrix", "archive", "packed-abort", "matrix.yaml"), "utf8"), /^status: aborted$/m);
   run(process.execPath, [codexRuntime, "init", "packed-reinit", "--title", "Packed reinit"], { cwd: project });
+
+  // 0.2.0: the packed runtime is self-contained for the autonomous run engine too.
+  const runStart = JSON.parse(run(process.execPath, [claudeRuntime, "run", "start", "--request", "keep the packed docs accurate", "--id", "packed-run"], { cwd: project }).stdout);
+  assert.equal(runStart.ok, true);
+  const framed = JSON.parse(run(process.execPath, [codexRuntime, "run", "frame", "--goal", "the packed lifecycle keeps working offline", "--accept", "A1=the run engine works from the packed scripts", "--check", `C1=${process.platform === "win32" ? "exit 0" : "true"}`, "--expect-revision", String(runStart.revision)], { cwd: project }).stdout);
+  assert.equal(framed.phase, "execute");
+  const submitted = JSON.parse(run(process.execPath, [codexRuntime, "run", "submit", "--summary", "offline candidate", "--expect-revision", String(framed.revision)], { cwd: project }).stdout);
+  assert.equal(submitted.code, "OK");
+  assert.equal(submitted.phase, "verify");
+  const verified = JSON.parse(run(process.execPath, [claudeRuntime, "run", "verify", "--reviewer", "self", "--result", "A1=passed", "--summary", "packed checks green", "--expect-revision", String(submitted.revision)], { cwd: project }).stdout);
+  assert.equal(verified.phase, "close");
+  const closed = JSON.parse(run(process.execPath, [codexRuntime, "run", "close", "--expect-revision", String(verified.revision)], { cwd: project }).stdout);
+  assert.equal(closed.ok, true);
+  assert.match(fs.readFileSync(path.join(project, ".matrix", "archive", "runs", "packed-run", "verification.md"), "utf8"), /Verdict: passed/);
+  assert.equal(fs.existsSync(path.join(project, ".matrix", "runs", "packed-run")), false);
+  const unified = JSON.parse(run(process.execPath, [claudeRuntime, "inspect"], { cwd: project }).stdout);
+  assert.equal(unified.default_workflow, "auto");
 });

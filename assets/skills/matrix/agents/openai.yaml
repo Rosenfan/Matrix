@@ -1,4 +1,4 @@
 interface:
   display_name: "Matrix"
-  short_description: "Route, resume, and govern development changes"
-  default_prompt: "Use $matrix to start or resume a development change."
+  short_description: "Start or resume an autonomous Matrix run for any goal"
+  default_prompt: "Use $matrix to start or resume an autonomous Matrix run for any goal, or to continue a Classic workflow change."

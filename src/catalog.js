@@ -11,6 +11,9 @@ export const MATRIX_SKILLS = [
   "matrix", "matrix-open", "matrix-design", "matrix-build", "matrix-verify",
   "matrix-archive", "matrix-hotfix", "matrix-tweak", "matrix-status", "matrix-handoff"
 ];
+// The autonomous workflow ships two entry Skills only; classic keeps the full cohort.
+export const MATRIX_AUTO_SKILLS = ["matrix", "matrix-status"];
+export const MATRIX_CLASSIC_SKILLS = MATRIX_SKILLS;
 export const MATT_SKILLS = MATT_INSTALLABLE_SKILLS;
 export const UNMANAGED_MATT_SKILLS = MATT_ROLES.incompatible;
 
@@ -90,6 +93,8 @@ export function hashDirectory(directory, extraFiles = []) {
 
 export function workflowRuntimeSource() { return path.join(packageRoot, "src", "workflow.js"); }
 export function workflowTransactionSource() { return path.join(packageRoot, "src", "workflow-transaction.js"); }
+export function runEngineSource() { return path.join(packageRoot, "src", "run-engine.js"); }
+export function matrixConfigSource() { return path.join(packageRoot, "src", "matrix-config.js"); }
 export function mattCatalogSource() { return path.join(packageRoot, "src", "matt-catalog.mjs"); }
 
 export function releaseCatalog(language = "en") {
@@ -99,11 +104,15 @@ export function releaseCatalog(language = "en") {
   if (missing.length) throw new Error(`Matrix package is incomplete. Missing: ${missing.join(", ")}`);
   const runtime = fs.readFileSync(workflowRuntimeSource());
   const transaction = fs.readFileSync(workflowTransactionSource());
+  const runEngine = fs.readFileSync(runEngineSource());
+  const matrixConfig = fs.readFileSync(matrixConfigSource());
   const mattCatalog = fs.readFileSync(mattCatalogSource());
   const sharedRuntimeFiles = [
     { path: "scripts/package.json", contents: Buffer.from('{"type":"module"}\n') },
     { path: "scripts/matrix-runtime.mjs", contents: runtime },
     { path: "scripts/workflow-transaction.js", contents: transaction },
+    { path: "scripts/run-engine.js", contents: runEngine },
+    { path: "scripts/matrix-config.js", contents: matrixConfig },
     { path: "scripts/matt-catalog.mjs", contents: mattCatalog }
   ];
   const compatibilityFiles = ["matrix_state.py", "matrix_claude.py"].map((filename) => ({

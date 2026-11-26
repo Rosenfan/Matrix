@@ -1,16 +1,15 @@
 import fs from "node:fs";
 import path from "node:path";
 import { MATRIX_VERSION, PLATFORMS, PLATFORM_IDS, hashDirectory, releaseCatalog } from "./catalog.js";
+import { readConfigYaml } from "./matrix-config.js";
 
 function readJson(file) {
   try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return null; }
 }
 
 function installationScope(projectRoot) {
-  try {
-    const line = fs.readFileSync(path.join(projectRoot, ".matrix", "config.yaml"), "utf8").split(/\r?\n/).find((value) => value.startsWith("installation_scope:"));
-    return line?.split(":").slice(1).join(":").trim() === "global" ? "global" : "project";
-  } catch { return "project"; }
+  // N6: strip inline comments the same way every other config.yaml reader does.
+  return readConfigYaml(path.join(projectRoot, ".matrix", "config.yaml")).installation_scope === "global" ? "global" : "project";
 }
 
 function runtimeCommand(runtime) {

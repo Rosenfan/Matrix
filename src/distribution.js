@@ -3,11 +3,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
-  MATRIX_SKILLS, MATT_SKILLS, UNMANAGED_MATT_SKILLS, PLATFORM_IDS, PLATFORMS, hashDirectory,
-  installationRoot, manifestPath, mattCatalogSource, releaseCatalog, scopeBase, sourceSkillsRoot, workflowRuntimeSource, workflowTransactionSource
+  MATRIX_SKILLS, MATRIX_AUTO_SKILLS, MATT_SKILLS, UNMANAGED_MATT_SKILLS, PLATFORM_IDS, PLATFORMS, hashDirectory,
+  installationRoot, manifestPath, mattCatalogSource, matrixConfigSource, releaseCatalog, runEngineSource, scopeBase, sourceSkillsRoot, workflowRuntimeSource, workflowTransactionSource
 } from "./catalog.js";
 import { createMattAdapter, mattReceiptPath } from "./matt.js";
 import { MATT_CATALOG_DIGEST, MATT_COMPATIBILITY, MATT_CONTENT_HASHES } from "./matt-catalog.mjs";
+import { AUTONOMY_LEVELS, WORKFLOWS, ensureMatrixGitignore, readConfigYaml } from "./matrix-config.js";
 import { text } from "./messages.js";
 
 // Manifest v4 records content digests computed over EOL-normalized bytes and the
@@ -28,15 +29,10 @@ const writeJson = (file, value) => {
   fs.renameSync(temporary, file);
 };
 const readJson = (file) => { try { return JSON.parse(fs.readFileSync(file, "utf8")); } catch { return null; } };
-const readConfig = (file) => {
-  try {
-    return Object.fromEntries(fs.readFileSync(file, "utf8").split(/\r?\n/).filter((line) => line.includes(":") && !line.startsWith(" ")).map((line) => {
-      const [key, ...value] = line.split(":");
-      return [key.trim(), value.join(":").trim()];
-    }));
-  } catch { return {}; }
-};
-const configContent = (existing, defaultOrchestration, scope, language) => {
+// N6: `config.yaml` values are user-editable, so inline `#` comments are stripped here.
+// `matrix.yaml` (workflow state) keeps its own comment-free parser in workflow.js.
+const readConfig = readConfigYaml;
+const configContent = (existing, defaultOrchestration, scope, language, defaults = {}) => {
   const values = {
     ...existing,
     schema: "matrix/config/v1",
@@ -44,8 +40,10 @@ const configContent = (existing, defaultOrchestration, scope, language) => {
     installation_scope: scope,
     language
   };
+  if (defaults.defaultWorkflow) values.default_workflow = defaults.defaultWorkflow;
+  if (defaults.autonomy) values.autonomy_level = defaults.autonomy;
   delete values.auto_transition;
-  const preferred = ["schema", "default_orchestration", "installation_scope", "language"];
+  const preferred = ["schema", "default_orchestration", "default_workflow", "autonomy_level", "installation_scope", "language"];
   const keys = [...preferred, ...Object.keys(values).filter((key) => !preferred.includes(key)).sort()];
   return `${keys.map((key) => `${key}: ${values[key]}`).join("\n")}\n`;
 };
@@ -94,13 +92,17 @@ export function installedIntent({ projectRoot = process.cwd(), home = os.homedir
   if (!manifest || !platforms.length) return { ok: false, code: "MANIFEST_MISSING", scope, config };
   const language = ["en", "zh-CN"].includes(manifest.language) ? manifest.language : (["en", "zh-CN"].includes(config.language) ? config.language : "en");
   const defaultOrchestration = ["prim", "arch"].includes(manifest.orchestration?.default) ? manifest.orchestration.default : "prim";
+  // N5 resolution order: config.yaml, then the scope's manifest, then `classic` so an
+  // upgraded project keeps its behavior until the user switches explicitly.
+  const workflow = WORKFLOWS.includes(config.default_workflow) ? config.default_workflow : WORKFLOWS.includes(manifest.workflow) ? manifest.workflow : "classic";
+  const autonomy = AUTONOMY_LEVELS.includes(config.autonomy_level) ? config.autonomy_level : "balanced";
   const matt = "readonly";
   return {
     ok: true,
     intent: {
       projectRoot: resolvedProjectRoot, home, scope, platforms, language,
       mode: ["copy", "symlink"].includes(manifest.mode) ? manifest.mode : "copy",
-      matt, defaultOrchestration, nonInteractive: true, matrixPolicy: "safe", dryRun: false
+      matt, defaultOrchestration, workflow, autonomy, workflowExplicit: false, nonInteractive: true, matrixPolicy: "safe", dryRun: false
     },
     manifest,
     config
@@ -120,12 +122,15 @@ function normalizeIntent(raw) {
   if (!["copy", "symlink"].includes(raw.mode ?? "copy")) return { error: "INVALID_INTENT", detail: "mode" };
   if (!["en", "zh-CN"].includes(raw.language ?? "en")) return { error: "INVALID_INTENT", detail: "language" };
   if (raw.defaultOrchestration != null && !["prim", "arch"].includes(raw.defaultOrchestration)) return { error: "INVALID_INTENT", detail: "default-orchestration" };
+  if (raw.workflow != null && !WORKFLOWS.includes(raw.workflow)) return { error: "INVALID_INTENT", detail: "workflow" };
+  if (raw.autonomy != null && !AUTONOMY_LEVELS.includes(raw.autonomy)) return { error: "INVALID_INTENT", detail: "autonomy" };
   if (!MATT_OPERATIONS.has(raw.matt ?? "none")) return { error: "INVALID_INTENT", detail: "matt" };
   if (raw.mattPolicy != null && !["preserve", "replace"].includes(raw.mattPolicy)) return { error: "INVALID_INTENT", detail: "matt-policy" };
   if (platforms.some((id) => !PLATFORM_IDS.includes(id))) return { error: "UNVERIFIED_PLATFORM" };
   return { projectRoot: path.resolve(raw.projectRoot ?? process.cwd()), home: raw.home ?? os.homedir(), scope, platforms,
     language: raw.language ?? "en", mode: raw.mode ?? "copy", matrixPolicy: raw.matrixPolicy ?? "safe",
     matt: raw.matt ?? "none", mattPolicy: raw.mattPolicy ?? "preserve", defaultOrchestration: raw.defaultOrchestration ?? null,
+    workflow: raw.workflow ?? null, autonomy: raw.autonomy ?? null, workflowExplicit: Boolean(raw.workflowExplicit),
     nonInteractive: Boolean(raw.nonInteractive), dryRun: Boolean(raw.dryRun) };
 }
 
@@ -144,10 +149,20 @@ function trustedMattReceipt(receipt) {
     && receipt.catalogDigest === MATT_CATALOG_DIGEST);
 }
 
-function observePlatform(intent, catalog, manifest, mattReceipt, platformId, contentHashes) {
+// B1: the managed cohort is what the manifest records plus what the target workflow
+// installs. A 2-skill auto project therefore stays 2 skills across `matrix update`,
+// an upgraded 10-skill classic project keeps all 10, and switching auto -> classic
+// backfills the classic cohort without ever deleting user-visible skills.
+function managedSkillSet(manifest, platformId, workflow) {
+  const recorded = Object.keys(manifest?.platforms?.[platformId]?.skills ?? {}).filter((skill) => MATRIX_SKILLS.includes(skill));
+  const target = workflow === "auto" ? MATRIX_AUTO_SKILLS : MATRIX_SKILLS;
+  return [...new Set([...target, ...recorded])];
+}
+
+function observePlatform(intent, catalog, manifest, mattReceipt, platformId, contentHashes, managed = MATRIX_SKILLS) {
   const platform = PLATFORMS[platformId]; const base = scopeBase(intent.scope, intent.projectRoot, intent.home);
   const root = platform.skillRoot(base); const records = manifest?.platforms?.[platformId]?.skills ?? {};
-  const skills = MATRIX_SKILLS.map((skill) => {
+  const skills = managed.map((skill) => {
     const target = path.join(root, skill);
     if (!pathExists(target)) return { skill, target, state: "missing" };
     if (isBrokenLink(target) || !exists(path.join(target, "SKILL.md"))) return { skill, target, state: "damaged" };
@@ -246,19 +261,24 @@ export function createDistribution({ failAt, mattAdapter = createMattAdapter(), 
     const manifest = readManifest(intent);
     const mattReceipt = readJson(mattReceiptPath(intent.projectRoot));
     intent.platforms = [...new Set([...Object.keys(manifest?.platforms ?? {}), ...intent.platforms])];
-    const observations = intent.platforms.map((id) => observePlatform(intent, catalog, manifest, mattReceipt, id, mattContentHashes));
+    const observations = intent.platforms.map((id) => observePlatform(intent, catalog, manifest, mattReceipt, id, mattContentHashes, managedSkillSet(manifest, id, intent.workflow)));
     const existingConfig = readConfig(configPath(intent));
     const existingDefault = ["prim", "arch"].includes(existingConfig.default_orchestration) ? existingConfig.default_orchestration
       : ["prim", "arch"].includes(manifest?.orchestration?.default) ? manifest.orchestration.default : null;
     intent.defaultOrchestration = intent.defaultOrchestration ?? existingDefault ?? (intent.matt === "missing" && intent.nonInteractive ? "arch" : "prim");
+    // Auto runs never orchestrate a Matt cohort; keep the legacy dimension at prim.
+    if (intent.workflow === "auto") intent.defaultOrchestration = "prim";
     const actions = observations.map((item) => ({ platform: item.id, matrix: actionFor(item, intent.matrixPolicy), matt: intent.matt === "missing" ? { kind: "reconcile", skills: [...MATT_SKILLS] } : { kind: "keep", skills: [] } }));
     const blocked = actions.filter((item) => item.matrix === "blocked");
     const blockedMatt = intent.matt === "missing" && intent.mattPolicy !== "replace"
       ? observations.filter((item) => (item.matt.classificationCounts["user-modified"] ?? 0) > 0 || (item.matt.classificationCounts.unreadable ?? 0) > 0)
       : [];
+    const autoWorkflow = intent.workflow === "auto";
     const archMustRemainAvailable = manifest?.orchestration?.available?.includes("arch") || intent.defaultOrchestration === "arch";
     const mattReady = trustedMattReceipt(mattReceipt) && observations.every(mattObservationMatchesReceipt);
-    const incompleteWithoutInstall = intent.matt !== "readonly" && intent.matt !== "missing" && archMustRemainAvailable && !mattReady;
+    // An auto project treats Matt Skills as free-floating tools: no arch enforcement, no
+    // hash lock. Only explicit classic arch projects require the frozen cohort.
+    const incompleteWithoutInstall = !autoWorkflow && intent.matt !== "readonly" && intent.matt !== "missing" && archMustRemainAvailable && !mattReady;
     const plan = { version: VERSION, intent, catalogDigest: catalog.digest, manifestPath: manifestPath(intent.scope, intent.projectRoot, intent.home), configPath: configPath(intent), actions, observations, preconditionDigest: digest(observations) };
     plan.seal = digest({ intent, catalogDigest: plan.catalogDigest, actions, preconditionDigest: plan.preconditionDigest });
     const code = blocked.length ? "USER_MODIFIED_BLOCKED" : blockedMatt.length ? "MATT_USER_MODIFIED" : incompleteWithoutInstall ? "ARCH_INSTALLATION_INCOMPLETE" : "OK";
@@ -281,9 +301,13 @@ export function createDistribution({ failAt, mattAdapter = createMattAdapter(), 
         if (pathExists(matrixRoot) && (!exists(matrixRoot) || !exists(path.join(matrixRoot, "scripts", "matrix-runtime.mjs")) || !exists(path.join(matrixRoot, "scripts", "workflow-transaction.js")))) diagnostics.push({ code: "RUNTIME_MISSING", platform: observation.id, message: `${observation.name}: ${text(evaluation.intent.language, "runtimeMissing")}` });
         for (const skill of observation.skills.filter((entry) => isBrokenLink(entry.target))) diagnostics.push({ code: "BROKEN_LINK", platform: observation.id, path: skill.target, message: `${observation.name}: ${text(evaluation.intent.language, "brokenLink")} ${skill.target}` });
         if (observation.id === "codex" && PLATFORMS.codex.legacyRoots(scopeBase(evaluation.intent.scope, evaluation.intent.projectRoot, evaluation.intent.home)).some(exists)) diagnostics.push({ code: "CODEX_LEGACY_DETECTED", platform: observation.id, message: text(evaluation.intent.language, "codexLegacyDiagnostic") });
-        diagnostics.push({ code: `MATT_${observation.matt.state.toUpperCase()}`, platform: observation.id, message: text(evaluation.intent.language, "mattStateDiagnostic").replace("{platform}", observation.name).replace("{state}", localizedState(evaluation.intent.language, observation.matt.state)) });
-        if (observation.matt.ignoredGlobal) diagnostics.push({ code: "MATT_GLOBAL_IGNORED", platform: observation.id, count: observation.matt.ignoredGlobal, message: `${observation.name}: ${observation.matt.ignoredGlobal} ${text(evaluation.intent.language, "mattGlobalIgnored")}` });
-        if (observation.matt.unmanaged.length) diagnostics.push({ code: "ARCH_UNMANAGED_EXTRA", platform: observation.id, skills: observation.matt.unmanaged, message: text(evaluation.intent.language, "unmanagedExtraDiagnostic").replace("{platform}", observation.name).replace("{skills}", observation.matt.unmanaged.join(", ")) });
+        // Auto projects treat Matt Skills as unmanaged external tools: no Matt state
+        // diagnostics, no global-ignore or extra-skill advisories.
+        if (evaluation.intent?.workflow !== "auto") {
+          diagnostics.push({ code: `MATT_${observation.matt.state.toUpperCase()}`, platform: observation.id, message: text(evaluation.intent.language, "mattStateDiagnostic").replace("{platform}", observation.name).replace("{state}", localizedState(evaluation.intent.language, observation.matt.state)) });
+          if (observation.matt.ignoredGlobal) diagnostics.push({ code: "MATT_GLOBAL_IGNORED", platform: observation.id, count: observation.matt.ignoredGlobal, message: `${observation.name}: ${observation.matt.ignoredGlobal} ${text(evaluation.intent.language, "mattGlobalIgnored")}` });
+          if (observation.matt.unmanaged.length) diagnostics.push({ code: "ARCH_UNMANAGED_EXTRA", platform: observation.id, skills: observation.matt.unmanaged, message: text(evaluation.intent.language, "unmanagedExtraDiagnostic").replace("{platform}", observation.name).replace("{skills}", observation.matt.unmanaged.join(", ")) });
+        }
       }
       return { ...evaluation, diagnosis: diagnostics };
     },
@@ -305,7 +329,7 @@ export function createDistribution({ failAt, mattAdapter = createMattAdapter(), 
         mattReceipt: { path: mattReceiptPath(plan.intent.projectRoot), existed: pathExists(mattReceiptPath(plan.intent.projectRoot)), backup: null, written: false },
         operations: []
       };
-      for (const item of refreshed.observations) if (plan.actions.find((entry) => entry.platform === item.id).matrix !== "keep") for (const skill of MATRIX_SKILLS) journal.operations.push({ target: path.join(item.root, skill), backup: null, status: "pending" });
+      for (const item of refreshed.observations) if (plan.actions.find((entry) => entry.platform === item.id).matrix !== "keep") for (const record of item.skills) journal.operations.push({ target: path.join(item.root, record.skill), backup: null, status: "pending" });
       for (const action of mattActions) {
         const observation = refreshed.observations.find((item) => item.id === action.platform);
         for (const skill of action.matt.skills) journal.operations.push({ kind: "matt", platform: action.platform, skill, target: path.join(observation.matt.root, skill), backup: null, status: "pending" });
@@ -317,7 +341,7 @@ export function createDistribution({ failAt, mattAdapter = createMattAdapter(), 
         for (const item of refreshed.observations) {
           if (plan.actions.find((entry) => entry.platform === item.id).matrix === "keep") continue;
           const platformStage = path.join(stagingRoot, item.id);
-          for (const skill of MATRIX_SKILLS) { const staged = path.join(platformStage, skill); fs.mkdirSync(path.dirname(staged), { recursive: true }); fs.cpSync(path.join(catalog.root, skill), staged, { recursive: true }); fs.mkdirSync(path.join(staged, "scripts"), { recursive: true }); fs.writeFileSync(path.join(staged, "scripts", "package.json"), '{"type":"module"}\n'); fs.copyFileSync(workflowRuntimeSource(), path.join(staged, "scripts", "matrix-runtime.mjs")); fs.copyFileSync(workflowTransactionSource(), path.join(staged, "scripts", "workflow-transaction.js")); fs.copyFileSync(mattCatalogSource(), path.join(staged, "scripts", "matt-catalog.mjs")); if (skill === "matrix") for (const filename of ["matrix_state.py", "matrix_claude.py"]) fs.copyFileSync(path.join(sourceSkillsRoot("en"), "matrix", "scripts", filename), path.join(staged, "scripts", filename)); if (!exists(path.join(staged, "SKILL.md"))) throw new Error(`Stage validation failed: ${item.id}/${skill}`); }
+          for (const record of item.skills) { const staged = path.join(platformStage, record.skill); fs.mkdirSync(path.dirname(staged), { recursive: true }); fs.cpSync(path.join(catalog.root, record.skill), staged, { recursive: true }); fs.mkdirSync(path.join(staged, "scripts"), { recursive: true }); fs.writeFileSync(path.join(staged, "scripts", "package.json"), '{"type":"module"}\n'); fs.copyFileSync(workflowRuntimeSource(), path.join(staged, "scripts", "matrix-runtime.mjs")); fs.copyFileSync(workflowTransactionSource(), path.join(staged, "scripts", "workflow-transaction.js")); fs.copyFileSync(runEngineSource(), path.join(staged, "scripts", "run-engine.js")); fs.copyFileSync(matrixConfigSource(), path.join(staged, "scripts", "matrix-config.js")); fs.copyFileSync(mattCatalogSource(), path.join(staged, "scripts", "matt-catalog.mjs")); if (record.skill === "matrix") for (const filename of ["matrix_state.py", "matrix_claude.py"]) fs.copyFileSync(path.join(sourceSkillsRoot("en"), "matrix", "scripts", filename), path.join(staged, "scripts", filename)); if (!exists(path.join(staged, "SKILL.md"))) throw new Error(`Stage validation failed: ${item.id}/${record.skill}`); }
           stagedPlatforms.set(item.id, platformStage);
         }
         if (mattActions.length) {
@@ -336,14 +360,14 @@ export function createDistribution({ failAt, mattAdapter = createMattAdapter(), 
         for (const item of refreshed.observations) {
           if (plan.actions.find((entry) => entry.platform === item.id).matrix === "keep") continue;
           fs.mkdirSync(item.root, { recursive: true });
-          for (const skill of MATRIX_SKILLS) {
+          for (const record of item.skills) {
             const operation = journal.operations[operationIndex++]; const target = operation.target; operation.status = "backing-up";
-            if (pathExists(target)) operation.backup = path.join(root, "backups", id, item.id, skill); persist();
+            if (pathExists(target)) operation.backup = path.join(root, "backups", id, item.id, record.skill); persist();
             if (operation.backup) { fs.mkdirSync(path.dirname(operation.backup), { recursive: true }); fs.renameSync(target, operation.backup); }
-            operation.status = "backed-up"; persist(); failAt?.("after-backup", { platform: item.id, skill });
-            const staged = path.join(stagedPlatforms.get(item.id), skill);
-            if (plan.intent.mode === "symlink") { const store = path.join(root, "skills", catalog.digest, skill); if (!pathExists(store)) { fs.mkdirSync(path.dirname(store), { recursive: true }); fs.renameSync(staged, store); } fs.symlinkSync(store, target, process.platform === "win32" ? "junction" : "dir"); } else fs.renameSync(staged, target);
-            operation.status = "committed"; persist(); failAt?.("after-commit", { platform: item.id, skill });
+            operation.status = "backed-up"; persist(); failAt?.("after-backup", { platform: item.id, skill: record.skill });
+            const staged = path.join(stagedPlatforms.get(item.id), record.skill);
+            if (plan.intent.mode === "symlink") { const store = path.join(root, "skills", catalog.digest, record.skill); if (!pathExists(store)) { fs.mkdirSync(path.dirname(store), { recursive: true }); fs.renameSync(staged, store); } fs.symlinkSync(store, target, process.platform === "win32" ? "junction" : "dir"); } else fs.renameSync(staged, target);
+            operation.status = "committed"; persist(); failAt?.("after-commit", { platform: item.id, skill: record.skill });
           }
         }
         const mattResults = [];
@@ -372,7 +396,10 @@ export function createDistribution({ failAt, mattAdapter = createMattAdapter(), 
           }
           for (const action of mattActions) mattResults.push({ platform: action.platform, ok: true, code: "OK", attempted: [action.platform] });
         }
-        const postObservations = plan.intent.platforms.map((platform) => observePlatform(plan.intent, catalog, readManifest(plan.intent), previousMattReceipt, platform, mattContentHashes));
+        const postObservations = plan.intent.platforms.map((platform) => {
+          const managed = refreshed.observations.find((item) => item.id === platform)?.skills.map((record) => record.skill) ?? managedSkillSet(previousManifest, platform, plan.intent.workflow);
+          return observePlatform(plan.intent, catalog, readManifest(plan.intent), previousMattReceipt, platform, mattContentHashes, managed);
+        });
         const incomplete = mattActions.length ? postObservations.filter((item) => !mattObservationMatchesRelease(item, mattContentHashes)) : [];
         const backups = journal.operations.filter((item) => item.backup).map((item) => ({ target: item.target, backup: item.backup }));
         if (mattResults.some((item) => !item.ok) || incomplete.length) {
@@ -387,16 +414,22 @@ export function createDistribution({ failAt, mattAdapter = createMattAdapter(), 
           const legacyMatt = previousManifest?.platforms?.[item.id]?.matt ?? null;
           return [item.id, {
             root: item.root,
-            skills: Object.fromEntries(MATRIX_SKILLS.map((skill) => [skill, { hash: hashDirectory(path.join(item.root, skill)) }])),
+            skills: Object.fromEntries(item.skills.map((record) => [record.skill, { hash: hashDirectory(path.join(item.root, record.skill)) }])),
             ...(legacyMatt ? { matt: legacyMatt } : {})
           }];
         }));
-        const available = plan.intent.matt === "readonly" ? (previousManifest?.orchestration?.available ?? ["prim"])
-          : mattActions.length ? (postObservations.every((observation) => mattObservationMatchesRelease(observation, mattContentHashes)) ? ["prim", "arch"] : ["prim"])
-            : (previousManifest?.orchestration?.available ?? ["prim"]);
+        const available = plan.intent.workflow === "auto" ? (previousManifest?.orchestration?.available ?? ["prim"])
+          : plan.intent.matt === "readonly" ? (previousManifest?.orchestration?.available ?? ["prim"])
+            : mattActions.length ? (postObservations.every((observation) => mattObservationMatchesRelease(observation, mattContentHashes)) ? ["prim", "arch"] : ["prim"])
+              : (previousManifest?.orchestration?.available ?? ["prim"]);
         const previousConfig = readConfig(journal.config.backup ?? plan.configPath);
         fs.mkdirSync(path.dirname(plan.configPath), { recursive: true });
-        fs.writeFileSync(plan.configPath, configContent(previousConfig, plan.intent.defaultOrchestration, plan.intent.scope, plan.intent.language)); journal.config.written = true; persist();
+        // D2: `matrix update` (workflowExplicit=false) never introduces `default_workflow`;
+        // only `matrix init` writes it, so upgraded projects keep resolving to classic.
+        fs.writeFileSync(plan.configPath, configContent(previousConfig, plan.intent.defaultOrchestration, plan.intent.scope, plan.intent.language, {
+          ...(plan.intent.workflowExplicit && plan.intent.workflow ? { defaultWorkflow: plan.intent.workflow } : {}),
+          ...(plan.intent.workflowExplicit && plan.intent.autonomy ? { autonomy: plan.intent.autonomy } : {})
+        })); journal.config.written = true; persist();
         if (mattActions.length && available.includes("arch")) {
           writeJson(journal.mattReceipt.path, {
             version: 1,
@@ -408,9 +441,14 @@ export function createDistribution({ failAt, mattAdapter = createMattAdapter(), 
         }
         writeJson(plan.manifestPath, {
           version: VERSION, catalogVersion: catalog.version, language: plan.intent.language, mode: plan.intent.mode, scope: plan.intent.scope,
-          catalogDigest: catalog.digest, orchestration: { default: plan.intent.defaultOrchestration, available }, platforms: records
+          catalogDigest: catalog.digest,
+          workflow: WORKFLOWS.includes(plan.intent.workflow) ? plan.intent.workflow : WORKFLOWS.includes(previousManifest?.workflow) ? previousManifest.workflow : "classic",
+          orchestration: { default: plan.intent.defaultOrchestration, available }, platforms: records
         });
         journal.manifest.written = true; persist(); failAt?.("after-manifest"); journal.state = "committed"; persist();
+        // The managed .gitignore block is idempotent and additive, so it is safe to leave
+        // behind even if a later step fails.
+        if (!plan.intent.dryRun) { try { ensureMatrixGitignore(plan.intent.projectRoot); } catch {} }
         if (mattCandidate) mattAdapter.discardCandidate?.(mattCandidate);
         removeStaging(stagingRoot); removeEntry(journal.manifest.backup); removeEntry(journal.config.backup); removeEntry(journal.mattReceipt.backup); removeEntry(journalFile);
         return { ok: true, code: "OK", committed: journal.operations.map((item) => item.target), backups, matt: mattResults, recoveryReceipt: recovery.receipt };

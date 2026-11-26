@@ -38,12 +38,28 @@ test("non-interactive initialization accepts the zcode platform", (t) => {
   assert.notEqual(rejected.status, 0);
 });
 
-test("doctor emits a single structured diagnosis without writing", (t) => {
-  const project = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-doctor-"));
+// 0.2.0 contract change (see docs/Matrix V0.2.0 实施计划评审结论.md §7 P0-6):
+// doctor on an uninstalled project now defaults to the auto workflow, which treats Matt
+// Skills as unmanaged external tools and skips Matt diagnostics; classic keeps them.
+test("doctor on an uninstalled project defaults to auto and skips Matt diagnostics", (t) => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-doctor-auto-"));
   t.after(() => fs.rmSync(project, { recursive: true, force: true }));
   fs.mkdirSync(path.join(project, ".agents", "skills", "matrix"), { recursive: true });
   fs.writeFileSync(path.join(project, ".agents", "skills", "matrix", "SKILL.md"), "manual");
   const result = spawnSync(process.execPath, ["bin/matrix.js", "doctor", project, "--platform", "codex", "--json"], { cwd: root, encoding: "utf8" });
+  assert.equal(result.status, 2);
+  const output = JSON.parse(result.stdout);
+  assert.equal(output.intent.workflow, "auto");
+  assert.equal(output.diagnosis.some((item) => item.code.startsWith("MATT_")), false);
+  assert.equal(fs.existsSync(path.join(project, ".matrix")), false);
+});
+
+test("doctor with explicit classic keeps the full Matt diagnosis", (t) => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-doctor-classic-"));
+  t.after(() => fs.rmSync(project, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(project, ".agents", "skills", "matrix"), { recursive: true });
+  fs.writeFileSync(path.join(project, ".agents", "skills", "matrix", "SKILL.md"), "manual");
+  const result = spawnSync(process.execPath, ["bin/matrix.js", "doctor", project, "--platform", "codex", "--default-workflow", "classic", "--json"], { cwd: root, encoding: "utf8" });
   assert.equal(result.status, 2);
   const output = JSON.parse(result.stdout);
   assert.deepEqual(output.diagnosis.map((item) => item.code), ["MANIFEST_MISSING", "MATRIX_USER_MODIFIED", "RUNTIME_MISSING", "MATT_MISSING"]);
@@ -59,20 +75,38 @@ test("workflow doctor is a separate read-only JSON command", (t) => {
   assert.equal(fs.existsSync(path.join(project, ".matrix")), false);
 });
 
+// 0.2.0 contract change: arch resolution is a classic-only concern, so the Matt setup
+// path needs --default-workflow classic; auto resolves to prim with two skills.
 test("non-interactive Matt setup resolves the default orchestration to Arch", (t) => {
   const project = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-cli-arch-"));
   t.after(() => fs.rmSync(project, { recursive: true, force: true }));
-  const preview = spawnSync(process.execPath, ["bin/matrix.js", "init", project, "--yes", "--platform", "codex", "--with-mattpocock", "--dry-run", "--json"], { cwd: root, encoding: "utf8" });
+  const preview = spawnSync(process.execPath, ["bin/matrix.js", "init", project, "--yes", "--platform", "codex", "--with-mattpocock", "--default-workflow", "classic", "--dry-run", "--json"], { cwd: root, encoding: "utf8" });
   assert.equal(preview.status, 0, preview.stderr);
   assert.equal(JSON.parse(preview.stdout).intent.defaultOrchestration, "arch");
 });
 
-test("Chinese doctor localizes Matt states and diagnostics", (t) => {
+test("non-interactive auto initialization defaults to the auto workflow with two skills", (t) => {
+  const project = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-cli-auto-"));
+  t.after(() => fs.rmSync(project, { recursive: true, force: true }));
+  const installed = spawnSync(process.execPath, ["bin/matrix.js", "init", project, "--yes", "--platform", "codex", "--without-mattpocock"], { cwd: root, encoding: "utf8" });
+  assert.equal(installed.status, 0, installed.stderr);
+  const manifest = JSON.parse(fs.readFileSync(path.join(project, ".matrix", "installation.json"), "utf8"));
+  assert.equal(manifest.workflow, "auto");
+  assert.deepEqual(Object.keys(manifest.platforms.codex.skills).sort(), ["matrix", "matrix-status"]);
+  assert.match(fs.readFileSync(path.join(project, ".matrix", "config.yaml"), "utf8"), /^default_workflow: auto$/m);
+  assert.equal(fs.existsSync(path.join(project, ".agents", "skills", "matrix-open")), false);
+  const config = fs.readFileSync(path.join(project, ".matrix", ".gitignore"), "utf8");
+  assert.match(config, /# BEGIN MATRIX MANAGED/);
+  assert.match(config, /runs\/\*\/logs\//);
+});
+
+// 0.2.0 contract change: localized Matt diagnostics require explicit classic (auto skips them).
+test("Chinese doctor localizes Matt states and diagnostics under classic", (t) => {
   const project = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-doctor-zh-"));
   t.after(() => fs.rmSync(project, { recursive: true, force: true }));
   fs.mkdirSync(path.join(project, ".agents", "skills", "matrix"), { recursive: true });
   fs.writeFileSync(path.join(project, ".agents", "skills", "matrix", "SKILL.md"), "manual");
-  const result = spawnSync(process.execPath, ["bin/matrix.js", "doctor", project, "--language", "zh-CN", "--platform", "codex", "--no-color"], { cwd: root, encoding: "utf8" });
+  const result = spawnSync(process.execPath, ["bin/matrix.js", "doctor", project, "--language", "zh-CN", "--platform", "codex", "--default-workflow", "classic", "--no-color"], { cwd: root, encoding: "utf8" });
   assert.equal(result.status, 2);
   assert.match(result.stdout, /Matt Pocock Skills 状态为\s*未安装/);
   assert.match(result.stdout, new RegExp(`Matt ${MATT_COMPATIBILITY.release}：不完整`));

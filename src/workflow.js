@@ -3,7 +3,7 @@ import path from "node:path";
 import crypto from "node:crypto";
 import os from "node:os";
 import { spawnSync } from "node:child_process";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { MATT_AUTOMATIC_SKILLS, MATT_CATALOG_DIGEST, MATT_COMPATIBILITY, MATT_CONTENT_HASHES } from "./matt-catalog.mjs";
 import {
   captureWorkflowEntry,
@@ -15,6 +15,8 @@ import {
   workflowRemoveOperation,
   workflowWriteOperation
 } from "./workflow-transaction.js";
+import { readConfigYaml, resolveWorkflowConfig } from "./matrix-config.js";
+import { findRun, invokeRun, leaseHolder, listRuns, runView } from "./run-engine.js";
 
 const PHASES = ["open", "design", "build", "verify", "archive"];
 const FULL_PROFILE = {
@@ -45,6 +47,7 @@ const ABORT_REASONS = new Set(["requirement-cancelled", "superseded", "no-longer
 const ORCHESTRATIONS = ["prim", "arch"];
 const quoteCommandPath = (value) => process.platform === "win32" ? `"${value}"` : `'${value.replaceAll("'", "'\\''")}'`;
 const workflowCommand = (argumentsText) => `node ${quoteCommandPath(fileURLToPath(import.meta.url))} ${argumentsText}`;
+const runCommand = (argumentsText) => workflowCommand(`run ${argumentsText}`);
 const LEGACY_ARCH_SKILLS = [
   "grilling", "domain-modeling", "research", "wayfinder", "prototype",
   "codebase-design", "tdd", "diagnosing-bugs", "resolving-merge-conflicts", "code-review"
@@ -93,14 +96,6 @@ const read = (file) => JSON.parse(fs.readFileSync(file, "utf8"));
 
 function fail(code, message) { return { ok: false, code, message }; }
 function option(args, name) { const index = args.indexOf(name); return index >= 0 ? args[index + 1] : null; }
-function flatYaml(file) {
-  try {
-    return Object.fromEntries(fs.readFileSync(file, "utf8").split(/\r?\n/).filter((line) => line.includes(":") && !line.startsWith(" ")).map((line) => {
-      const [key, ...value] = line.split(":");
-      return [key.trim(), value.join(":").trim().replace(/^"|"$/g, "")];
-    }));
-  } catch { return {}; }
-}
 function excludedWorkspacePath(relative) {
   const first = relative.replaceAll("\\", "/").split("/")[0];
   return WORKSPACE_EXCLUDES.has(first);
@@ -225,7 +220,7 @@ function hashDirectory(directory) {
   return hash.digest("hex");
 }
 function orchestrationConfig(cwd) {
-  const config = flatYaml(path.join(rootFor(cwd), "config.yaml"));
+  const config = readConfigYaml(path.join(rootFor(cwd), "config.yaml"));
   const scope = config.installation_scope === "global" ? "global" : "project";
   const manifestFile = scope === "global" ? path.join(os.homedir(), ".matrix", "installation.json") : path.join(rootFor(cwd), "installation.json");
   const mattReceiptFile = path.join(rootFor(cwd), "matt-installation.json");
@@ -681,6 +676,8 @@ function eventContent(file, name, before, after, revision, details = {}) {
 }
 export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null, mattContentHashes = MATT_CONTENT_HASHES } = {}) {
   const [command, ...args] = argv;
+  // Autonomous Run commands resolve asynchronously; v2 commands stay synchronous.
+  if (command === "run") return invokeRun(args, { cwd });
   if (command === "init") {
     const id = (args.shift() ?? "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "");
     const workflow = args.includes("--workflow") ? args[args.indexOf("--workflow") + 1] : "full";
@@ -741,7 +738,15 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null, m
   const selected = active(cwd);
   const requested = command === "inspect" ? (option(args, "--change") ?? args.find((arg) => !arg.startsWith("--"))) : null;
   const id = requested ?? selected;
-  if (!id) return fail("NO_ACTIVE_CHANGE", "No active Matrix change. Start with $matrix <request>.");
+  // The unified entry reports the resolved workflow settings even with nothing in flight,
+  // so the Agent knows whether `$matrix` means a Run (auto) or the v2 lifecycle (classic).
+  const settings = resolveWorkflowConfig(cwd);
+  const heldRun = command === "inspect" ? leaseHolder(cwd) : null;
+  const activeRun = heldRun && !findRun(cwd, heldRun).error ? findRun(cwd, heldRun) : null;
+  if (!id) {
+    if (activeRun) return { ...runView(cwd, activeRun, runCommand), default_workflow: settings.default_workflow, autonomy_level: settings.autonomy_level, active_legacy_change: null, runs: listRuns(cwd) };
+    return { ...fail("NO_ACTIVE_CHANGE", "No active Matrix change. Start with $matrix <request>."), default_workflow: settings.default_workflow, autonomy_level: settings.autonomy_level };
+  }
   let p = paths(cwd, id);
   if (command === "inspect" && !fs.existsSync(p.change)) p = paths(cwd, id, true);
   const flow = readFlow(p);
@@ -773,6 +778,9 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null, m
       revision: flow.revision,
       next_skill: flow.status === "active" ? skill(flow.phase) : null,
       guard_pass: result.ok,
+      default_workflow: settings.default_workflow,
+      autonomy_level: settings.autonomy_level,
+      ...(activeRun ? { active_run: { run_id: activeRun.state.run_id, phase: activeRun.state.phase, status: activeRun.state.status, revision: activeRun.state.revision } } : {}),
       ...contractFields(flow, contract)
     };
   }
@@ -1100,8 +1108,10 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null, m
   return fail("INVALID_INTENT", `Unknown workflow command: ${command}.`);
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1].replaceAll("\\", "/")}`).href) {
-  const result = invoke(process.argv.slice(2));
-  console.log(JSON.stringify(result));
-  if (!result.ok) process.exitCode = 2;
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  // `run` commands resolve asynchronously; v2 results are plain values.
+  Promise.resolve(invoke(process.argv.slice(2))).then((result) => {
+    console.log(JSON.stringify(result));
+    if (!result.ok) process.exitCode = 2;
+  });
 }

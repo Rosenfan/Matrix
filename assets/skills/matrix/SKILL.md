@@ -1,88 +1,100 @@
 ---
 name: matrix
-description: Route, initialize, resume, and govern a persistent Matrix development workflow. Use when the user starts a feature, change, bug fix, or asks to resume managed development.
+description: Start or resume an autonomous Matrix run for a user goal, or drive the classic five-phase software workflow. Use when the user explicitly invokes $matrix, asks to start/resume/check Matrix work, or continues a run or change that already exists in .matrix/. Do not invoke for casual questions, read-only investigation, or one-line typo fixes (answer directly without creating a run).
 ---
 
 # Matrix
 
-Use Matrix as the development-workflow entrypoint. Its source of truth is the current repository's `.matrix/`; never infer a phase from chat history.
+Matrix is the single workflow entrypoint. Its source of truth is the current repository's `.matrix/`; never infer a phase or run state from chat history.
 
-Read `artifact_language` from `node <matrix-skill-directory>/scripts/matrix-runtime.mjs inspect`. Keep required Markdown heading tokens unchanged, but write every user-facing artifact body, explanation, and handoff in that language: English for `en`, Chinese for `zh-CN`.
+Write user-facing prose in `artifact_language` when a classic change reports it; run artifacts follow the repository's working language otherwise. Machine commands, identifiers, and schema fields stay in English.
 
-## Route
+## First action
 
-For every workflow command, run the Runtime bundled with this project Skill so the project compatibility authority wins over a different global launcher:
+Run the Runtime bundled with this project Skill so the project compatibility authority wins over a global launcher:
 
 ```powershell
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs inspect
 ```
 
-Use the global `matrix` command for `init`, `update`, and bootstrap only. A trusted 0.1.4 launcher auto-delegates only to an exact, hash-verified 0.1.4 project Runtime. A different or unidentified project release remains authoritative but must be invoked through the exact direct command returned by the launcher. Older launchers cannot provide this cross-release check and must not be used as the project workflow entrypoint.
+Route on the returned `default_workflow`:
 
-- If an active change exists, show its phase and frozen `orchestration`, report any Arch installation-integrity failure, and enter the returned `next_skill` only when the Runtime permits continuation.
-- If no active change exists, classify the request: reproducible small bug → `$matrix-hotfix` with workflow `hotfix`; bounded small change with no public API/schema/architecture impact → `$matrix-tweak` with workflow `tweak`; otherwise full Matrix with workflow `full`.
-- Do not create Matrix state for questions, read-only investigation, or requests outside software development.
-- Before `init`, derive a short kebab-case change id and an accurate title. Start with `full` unless a shortcut clearly applies.
+- `auto` → follow the Autonomous Run protocol below.
+- `classic` → follow [references/classic-compat.md](references/classic-compat.md) (the original `full` / `hotfix` / `tweak` five-phase workflow with Prim/Arch orchestration).
+- `NO_ACTIVE_CHANGE` still carries both fields; route the same way.
 
-```powershell
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs init <change-id> --workflow <full|hotfix|tweak> --orchestration <prim|arch> --title "<title>"
-```
+## No-Run fast path
 
-An explicit mode wins; otherwise Runtime uses the project `default_orchestration`. The resolved value is immutable for the change and is shown in init, inspect, and the initialized Event. Then enter `$matrix-open`.
+Do not create a run for: pure questions, read-only investigation, planning chat, or a single-line typo fix. Answer or fix directly. A run exists to preserve intent, evidence, and acceptance for real work.
 
-## Orchestration
+## Autonomous Run protocol (`auto`)
 
-- **Prim** uses Matrix's own capability in every phase and never requires Matt Skills.
-- **Arch** conditionally invokes the ten reviewed automatic capabilities frozen by the active Change. Matrix 0.1.7 reviews all 27 official Matt Skills v1.3.1 roles and installs only the 25 compatible Skills project-locally; `implement` and `implement-spec` are excluded.
+Full protocol details: [references/uaap-protocol.md](references/uaap-protocol.md). Engineering craft: [references/engineering-craft.md](references/engineering-craft.md). Evidence standards per task type: [references/domain-verification.md](references/domain-verification.md).
 
-Both orchestration modes use the same selected workflow profile. `full` uses `open → design → build → verify → archive`; `hotfix` and `tweak` share one internal `lightweight` profile, `open → build → verify → archive`, with different evidence policies. Companion Skills never write Matrix state, transition, commit, archive, or create competing workflow artifacts.
-
-A correctly installed Arch capability that fails gets at most one Matrix-owned fallback for the same bounded capability, with failure and evidence recorded. A missing, modified, or incomplete Arch installation must be repaired with `matrix init --with-mattpocock`; never switch the active change to Prim.
-
-## Recovery
-
-Use Runtime commands instead of editing Matrix state:
+### 1. Start and understand
 
 ```powershell
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs return design --reason design-gap
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs return build --reason verification-failed
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs return design --reason acceptance-or-design-gap
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs return design --reason acceptance-or-design-gap # from Archive, before terminal archive
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs abort --reason <requirement-cancelled|superseded|no-longer-valuable|blocked|other>
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs run start --request "<the user's request verbatim>" [--id <kebab-id>] [--title "<title>"]
 ```
 
-Return preserves the change but moves the current `verification.md` into revisioned evidence history, so the returned phase must produce fresh current evidence. Abort preserves the last phase and moves the terminal change into `.matrix/archive/`; it never undoes worktree changes.
+`--request` must carry the user's words unchanged (use `--request-file <path>` for long text). Then investigate before asking: read the code, docs, logs, and Git history; form a root-cause diagnosis; decide the technical approach yourself. Only three boundaries justify interrupting the user: materially different readings of the goal, private facts you cannot look up, and irreversible/high-visibility actions. Decisions that only shape the implementation are yours — record them in the brief, not as questions.
 
-If any mutation reports `WORKFLOW_RECOVERY_REQUIRED`, stop normal phase work and run the read-only diagnosis:
+### 2. Frame the boundary
 
 ```powershell
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs doctor
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs run frame --goal "<one sentence>" --accept "A1=<observable outcome>" [--accept "A2=..."] --check "C1=<command>" [--check "C2=..."] --expect-revision <n>
 ```
 
-Never infer a repair target or strategy. Use only the exact command returned by doctor:
+- `--check` commands must be real, executable verifications (tests, builds, linters, scripts). Matrix runs them itself at submit time; never pass a command you have not verified exists. `--no-checks-reason "<text>"` is only for tasks with genuinely no executable check.
+- Acceptance items must be observable by someone other than you.
+- Pass `--require-confirmation` (or `--wait "<question>"`) when the request is vague, exploratory, or the change is broad — the run pauses for a single confirmation of goal + acceptance + checks. With a clear, bounded request, call frame without those flags and echo the returned `frame` summary to the user as you proceed.
+- After execute has started, re-framing always requires user confirmation.
+
+### 3. Execute and adapt
+
+Work autonomously. You may use any installed skill, MCP tool, or your own judgment; no external skill may write Matrix state, skip `run submit` checks, or declare the run complete. If the approach changes but the goal and acceptance do not, record it instead of restarting:
 
 ```powershell
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs doctor --repair --transaction <id> --strategy <continue|rollback>
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs doctor --repair --lock <id>
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs run pivot --reason "<why>" [--scope "<new approach>"] --expect-revision <n>
 ```
 
-## Optional implementation handoff
+A pivot invalidates this round's check results and verdicts. Exploratory diagnostics may be recorded with `run check --cmd "<command>"`, but they never count as acceptance.
 
-`$matrix-handoff` is an optional sidecar command used after the approved Design -> Build transition. It exports the matching approved contract as a bounded task package for the implementation agent the user chooses (`export --agent <agent-id>`, for example Codex designing and Claude Code implementing, or zcode designing and opencode implementing). It never changes the Matrix phase, workflow, guard result, or runtime state.
-Use it only when the user explicitly chooses a different implementation agent; never inject it into the standard path.
+### 4. Submit — the Runtime runs the checks
 
-## Cross-Cutting Skills
+```powershell
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs run submit --summary "<what this candidate changes>" --expect-revision <n>
+```
 
-Matrix never nests user-invoked Matt Skills. When relevant, explain the reason and ask the user to invoke one explicitly: `setup-matt-pocock-skills` for one-time setup, `improve-codebase-architecture` for an out-of-band scan, `wayfinder` for generating a separate large-effort candidate, `handoff` at a context boundary, `retro` for a post-session agent-environment retrospective, or `to-questionnaire` when another person owns blocking facts. `ask-matt`, `grill-with-docs`, `triage`, `to-spec`, `to-tickets`, `grill-me`, `teach`, `wait-what`, and `pr` remain standalone. Matrix does not install or manage `implement` or `implement-spec`; preserve pre-existing copies (including any legacy `resolving-merge-conflicts`) as unmanaged extras and never suggest them inside an active Change.
+Matrix executes every frozen check outside the lock, streams logs to `.matrix/runs/<id>/logs/`, and judges by exit codes only. Failures return you to execute with the failing check output; repeated failures pause for the user. Never restate check results yourself — the Runtime's record is the only one that counts.
+
+### 5. Verify honestly
+
+```powershell
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs run verify --reviewer <self|subagent|external> --result "A1=<passed|failed|blocked>[:<reason>]" [--result "A2=..."] [--summary "<text>"] --expect-revision <n>
+```
+
+- Cover every acceptance ID exactly once; a missing or duplicate ID is rejected.
+- `--reviewer` is a provenance declaration, not a badge: `self` (this session re-checked), `subagent` (a separate read-only agent execution), `external` (another agent/session the user runs). Claim only what actually happened.
+- `failed` returns the run to execute (stagnation is tracked); `blocked` pauses for the user; all `passed` moves to close.
+
+### 6. Close
+
+```powershell
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs run close --expect-revision <n>
+```
+
+Matrix renders `verification.md` from the run state, archives the run to `.matrix/archive/runs/<id>/`, and clears the lease. If the worktree changed after verification, Matrix refuses and sends the run back to execute. On the way out, persist durable, verified engineering facts the way this repository already does (AGENTS.md / GLOSSARY.md / docs/adr/) — never task chatter.
+
+### Multi-run and safety
+
+Runs are leases: at most one run executes per working tree (`run list`, `run select <id>`, `run select --none`). Parallel implementation belongs in separate Git worktrees. A new request never silently resumes an unrelated run or classic change — show what is in flight and ask.
+
+Never execute irreversible, high-visibility actions (force push, history rewrite, bulk deletion, publishing, payments, messages, purchases) without explicit user confirmation in the moment. Decisions that need a professional license (legal, medical, financial) are surfaced as information only — the user decides.
 
 ## Rules
 
-- A phase can advance only through `node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition`; run its guard first.
-- A phase can move backward only through one of the documented `node <matrix-skill-directory>/scripts/matrix-runtime.mjs return` intents.
-- Full Build approval binds proposal, design, and plan. Lightweight Build approval binds its compact proposal, requires `transition build --confirmed`, and rejects project implementation changes made after initialization but before approval.
-- A successful Archive is always a two-step optimistic commit: run `node <matrix-skill-directory>/scripts/matrix-runtime.mjs archive --dry-run`, then pass its exact hash to `node <matrix-skill-directory>/scripts/matrix-runtime.mjs archive --expect-preflight <sha256>`. Never bypass the preflight.
-- `node <matrix-skill-directory>/scripts/matrix-runtime.mjs doctor` is read-only. Every transaction or stale-lock repair must explicitly bind the identity reported by doctor; do not edit or delete `.matrix/transactions/` or `.matrix/workflow.lock`.
-- Do not replace required evidence with an assertion that work is complete.
-- Pause for user confirmation at material architecture/scope decisions and before archive/commit.
-- Before entering Build (full: after the design guard; lightweight: merged into the `transition build --confirmed` pause), present the implementation-actor choice — continue with the current agent/model, switch the model in the user's client, or switch the implementation agent via `$matrix-handoff` — and pass the recorded choice to the Runtime with `transition build --executor <current|model|handoff:<agent-id>>` (lightweight also carries `--confirmed`). The Runtime rejects Build entry without it and stores the choice as `implementation_actor`.
-- On shortcut scope expansion, run `node <matrix-skill-directory>/scripts/matrix-runtime.mjs return design --reason design-gap`; Runtime upgrades the change to `full`. Never silently continue the old contract.
+- Every state change goes through the Runtime commands above; never edit `.matrix/runs/`, `current-run.json`, `workflow.lock`, or `transactions/` by hand. If a command reports `WORKFLOW_RECOVERY_REQUIRED`, stop and run `node <matrix-skill-directory>/scripts/matrix-runtime.mjs doctor`, then use only the exact repair command it returns.
+- Carry `--expect-revision` from the previous command's output; on `REVISION_MISMATCH`, re-run inspect instead of retrying blind.
+- Missing a niche capability? Tell the user `npx skills find <keyword>` exists; never install third-party skills unattended. `matrix skills audit <path-or-name>` scans a candidate for conflicts before mounting.
+- Classic-mode instructions live in [references/classic-compat.md](references/classic-compat.md); never mix its phases into an auto run.

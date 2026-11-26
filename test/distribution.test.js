@@ -178,7 +178,10 @@ test("Chinese installation uses the Chinese Matrix guidance cohort", (t) => {
   const evaluation = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], language: "zh-CN" });
   assert.equal(distribution.commit(evaluation.plan).ok, true);
   const guidance = fs.readFileSync(path.join(project, ".agents", "skills", "matrix", "SKILL.md"), "utf8");
-  assert.match(guidance, /持久化的 Matrix 开发工作流/);
+  // 0.2.0 contract change (P0-6 #5): the Chinese anchor sentence tracks the new
+  // autonomous entry; the classic cohort reference must ship beside it.
+  assert.match(guidance, /自主 Run 协议/);
+  assert.ok(fs.existsSync(path.join(project, ".agents", "skills", "matrix", "references", "classic-compat.md")));
   assert.ok(fs.existsSync(path.join(project, ".agents", "skills", "matrix", "scripts", "matrix_state.py")));
   assert.match(fs.readFileSync(path.join(project, ".matrix", "config.yaml"), "utf8"), /^language: zh-CN$/m);
   assert.equal(installedIntent({ projectRoot: project, home }).intent.language, "zh-CN");
@@ -692,6 +695,77 @@ test("installed bundled runtime matches the primary CLI workflow output", (t) =>
   assert.equal(runtime.status, 0);
   assert.equal(primary.status, 0);
   assert.deepEqual(JSON.parse(runtime.stdout), JSON.parse(primary.stdout));
+});
+
+// P0-1 acceptance: a 2-skill auto project must stay 2 skills and matching across update.
+test("an auto installation keeps its two-skill cohort across update", (t) => {
+  const { project, home } = fixture(t);
+  const distribution = createDistribution();
+  const installed = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none", workflow: "auto", workflowExplicit: true, nonInteractive: true });
+  assert.equal(distribution.commit(installed.plan).ok, true);
+  const skillRoot = path.join(project, ".agents", "skills");
+  assert.deepEqual(fs.readdirSync(skillRoot).filter((name) => name.startsWith("matrix")).sort(), ["matrix", "matrix-status"]);
+  const manifestFile = path.join(project, ".matrix", "installation.json");
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+  assert.equal(manifest.workflow, "auto");
+  // `matrix update` (readonly, workflowExplicit=false) must not change the cohort.
+  const update = distribution.evaluate({ ...installedIntent({ projectRoot: project, home }).intent, dryRun: true });
+  assert.equal(update.ok, true, JSON.stringify(update.diagnostics ?? []));
+  assert.equal(update.actions[0].matrix, "keep");
+  assert.equal(fs.readdirSync(skillRoot).filter((name) => name.startsWith("matrix")).length, 2);
+});
+
+// D2 acceptance: a real legacy project (full classic cohort, no workflow keys) keeps
+// its cohort and config across `matrix update`.
+test("a legacy classic project without default_workflow keeps its cohort and config across update", (t) => {
+  const { project, home } = fixture(t);
+  const distribution = createDistribution();
+  const installed = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none", workflow: "classic", workflowExplicit: true, nonInteractive: true });
+  assert.equal(distribution.commit(installed.plan).ok, true);
+  // Simulate a 0.1.8-era project: drop the workflow keys the new installer writes.
+  const manifestFile = path.join(project, ".matrix", "installation.json");
+  const manifest = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+  delete manifest.workflow;
+  fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2));
+  const configBefore = fs.readFileSync(path.join(project, ".matrix", "config.yaml"), "utf8");
+  fs.writeFileSync(path.join(project, ".matrix", "config.yaml"), configBefore.replace(/^default_workflow:.*\r?\n/m, "").replace(/^autonomy_level:.*\r?\n/m, ""));
+
+  const intent = installedIntent({ projectRoot: project, home }).intent;
+  assert.equal(intent.workflow, "classic");
+  const update = distribution.evaluate({ ...intent, dryRun: true });
+  assert.equal(update.actions[0].matrix, "keep");
+  assert.equal(fs.readFileSync(path.join(project, ".matrix", "config.yaml"), "utf8").includes("default_workflow"), false);
+});
+
+// Switching semantics: classic backfills missing skills; auto never deletes installed ones.
+test("switching auto -> classic backfills the cohort and switching back keeps every skill", (t) => {
+  const { project, home } = fixture(t);
+  const distribution = createDistribution();
+  const skillRoot = path.join(project, ".agents", "skills");
+  const auto = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none", workflow: "auto", workflowExplicit: true, nonInteractive: true });
+  assert.equal(distribution.commit(auto.plan).ok, true);
+  assert.equal(fs.readdirSync(skillRoot).filter((name) => name.startsWith("matrix")).length, 2);
+
+  const switched = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none", workflow: "classic", workflowExplicit: true, autonomy: "balanced", nonInteractive: true });
+  assert.equal(distribution.commit(switched.plan).ok, true);
+  const cohort = fs.readdirSync(skillRoot).filter((name) => name.startsWith("matrix"));
+  assert.equal(cohort.length, 10, JSON.stringify(cohort));
+  assert.match(fs.readFileSync(path.join(project, ".matrix", "config.yaml"), "utf8"), /^default_workflow: classic$/m);
+
+  const back = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none", workflow: "auto", workflowExplicit: true, nonInteractive: true });
+  assert.equal(distribution.commit(back.plan).ok, true);
+  assert.equal(fs.readdirSync(skillRoot).filter((name) => name.startsWith("matrix")).length, 10);
+  assert.match(fs.readFileSync(path.join(project, ".matrix", "config.yaml"), "utf8"), /^default_workflow: auto$/m);
+});
+
+// P2-6 acceptance: auto projects skip Matt diagnostics in doctor/evaluate.
+test("auto projects skip Matt diagnostics while classic keeps them", (t) => {
+  const { project, home } = fixture(t);
+  const distribution = createDistribution();
+  const auto = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none", workflow: "auto", workflowExplicit: true, nonInteractive: true });
+  assert.equal(distribution.commit(auto.plan).ok, true);
+  const autoDiagnosis = distribution.diagnose({ ...installedIntent({ projectRoot: project, home }).intent, dryRun: true });
+  assert.equal(autoDiagnosis.diagnosis.some((item) => item.code.startsWith("MATT_")), false);
 });
 
 test("a durable transaction journal restores a committed target and prior manifest", (t) => {

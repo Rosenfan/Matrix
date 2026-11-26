@@ -12,13 +12,14 @@ import { compareVersions, globalBinPath, latestVersion, PACKAGE_NAME, selfUpdate
 import { resolveProjectRuntime } from "./runtime-resolver.js";
 import { readProjectsIndex, registerProject, pruneProject } from "./project-index.js";
 import { MATT_COMPATIBILITY } from "./matt-catalog.mjs";
+import { auditSkillDirectory, resolveSkillTarget } from "./skills-audit.js";
 
 const packagePath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "package.json");
 const version = JSON.parse(fs.readFileSync(packagePath, "utf8")).version;
-const HELP = `Matrix ${version}\n\nUsage: matrix init [directory] [options]\n       matrix update [directory] [options]\n       matrix doctor [directory] [options]\n\nOptions:\n  --language <en|zh-CN>\n  --scope <project|global>\n  --platform <${PLATFORM_IDS.join("|")}>  (repeatable)\n  --mode <copy|symlink>\n  --with-mattpocock | --without-mattpocock\n  --force-matt  (with --with-mattpocock; replace modified Matt Skills)\n  --default-orchestration <prim|arch>\n  update only: --all | --project-only  (update scope across indexed projects)\n  --skip-self-update  --force  --yes, -y  --dry-run  --json  --no-color`;
+const HELP = `Matrix ${version}\n\nUsage: matrix init [directory] [options]\n       matrix update [directory] [options]\n       matrix doctor [directory] [options]\n       matrix skills audit <path-or-name>\n\nOptions:\n  --language <en|zh-CN>\n  --scope <project|global>\n  --platform <${PLATFORM_IDS.join("|")}>  (repeatable)\n  --mode <copy|symlink>\n  --default-workflow <auto|classic>\n  --autonomy <balanced|strict>\n  --with-mattpocock | --without-mattpocock\n  --force-matt  (with --with-mattpocock; replace modified Matt Skills)\n  --default-orchestration <prim|arch>  (classic only)\n  update only: --all | --project-only  (update scope across indexed projects)\n  --skip-self-update  --force  --yes, -y  --dry-run  --json  --no-color`;
 
 function parse(argv) {
-  const result = { command: null, directory: null, scope: null, language: null, platforms: [], mode: "copy", matt: null, mattPolicy: "preserve", defaultOrchestration: null, matrixPolicy: "safe", yes: false, dryRun: false, json: false, color: true, skipSelfUpdate: false, reexec: false, all: false, projectOnly: false };
+  const result = { command: null, directory: null, scope: null, language: null, platforms: [], mode: "copy", matt: null, mattPolicy: "preserve", defaultOrchestration: null, defaultWorkflow: null, autonomy: null, matrixPolicy: "safe", yes: false, dryRun: false, json: false, color: true, skipSelfUpdate: false, reexec: false, all: false, projectOnly: false };
   const values = [...argv];
   if (values[0] && !values[0].startsWith("-")) result.command = values.shift();
   while (values.length) {
@@ -28,6 +29,8 @@ function parse(argv) {
     else if (token === "--language") result.language = values.shift();
     else if (token === "--platform") result.platforms.push(values.shift());
     else if (token === "--mode") result.mode = values.shift();
+    else if (token === "--default-workflow") result.defaultWorkflow = values.shift();
+    else if (token === "--autonomy") result.autonomy = values.shift();
     else if (token === "--with-mattpocock") result.matt = "missing";
     else if (token === "--without-mattpocock") result.matt = "none";
     else if (token === "--force-matt") result.mattPolicy = "replace";
@@ -70,14 +73,23 @@ async function intentFrom(options, ui) {
   const scope = options.scope ?? (options.yes ? "project" : await ui.select(text(language, "scopeQuestion"), [{ label: text(language, "project"), value: "project" }, { label: text(language, "global"), value: "global" }]));
   let platforms = options.platforms;
   if (!platforms.length && interactive && !options.yes) platforms = await ui.selectMany(text(language, "platformsQuestion"), PLATFORM_IDS.map((id) => ({ label: PLATFORMS[id].name, value: id })));
-  const matt = options.matt ?? (interactive && !options.yes ? (await ui.confirm(text(language, "mattQuestion"), true, labelsFor(language)) ? "missing" : "none") : "missing");
-  const defaultOrchestration = options.defaultOrchestration ?? (interactive && !options.yes && matt === "missing"
+  // The workflow choice leads everything else: auto never asks about Matt cohorts or
+  // orchestration; classic keeps the original questions and their original defaults.
+  const workflow = options.defaultWorkflow ?? (interactive && !options.yes
+    ? await ui.select(text(language, "workflowQuestion"), [
+        { label: text(language, "workflowAutoLabel"), value: "auto", detail: text(language, "workflowAutoDetail") },
+        { label: text(language, "workflowClassicLabel"), value: "classic", detail: text(language, "workflowClassicDetail") }
+      ])
+    : "auto");
+  const autonomy = options.autonomy ?? (workflow === "auto" ? "balanced" : null);
+  const matt = options.matt ?? (workflow === "classic" && interactive && !options.yes ? (await ui.confirm(text(language, "mattQuestion"), true, labelsFor(language)) ? "missing" : "none") : workflow === "classic" ? "missing" : "none");
+  const defaultOrchestration = options.defaultOrchestration ?? (workflow === "classic" && interactive && !options.yes && matt === "missing"
     ? await ui.select(text(language, "orchestrationQuestion"), [
         { label: "Arch", value: "arch", detail: text(language, "orchestrationArchDetail") },
         { label: "Prim", value: "prim", detail: text(language, "orchestrationPrimDetail") }
       ])
     : null);
-  return { projectRoot: projectRoot(options.directory), language, scope, platforms, mode: options.mode, matt, mattPolicy: options.mattPolicy, defaultOrchestration, nonInteractive: options.yes || !interactive, matrixPolicy: options.matrixPolicy, dryRun: options.dryRun };
+  return { projectRoot: projectRoot(options.directory), language, scope, platforms, mode: options.mode, matt, mattPolicy: options.mattPolicy, defaultOrchestration, workflow, workflowExplicit: true, autonomy, nonInteractive: options.yes || !interactive, matrixPolicy: options.matrixPolicy, dryRun: options.dryRun };
 }
 
 function render(ui, evaluation) {
@@ -210,7 +222,9 @@ async function update(options) {
   }
   const mattStatus = inspectMattInstallation({ projectRoot: root, home: intent.home, platforms: intent.platforms, action: "matrix update --with-mattpocock" });
   const mattNeedsRepair = ["incomplete", "update-required", "unverified"].includes(mattStatus.status);
-  const mattRepair = options.matt === "missing" || (mattNeedsRepair && interactive && !options.yes
+  // C9/E2: auto projects treat Matt Skills as external tools — never prompt for a repair
+  // or a downgrade to the pinned release; only an explicit --with-mattpocock repairs.
+  const mattRepair = options.matt === "missing" || (intent.workflow !== "auto" && mattNeedsRepair && interactive && !options.yes
     && await ui.confirm(text(intent.language, "mattRepairQuestion").replace("{state}", localizedState(intent.language, mattStatus.status)).replace("{release}", MATT_COMPATIBILITY.release), true, labelsFor(intent.language)));
   if (mattRepair) intent.matt = "missing";
   if (options.json && options.dryRun) { console.log(JSON.stringify({ ok: true, code: "DRY_RUN", npm, intent, matt: mattStatus })); return 0; }
@@ -245,7 +259,11 @@ async function update(options) {
   }
   if (scope === "all") return updateAllProjects({ intent, options, ui, root });
   if (options.json) return refresh(intent, { ...options, yes: true, updateMode: true }, ui);
-  return refresh(intent, { ...options, updateMode: true }, ui);
+  const exitCode = await refresh(intent, { ...options, updateMode: true }, ui);
+  // D2: an upgraded project without `default_workflow` keeps classic behavior; tell the
+  // user how to opt into auto instead of switching silently.
+  if (exitCode === 0 && installed.ok && installed.config?.default_workflow == null) ui.muted(text(intent.language, "classicUpgradeHint"));
+  return exitCode;
 }
 
 function recoveryArgument(value) {
@@ -274,6 +292,22 @@ async function doctor(options) {
   return evaluation.ok ? 0 : 2;
 }
 
+function skillsAudit(options) {
+  const target = resolveSkillTarget(options.directory ?? process.cwd());
+  if (!target) {
+    const result = { ok: false, code: "SKILL_NOT_FOUND", message: `No skill named "${options.directory}" was found in project or user skill roots.` };
+    if (options.json) console.log(JSON.stringify(result)); else console.error(result.message);
+    return 2;
+  }
+  const report = auditSkillDirectory(target);
+  if (options.json) { console.log(JSON.stringify(report)); return report.ok ? 0 : 2; }
+  console.log(`Matrix skills audit: ${report.root}`);
+  console.log(`Files scanned: ${report.files_scanned} — verdict: ${report.verdict}`);
+  for (const finding of report.findings) console.log(`  [${finding.severity}] ${finding.rule} (${finding.file}:${finding.line}): ${finding.message}\n    ${finding.excerpt}`);
+  console.log(report.guidance);
+  return 0;
+}
+
 export async function main(argv) {
   if (argv[0] === "workflow") {
     const json = argv.includes("--json");
@@ -288,7 +322,8 @@ export async function main(argv) {
       const delegated = spawnSync(process.execPath, [projectRuntime.runtime, ...argv.slice(1).filter((value) => value !== "--json")], { stdio: "inherit" });
       return Number.isInteger(delegated.status) ? delegated.status : 2;
     }
-    const result = invoke(argv.slice(1).filter((value) => value !== "--json"));
+    // Run commands resolve asynchronously; v2 results are plain values, so await covers both.
+    const result = await invoke(argv.slice(1).filter((value) => value !== "--json"));
     if (json) console.log(JSON.stringify(result));
     else console.log(result.ok ? JSON.stringify(result, null, 2) : `MATRIX ERROR [${result.code}]: ${result.message}`);
     return result.ok ? 0 : 2;
@@ -299,5 +334,9 @@ export async function main(argv) {
   if (options.command === "init") return init(options);
   if (options.command === "update") return update(options);
   if (options.command === "doctor") return doctor(options);
+  if (options.command === "skills") {
+    if (argv[1] !== "audit") { console.log("Usage: matrix skills audit <path-or-name>"); return argv[1] ? 2 : 0; }
+    return skillsAudit({ ...options, directory: argv.slice(2).find((value) => !value.startsWith("-")) });
+  }
   throw new Error(`Unknown command: ${options.command}. Run matrix --help.`);
 }

@@ -34,25 +34,37 @@ test("Chinese release cohort contains every Matrix Skill with matching machine c
   assert.match(fs.readFileSync(path.join(chineseRoot, "matrix", "SKILL.md"), "utf8"), /matrix-runtime\.mjs inspect/);
   assert.match(fs.readFileSync(path.join(chineseRoot, "matrix-build", "SKILL.md"), "utf8"), /matrix-runtime\.mjs transition verify/);
   assert.match(fs.readFileSync(path.join(chineseRoot, "matrix-handoff", "SKILL.md"), "utf8"), /matrix-runtime\.mjs export --task-id/);
+  // 0.2.0 contract change (P0-6 #7): the v2 return/abort literals moved into the
+  // classic-compat reference; they must exist in both languages for classic users.
   for (const command of [
     "matrix-runtime.mjs return design --reason design-gap",
     "matrix-runtime.mjs return build --reason verification-failed",
     "matrix-runtime.mjs return design --reason acceptance-or-design-gap",
     "matrix-runtime.mjs abort --reason"
   ]) {
-    assert.ok(fs.readFileSync(path.join(englishRoot, "matrix", "SKILL.md"), "utf8").includes(command), `English matrix is missing ${command}`);
-    assert.ok(fs.readFileSync(path.join(chineseRoot, "matrix", "SKILL.md"), "utf8").includes(command), `Chinese matrix is missing ${command}`);
+    const english = [
+      fs.readFileSync(path.join(englishRoot, "matrix", "SKILL.md"), "utf8"),
+      fs.readFileSync(path.join(englishRoot, "matrix", "references", "classic-compat.md"), "utf8")
+    ].join("\n");
+    const chinese = [
+      fs.readFileSync(path.join(chineseRoot, "matrix", "SKILL.md"), "utf8"),
+      fs.readFileSync(path.join(chineseRoot, "matrix", "references", "classic-compat.md"), "utf8")
+    ].join("\n");
+    assert.ok(english.includes(command), `English classic guidance is missing ${command}`);
+    assert.ok(chinese.includes(command), `Chinese classic guidance is missing ${command}`);
   }
 });
 
+// 0.2.0 contract change (P0-6 #8): Prim/Arch boundary wording moved to the
+// classic-compat reference so the auto entry stays lean; build keeps its guards.
 test("Prim and Arch guidance classifies wrappers without automatically invoking them", () => {
   for (const base of [path.join(root, "assets", "skills"), path.join(root, "assets", "skills-zh-CN")]) {
-    const matrix = fs.readFileSync(path.join(base, "matrix", "SKILL.md"), "utf8");
+    const classic = fs.readFileSync(path.join(base, "matrix", "references", "classic-compat.md"), "utf8");
     const build = fs.readFileSync(path.join(base, "matrix-build", "SKILL.md"), "utf8");
-    assert.match(matrix, /Prim/);
-    assert.match(matrix, /Arch/);
-    assert.match(matrix, /standalone/);
-    assert.match(matrix, /setup-matt-pocock-skills/);
+    assert.match(classic, /Prim/);
+    assert.match(classic, /Arch/);
+    assert.match(classic, /standalone/);
+    assert.match(classic, /setup-matt-pocock-skills/);
     assert.equal(fs.readFileSync(path.join(base, "matrix-open", "SKILL.md"), "utf8").includes("`grill-with-docs`"), false);
     assert.match(build, /(?:Never invoke|不得调用) `implement`/);
     assert.match(build, /`implement-spec`/);

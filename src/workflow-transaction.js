@@ -10,6 +10,10 @@ const LOCK_SCHEMA = "matrix/workflow-lock/v1";
 const MAX_JOURNAL_BYTES = 1024 * 1024;
 const MAX_TRANSACTIONS = 128;
 const RECEIPT_LIMIT = 32;
+// A lock from another host cannot be proven stale: the same tree may be in use elsewhere.
+// It is either a crash leftover or a committed lock file, so the user gets a manual path.
+const UNKNOWN_LOCK_HINT = "This lock was written by another host: it is a crash leftover or a lock file that was committed by mistake. If no other machine is using this working tree, confirm the recorded pid is not running, delete .matrix/workflow.lock once, and rerun doctor.";
+const unknownLockHint = (owner) => (owner === "unknown" ? { hint: UNKNOWN_LOCK_HINT } : {});
 const quoteCommandPath = (value) => process.platform === "win32" ? `"${value}"` : `'${value.replaceAll("'", "'\\''")}'`;
 const workflowRuntimePath = path.join(path.dirname(fileURLToPath(import.meta.url)), "matrix-runtime.mjs");
 const workflowCommand = (argumentsText) => `node ${quoteCommandPath(workflowRuntimePath)} ${argumentsText}`;
@@ -22,6 +26,23 @@ const transactionsFor = (cwd) => path.join(rootFor(cwd), "transactions");
 const lockPath = (cwd) => path.join(rootFor(cwd), "workflow.lock");
 const journalPath = (cwd, id) => path.join(transactionsFor(cwd), id, "journal.json");
 
+const TRANSIENT_RENAME_CODES = new Set(["EPERM", "EBUSY", "EACCES"]);
+const RENAME_ATTEMPTS = 5;
+const sleepSync = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+// On Windows a rename fails while another process (a watcher, antivirus, a leftover child
+// holding a log handle) has a handle inside the target. Such locks are usually short-lived,
+// so transient codes get a bounded backoff before the failure is reported.
+function renameWithRetry(from, to) {
+  for (let attempt = 0; ; attempt += 1) {
+    try { return fs.renameSync(from, to); }
+    catch (error) {
+      if (!TRANSIENT_RENAME_CODES.has(error.code) || attempt >= RENAME_ATTEMPTS - 1) throw error;
+      sleepSync(30 + attempt * 15);
+    }
+  }
+}
+
 function durableWrite(file, value) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
   const temporary = `${file}.${process.pid}.${crypto.randomUUID()}.tmp`;
@@ -32,7 +53,7 @@ function durableWrite(file, value) {
   } finally {
     fs.closeSync(descriptor);
   }
-  fs.renameSync(temporary, file);
+  renameWithRetry(temporary, file);
 }
 
 function writeJson(file, value) {
@@ -251,7 +272,7 @@ function applyOperation(cwd, operation) {
   if (operation.type === "write") durableWrite(absolute(cwd, operation.path), Buffer.from(operation.after.bytes, "base64"));
   else if (operation.type === "mkdir") fs.mkdirSync(absolute(cwd, operation.path));
   else if (operation.type === "remove") fs.rmSync(absolute(cwd, operation.path));
-  else if (operation.type === "move") fs.renameSync(absolute(cwd, operation.source), absolute(cwd, operation.target));
+    else if (operation.type === "move") renameWithRetry(absolute(cwd, operation.source), absolute(cwd, operation.target));
   if (operationDisposition(cwd, operation) !== "after") throw Object.assign(new Error(`Workflow operation ${operation.id} post-state could not be proven.`), { code: "WORKFLOW_RECOVERY_CONFLICT" });
 }
 
@@ -271,7 +292,7 @@ function rollbackOperation(cwd, operation) {
     ensureParents(cwd, operation);
     durableWrite(file, Buffer.from(operation.before.bytes, "base64"));
   } else if (operation.type === "move") {
-    fs.renameSync(absolute(cwd, operation.target), absolute(cwd, operation.source));
+    renameWithRetry(absolute(cwd, operation.target), absolute(cwd, operation.source));
   }
   removeCreatedParents(cwd, operation);
   if (operationDisposition(cwd, operation) !== "before") throw Object.assign(new Error(`Workflow operation ${operation.id} rollback could not be proven.`), { code: "WORKFLOW_RECOVERY_CONFLICT" });
@@ -438,7 +459,7 @@ export function workflowMutationGate(cwd) {
   const currentLock = readLock(cwd);
   if (!currentLock) return null;
   const owner = lockOwner(currentLock);
-  return fail(owner === "active" ? "WORKFLOW_BUSY" : owner === "absent" ? "WORKFLOW_RECOVERY_REQUIRED" : "WORKFLOW_LOCK_CONFLICT", owner === "active" ? "An active Workflow mutation owns the project boundary." : "A Workflow lock requires explicit doctor recovery.", { lock_id: currentLock.id, transaction_id: currentLock.transaction_id, recovery_command: workflowCommand("doctor") });
+  return fail(owner === "active" ? "WORKFLOW_BUSY" : owner === "absent" ? "WORKFLOW_RECOVERY_REQUIRED" : "WORKFLOW_LOCK_CONFLICT", owner === "active" ? "An active Workflow mutation owns the project boundary." : "A Workflow lock requires explicit doctor recovery.", { lock_id: currentLock.id, transaction_id: currentLock.transaction_id, ...unknownLockHint(owner), recovery_command: workflowCommand("doctor") });
 }
 
 function compactReceipt(cwd, journal, disposition) {
@@ -588,6 +609,7 @@ export function workflowDoctor(cwd, { repair = false, transaction = null, strate
         lock_id: currentLock.id,
         transaction_id: currentLock.transaction_id,
         owner,
+        ...unknownLockHint(owner),
         commands: owner === "absent" && !transactions.some((item) => item.id === currentLock.transaction_id && (item.corrupt || !["committed", "rolled-back"].includes(item.status)))
           ? [workflowCommand(`doctor --repair --lock ${currentLock.id}`)]
           : []
@@ -609,7 +631,7 @@ export function workflowDoctor(cwd, { repair = false, transaction = null, strate
     if (currentLock.transaction_id && transactions.some((item) => item.id === currentLock.transaction_id && (item.corrupt || !["committed", "rolled-back"].includes(item.status)))) {
       return fail("WORKFLOW_RECOVERY_REQUIRED", "This lock belongs to an unfinished transaction and cannot be cleaned independently.", { transaction_id: currentLock.transaction_id });
     }
-    if (owner !== "absent") return fail(owner === "active" ? "WORKFLOW_BUSY" : "WORKFLOW_LOCK_CONFLICT", "Workflow lock owner cannot be proven absent.");
+    if (owner !== "absent") return fail(owner === "active" ? "WORKFLOW_BUSY" : "WORKFLOW_LOCK_CONFLICT", "Workflow lock owner cannot be proven absent.", unknownLockHint(owner));
     const confirmed = readLock(cwd);
     if (!confirmed || confirmed.id !== lock) return fail("WORKFLOW_LOCK_CONFLICT", "Workflow lock identity changed before cleanup.");
     fs.rmSync(lockPath(cwd));

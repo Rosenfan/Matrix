@@ -1,7 +1,7 @@
 {
   "name": "@rosenfan/matrix",
-  "version": "0.1.8",
-  "description": "Evidence-driven development workflow with Prim and Arch agent-skill orchestration.",
+  "version": "0.2.0",
+  "description": "Single-entry autonomous workflow for agent skills: an auto run protocol with runtime-executed checks, plus the classic five-phase software workflow.",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -24,7 +24,7 @@
     "prepublishOnly": "npm run test && npm run pack:check"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=22"
   },
   "repository": {
     "type": "git",

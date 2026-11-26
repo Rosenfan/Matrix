@@ -1,6 +1,6 @@
 # Matrix Workflow
 
-An evidence-driven development workflow with Prim and Arch orchestration, inspired by [Comet](https://github.com/rpamis/comet). Matrix can work with its own capabilities or conditionally invoke a verified cohort of [Matt Pocock's agent skills](https://github.com/mattpocock/skills) without giving up lifecycle ownership.
+A general-purpose autonomous agent workflow inspired by [Comet](https://github.com/rpamis/comet), with two tiers behind one entrypoint. **Auto** lets the Agent understand a goal, decide the approach itself, and prove the result with checks the Runtime executes. **Classic** is the evidence-driven development workflow with Prim and Arch orchestration: it can work with its own capabilities or conditionally invoke a verified cohort of [Matt Pocock's agent skills](https://github.com/mattpocock/skills) without giving up lifecycle ownership.
 
 English | **[中文](./README.zh-CN.md)**
 
@@ -17,10 +17,12 @@ English | **[中文](./README.zh-CN.md)**
 - [Prerequisites](#prerequisites)
 - [Installation](#installation)
 - [Quick Start](#quick-start)
+- [Auto and Classic](#auto-and-classic)
 - [Workflow Phases](#workflow-phases)
 - [How It Works](#how-it-works)
 - [Workflow Types](#workflow-types)
 - [Integration with Matt Pocock's Skills](#integration-with-matt-pococks-skills)
+- [Auditing an External Skill](#auditing-an-external-skill)
 - [License](#license)
 
 ---
@@ -40,15 +42,16 @@ Matrix solves this with one deterministic state machine, explicit phases, guard 
 
 ## What It Does
 
-Matrix provides two capability-orchestration modes over two centrally defined workflow profiles:
+One entrypoint, `$matrix`, routes every request to one of two workflows:
 
 ```
-full:                    open → design → build → verify → archive
-hotfix/tweak lightweight: open ─────────→ build → verify → archive
-
-Prim: Matrix performs phase work itself
-Arch: Matrix invokes verified atomic Skills only when task facts trigger them
+auto (default for new projects):   understand → execute → verify → close
+classic full:                      open → design → build → verify → archive
+classic hotfix/tweak lightweight:  open ─────────→ build → verify → archive
 ```
+
+- **Auto** works for any goal, in code or outside it. The Agent investigates before asking, decides the technical approach itself, and proves the result with check commands that the Runtime executes.
+- **Classic** is the evidence-driven development workflow. It has two capability-orchestration modes: **Prim**, where Matrix performs phase work itself, and **Arch**, where Matrix invokes verified atomic Skills only when task facts trigger them.
 
 Recovery paths are controlled Runtime intents:
 
@@ -70,7 +73,7 @@ Each phase:
 ## Prerequisites
 
 - [Claude Code](https://docs.anthropic.com/claude-code), [Codex](https://openai.com/codex), or [ZCode](https://zcode.ai) installed as the Skill host (agents that read the Agent Skills open-standard `.agents/skills` directory — opencode, Kimi Code, and other compatible tools — share the Codex installation)
-- Node.js 18+ and `npm` on `PATH` (for the Matrix CLI)
+- Node.js 22+ and `npm` on `PATH` (for the Matrix CLI)
 - Python is optional during the compatibility window; new installations use the bundled Node workflow runtime.
 - Git is only needed when installing from GitHub or contributing to Matrix.
 
@@ -94,22 +97,29 @@ matrix init
 The interactive setup lets you:
 
 - Choose English or Chinese, project or global Matrix discovery scope, and any combination of Claude Code, Codex, and ZCode
+- Default to the **Auto** workflow with `balanced` autonomy, or choose **Classic** to keep the five-phase development workflow. The Matt Skills and Prim/Arch questions appear only for Classic
 - Copy skills (recommended) or symlink them for local development
 - Safely reconfigure an existing installation with an automatic backup
-- Review all 27 official Matt Skills v1.3.1 roles and install the 25 compatible Skills into the target project
-- Choose **Prim** or **Arch** as the project default without disabling the other available mode
+- Classic only: review all 27 official Matt Skills v1.3.1 roles and install the 25 compatible Skills into the target project
+- Classic only: choose **Prim** or **Arch** as the project default without disabling the other available mode
 
 For automation and CI:
 
 ```bash
-# Safe non-interactive installation for both verified platforms
-matrix init --yes --platform claude-code --platform codex --with-mattpocock
+# Safe non-interactive installation for both verified platforms: Auto workflow (the default), balanced autonomy, two Matrix Skills
+matrix init --yes --platform claude-code --platform codex
 
-# Explicitly select the project default
-matrix init --yes --with-mattpocock --default-orchestration arch
+# Auto, waiting for your confirmation before every Run starts executing
+matrix init --yes --autonomy strict
+
+# Classic workflow with Prim, the five phases, and all ten Matrix Skills
+matrix init --yes --default-workflow classic
+
+# Classic with the reviewed Matt Skills and Arch as the project default
+matrix init --yes --default-workflow classic --with-mattpocock --default-orchestration arch
 
 # Replace locally modified Matt Skills only after an explicit backup authorization
-matrix init --yes --with-mattpocock --force-matt
+matrix init --yes --default-workflow classic --with-mattpocock --force-matt
 
 # Preview exactly what would change (including backups) without writing
 matrix init --platform codex --dry-run --json
@@ -131,9 +141,11 @@ matrix update --skip-self-update
 matrix update --yes
 ```
 
-`matrix update` preserves the installation's scope, platforms, language, mode, and orchestration. It first validates a newer npm package in isolation, then re-runs the new CLI to refresh Matrix assets. When the local Matt Skills are incomplete or outdated, an interactive `matrix update` asks once and repairs them to the supported release in the same run — CLI upgrade, asset refresh, and Matt repair complete in a single command (`--with-mattpocock` gives non-interactive/CI the same behavior; `--force-matt` additionally replaces locally modified Matt Skills and requires that flag; Matt Skills are never removed by `matrix update`). `--all` extends the run to every indexed project (`~/.matrix/projects.json`); each project updates in isolation and missing directories are pruned from the index. npm and project assets are separate transactions: if asset refresh fails after a CLI upgrade, run `matrix update --skip-self-update` to retry. On Windows the self-update chain runs npm through Node (no shell), so one-command upgrades work without manual steps.
+`matrix update` preserves the installation's scope, platforms, language, mode, default workflow, and orchestration. It first validates a newer npm package in isolation, then re-runs the new CLI to refresh Matrix assets. In a Classic project, when the local Matt Skills are incomplete or outdated, an interactive `matrix update` asks once and repairs them to the supported release in the same run — CLI upgrade, asset refresh, and Matt repair complete in a single command (`--with-mattpocock` gives non-interactive/CI the same behavior; `--force-matt` additionally replaces locally modified Matt Skills and requires that flag; Matt Skills are never removed by `matrix update`). `--all` extends the run to every indexed project (`~/.matrix/projects.json`); each project updates in isolation and missing directories are pruned from the index. npm and project assets are separate transactions: if asset refresh fails after a CLI upgrade, run `matrix update --skip-self-update` to retry. On Windows the self-update chain runs npm through Node (no shell), so one-command upgrades work without manual steps. An Auto project skips the Matt check: Matt Skills are optional there, and `matrix update` never installs or upgrades them on its own.
 
-Matrix 0.1.7 is bound to Matt Skills v1.3.1 at commit `24fe0ef7737efae15c87225755e9f6f5965e4888`. `matrix init --with-mattpocock` always uses that exact archive and its reviewed 25-Skill compatible manifest, even if upstream has a newer release. The two official but incompatible Skills, `implement` and `implement-spec`, are not Matrix-managed or installed. Matrix scope controls Matrix Skill discovery only: Matt Skills and `.matrix/matt-installation.json` are always project-local. Global Matt copies are preserved but never used to complete project readiness. Upstream v1.3.1 also renamed the domain-doc convention: Matt Skills now read `GLOSSARY.md`/`GLOSSARY-MAP.md` instead of `CONTEXT.md`/`CONTEXT-MAP.md`; rename existing files with `git mv` after updating.
+**Upgrading an existing project**: a project initialized before 0.2.0 stays on Classic after `matrix update` — the update never switches workflows — and prints the command to opt in, `matrix init --default-workflow auto`. Run `matrix init --default-workflow classic` to switch back.
+
+Classic keeps the binding introduced in Matrix 0.1.7 to Matt Skills v1.3.1 at commit `24fe0ef7737efae15c87225755e9f6f5965e4888`. `matrix init --with-mattpocock` always uses that exact archive and its reviewed 25-Skill compatible manifest, even if upstream has a newer release. The two official but incompatible Skills, `implement` and `implement-spec`, are not Matrix-managed or installed. Matrix scope controls Matrix Skill discovery only: Matt Skills and `.matrix/matt-installation.json` are always project-local. Global Matt copies are preserved but never used to complete project readiness. Upstream v1.3.1 also renamed the domain-doc convention: Matt Skills now read `GLOSSARY.md`/`GLOSSARY-MAP.md` instead of `CONTEXT.md`/`CONTEXT-MAP.md`; rename existing files with `git mv` after updating.
 
 Matrix ships dedicated platform entries only for agents with their own skill-directory convention: Claude Code (`.claude/skills`), Codex (`.agents/skills`), and ZCode (`.zcode/skills`). Installing the Codex platform also serves every agent that reads the Agent Skills open-standard `.agents/skills` directory by default — opencode, Kimi Code, and other compatible tools pick up Matrix and Matt Skills from there without a separate Matrix platform.
 
@@ -145,17 +157,17 @@ To install directly from GitHub instead of npm:
 npm install --global github:Rosenfan/Matrix
 ```
 
-Matrix installs:
-- `matrix/` — Entry point and state management
-- `matrix-open/` — Open phase and canonical proposal
-- `matrix-design/` — Design, plan, and Contract approval
-- `matrix-build/` — Bounded implementation and build evidence
-- `matrix-verify/` — Test and two-axis review evidence
-- `matrix-archive/` — Archive phase
-- `matrix-hotfix/` — Shortcut for small bugs
-- `matrix-tweak/` — Shortcut for bounded changes
+An Auto installation installs only `matrix` and `matrix-status`; a Classic installation installs all ten:
+- `matrix/` — Entry point: routes to the Auto or Classic workflow and manages state
+- `matrix-open/` — Classic open phase and canonical proposal
+- `matrix-design/` — Classic design, plan, and Contract approval
+- `matrix-build/` — Classic bounded implementation and build evidence
+- `matrix-verify/` — Classic test and two-axis review evidence
+- `matrix-archive/` — Classic archive phase
+- `matrix-hotfix/` — Classic shortcut for small bugs
+- `matrix-tweak/` — Classic shortcut for bounded changes
 - `matrix-status/` — Check current state
-- `matrix-handoff/` — Optional: export to any implementation agent (Claude Code, opencode, ...)
+- `matrix-handoff/` — Classic only, optional: export to any implementation agent (Claude Code, opencode, ...)
 
 ---
 
@@ -167,7 +179,14 @@ In Claude Code:
 $matrix I want to add user authentication
 ```
 
-Matrix will:
+In a project on the Auto workflow (the default for new installations), Matrix will:
+1. Start a Run and keep the request unchanged
+2. Understand: investigate the repository, docs, and Git history before asking anything, then decide the technical approach itself
+3. Frame: freeze the goal, the acceptance items, and the check commands — a clear request proceeds, a vague or wide one is confirmed with you once
+4. Execute and submit: the Runtime runs the frozen checks itself and records the real exit status
+5. Verify and close: review on two axes with an honestly declared reviewer, then archive the Run
+
+In a project on the Classic workflow, Matrix will:
 1. Initialize a change with workflow type `full` and frozen orchestration `prim|arch`
 2. Enter `open`; Prim works directly, while Arch invokes only proven requirement triggers
 3. Create `proposal.md` with Goal, Scope, Non-goals, Acceptance, Risks
@@ -176,7 +195,39 @@ Matrix will:
 
 ---
 
+## Auto and Classic
+
+| | Auto | Classic |
+|---|---|---|
+| Phases | `understand → execute → verify → close` | `full`: `open → design → build → verify → archive`; `hotfix` and `tweak` skip design |
+| Default for | new installations | projects initialized before 0.2.0 |
+| Scope | any goal: code, research, architecture review, operations, documents | software development changes |
+| Skills installed | `matrix`, `matrix-status` | all ten Matrix Skills |
+| Matt Skills | optional; not required and not hash-checked | optional under Prim; a frozen v1.3.1 cohort under Arch |
+| Proof of done | checks executed by the Runtime at `run submit`, plus a declared review source | guard conditions, Contract identity, review receipts |
+
+In Auto, the Agent interrupts you for only three reasons: different readings of the request lead to materially different results, a fact only you hold is missing, or an irreversible or high-risk outward action comes next. Everything else — structure, libraries, test strategy — is decided by the Agent and recorded in the Run's brief.
+
+Skills call the project's bundled Runtime directly (`node <matrix-skill-directory>/scripts/matrix-runtime.mjs <args>`); the `matrix workflow` form below reaches the same Runtime:
+
+```bash
+matrix workflow inspect
+matrix workflow run start --request "<text>"
+matrix workflow run frame --goal "<text>" --accept "A1=<text>" --check "C1=<command>" --expect-revision <n>
+matrix workflow run submit --summary "<text>" --expect-revision <n>
+matrix workflow run verify --reviewer self --result "A1=passed" --expect-revision <n>
+matrix workflow run close --expect-revision <n>
+```
+
+Every command returns a `continuation` holding the exact next command. Pure questions, read-only investigations, and single-file typo fixes skip the Run entirely.
+
+Switch workflows with `matrix init --default-workflow auto` or `matrix init --default-workflow classic`. `--autonomy <balanced|strict>` decides whether every Run waits for your confirmation before it executes.
+
+---
+
 ## Workflow Phases
+
+These phases belong to the Classic workflow. Auto has its own four phases; see [Auto and Classic](#auto-and-classic).
 
 | Phase | Arch capabilities (triggered, not a fixed sequence) | Deliverables | Guard Condition |
 |-------|------------------------------------------------------|--------------|-----------------|
@@ -194,10 +245,11 @@ State is stored in `.matrix/`:
 
 ```
 .matrix/
-├── active.json              # Current change ID
-├── config.yaml
+├── active.json              # Current change ID (classic)
+├── current-run.json         # Run that holds the workspace lease (auto)
+├── config.yaml              # default_workflow, autonomy_level, budgets
 ├── changes/
-│   └── <change-id>/
+│   └── <change-id>/         # Classic change
 │       ├── matrix.yaml      # Canonical workflow, orchestration, phase, status, revision
 │       ├── workspace-baseline.json # Lightweight implementation-order boundary
 │       ├── events.jsonl
@@ -207,10 +259,20 @@ State is stored in `.matrix/`:
 │           ├── plan.md
 │           ├── verification.md
 │           └── evidence-history/
+├── runs/
+│   └── <run-id>/            # Auto Run
+│       ├── state.json       # matrix/run/v1
+│       ├── events.jsonl
+│       ├── brief.md
+│       ├── verification.md  # Rendered by the Runtime; read-only for the Agent
+│       └── logs/            # Check output; never committed
 └── archive/
+    ├── <change-id>/         # Archived classic changes
+    └── runs/
+        └── <run-id>/        # Archived Runs
 ```
 
-The state machine enforces transitions:
+The Classic state machine enforces transitions:
 
 ```bash
 # Check guard
@@ -241,11 +303,13 @@ matrix workflow doctor --repair --transaction <id> --strategy <continue|rollback
 matrix workflow doctor --repair --lock <id>
 ```
 
-`matrix.yaml` is the only canonical workflow/orchestration/phase/status/revision record, using `matrix/change/v2`. Full approval binds the exact bytes of proposal/design/plan. Lightweight approval binds the compact proposal, requires explicit confirmation, and compares the project with its initialization baseline so implementation cannot precede approval. Contract drift blocks later phases. Final Archive uses a read-only dry-run and hash-bound commit; shortcut workflows additionally require explicit confirmation. Multi-file mutations remain protected by durable journals.
+In Classic, `matrix.yaml` is the only canonical workflow/orchestration/phase/status/revision record, using `matrix/change/v2`. Full approval binds the exact bytes of proposal/design/plan. Lightweight approval binds the compact proposal, requires explicit confirmation, and compares the project with its initialization baseline so implementation cannot precede approval. Contract drift blocks later phases. Final Archive uses a read-only dry-run and hash-bound commit; shortcut workflows additionally require explicit confirmation. Multi-file mutations remain protected by durable journals.
 
 ---
 
 ## Workflow Types
+
+Workflow types belong to the Classic workflow.
 
 | Type | When to Use | Phases |
 |------|-------------|--------|
@@ -265,7 +329,7 @@ Hotfix and tweak reference the same internal `lightweight` transition profile. T
 $matrix → open → design → build → verify → archive
 ```
 
-**When to use `$matrix-handoff`**: Only when you want to **split the work across tools** — design in one agent, implement in another.
+**When to use `$matrix-handoff`**: Only in a Classic project, and only when you want to **split the work across tools** — design in one agent, implement in another.
 
 | Scenario | What to Do |
 |----------|------------|
@@ -287,6 +351,8 @@ The sidecar does NOT change Matrix state. It's a pure export — like taking a s
 ---
 
 ## Integration with Matt Pocock's Skills
+
+This section describes the Classic workflow. In Auto, Matt Skills are optional: Matrix neither requires them nor checks their hashes, and carries the practices it relies on in its own reference docs (ADR-0005).
 
 Prim uses Matrix's own capability. Matrix reviews all 27 official Matt v1.3.1 roles, installs the 25 compatible Skills, and lets Arch automatically invoke only this reviewed ten-capability cohort:
 
@@ -316,6 +382,20 @@ Installed standalone Skills are `ask-matt`, `grill-with-docs`, `triage`, `to-spe
 - **Phase enforcement**: Full cannot skip Design; lightweight cannot edit implementation before its confirmed Open Contract
 - **Evidence requirements**: Guards check for artifacts, not assertions
 - **Transition logging**: Full audit trail of phase changes
+
+---
+
+## Auditing an External Skill
+
+Before adopting a Skill from outside Matrix, scan it for conflict risk:
+
+```bash
+# Read-only static scan; none of the Skill's scripts are executed
+matrix skills audit ./path/to/skill
+matrix skills audit some-skill-name
+```
+
+Matrix never installs a Skill on its own. When Auto lacks a capability, it suggests `npx skills find <keyword>` and leaves the decision to you.
 
 ---
 
