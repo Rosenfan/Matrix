@@ -61,8 +61,7 @@ CLAUDE.md
 !.claude/skills/matrix-*/
 
 # Internal workflow records and development notes
-docs/comet/
-docs/roadmap.md
+docs/
 
 # Complementary skills from Matt Pocock (install separately)
 .claude/skills/code-review/

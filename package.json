@@ -13,6 +13,7 @@
     "assets/skills",
     "assets/skills-zh-CN",
     "!assets/skills/**/__pycache__",
+    "!assets/skills/**/test_*.py",
     "!assets/skills-zh-CN/**/__pycache__",
     "README.md",
     "README.zh-CN.md",
