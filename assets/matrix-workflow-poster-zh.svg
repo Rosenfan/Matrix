@@ -1,50 +1,240 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1080" viewBox="0 0 1920 1080" role="img" aria-labelledby="title description">
   <title id="title">Matrix 工作流海报</title>
-  <desc id="description">Matrix Workflow 中文产品海报，使用连续五阶段证据链与 Codex、Claude Code 的交接带展示开发流程。</desc>
+  <desc id="description">Matrix 单一入口双轨 AI 工程工作流海报：Auto 自主定案并由 Runtime 实跑检查，Classic 提供五阶段软件契约门禁。</desc>
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#020806"/><stop offset=".56" stop-color="#09271b"/><stop offset="1" stop-color="#020a07"/></linearGradient>
-    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#22ff9f" stop-opacity="0"/><stop offset=".5" stop-color="#22ff9f" stop-opacity=".16"/><stop offset="1" stop-color="#22ff9f" stop-opacity="0"/></linearGradient>
-    <linearGradient id="stageSurface" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#103c29"/><stop offset="1" stop-color="#092719"/></linearGradient>
-    <radialGradient id="heroLight" cx="78%" cy="18%" r="72%"><stop stop-color="#1d7c51" stop-opacity=".38"/><stop offset=".48" stop-color="#0b2d20" stop-opacity=".16"/><stop offset="1" stop-color="#020806" stop-opacity="0"/></radialGradient>
-    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#70ffb4" stroke-opacity=".014"/></pattern>
-    <filter id="glow"><feGaussianBlur stdDeviation="7" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#020806"/>
+      <stop offset=".54" stop-color="#082419"/>
+      <stop offset="1" stop-color="#020a07"/>
+    </linearGradient>
+    <radialGradient id="hero" cx="76%" cy="16%" r="70%">
+      <stop offset="0" stop-color="#1d7c51" stop-opacity=".36"/>
+      <stop offset=".5" stop-color="#0b2d20" stop-opacity=".15"/>
+      <stop offset="1" stop-color="#020806" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22ff9f" stop-opacity="0"/>
+      <stop offset=".5" stop-color="#22ff9f" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#22ff9f" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="autoCard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#11422d"/>
+      <stop offset="1" stop-color="#082318"/>
+    </linearGradient>
+    <linearGradient id="classicCard" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0c2d1f"/>
+      <stop offset="1" stop-color="#071b13"/>
+    </linearGradient>
+    <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+      <path d="M40 0H0V40" fill="none" stroke="#70ffb4" stroke-opacity=".016"/>
+    </pattern>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="5" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
     <style>
-      .zh{font-family:'Microsoft YaHei','Noto Sans CJK SC',Arial,sans-serif}.mono{font-family:Consolas,'SFMono-Regular',monospace}.eyebrow{font-size:16px;font-weight:700;letter-spacing:2.2px;fill:#78fbb7}.title{font-size:86px;font-weight:700;letter-spacing:-1px;fill:#f5fff9}.subtitle{font-size:25px;fill:#c8e6d7}.copy{font-size:18px;fill:#bed9ca}.label{font-size:15px;font-weight:700;letter-spacing:1.6px;fill:#82ffc0}.tiny{font-size:14px;fill:#9bc3ae}.stageEn{font-size:15px;font-weight:700;letter-spacing:1.5px;fill:#8cffc6}.stageCn{font-size:31px;font-weight:700;fill:#f1fff8}.stageBody{font-size:18px;font-weight:700;fill:#e4fff0}.stageMeta{font-size:15px;fill:#accdbb}.featureTitle{font-size:20px;font-weight:700;fill:#f1fff8}.featureText{font-size:15px;fill:#b6d6c4}.footer{font-size:23px;font-weight:700;fill:#effff7}.panel{fill:#071a12;fill-opacity:.34;stroke:#70ffb4;stroke-opacity:.1;stroke-width:1}.stage{fill:url(#stageSurface);stroke:#a4ffd0;stroke-opacity:.18;stroke-width:1}.handoff{fill:#153c2b;fill-opacity:.7;stroke:#a4ffd0;stroke-opacity:.16;stroke-width:1}.feature{fill:#0d2b1e;fill-opacity:.56;stroke:#a4ffd0;stroke-opacity:.12;stroke-width:1}.rail{stroke:#9dffd0;stroke-opacity:.52;stroke-width:2;fill:none}.divider{stroke:#a4ffd0;stroke-opacity:.16;stroke-width:1}.soft{stroke:#a4ffd0;stroke-opacity:.2;stroke-width:1}.arrow{fill:#9dffd0}.chev{fill:none;stroke:#9dffd0;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+      .zh{font-family:'Microsoft YaHei','PingFang SC','Noto Sans CJK SC',Arial,sans-serif}
+      .mono{font-family:Consolas,'SFMono-Regular',monospace}
+      .eyebrow{font-size:15px;font-weight:700;letter-spacing:2px;fill:#78fbb7}
+      .title{font-size:74px;font-weight:700;letter-spacing:-1px;fill:#f5fff9}
+      .subtitle{font-size:21px;fill:#cdeadd}
+      .label{font-size:14px;font-weight:700;letter-spacing:1.4px;fill:#82ffc0}
+      .tiny{font-size:13.5px;fill:#9ec5b1}
+      .hostPrimary{font-size:16px;font-weight:700;fill:#effff7}
+      .hostSub{font-size:14px;fill:#b4d6c4}
+      .stageStep{font-size:14px;font-weight:700;letter-spacing:1.4px;fill:#8cffc6}
+      .stageTitle{font-size:27px;font-weight:700;fill:#f3fff9}
+      .stageLead{font-size:16px;font-weight:700;fill:#dff9ec}
+      .stageBullet{font-size:14px;fill:#b3d5c3}
+      .classicStep{font-size:13px;font-weight:700;letter-spacing:1.2px;fill:#7ef2b8}
+      .classicTitle{font-size:20px;font-weight:700;fill:#ecfff5}
+      .classicMeta{font-size:13.5px;fill:#a7cbb8}
+      .featureTitle{font-size:19px;font-weight:700;fill:#f2fff8}
+      .featureText{font-size:14px;fill:#b6d6c4}
+      .badgeText{font-size:11.5px;font-weight:700;letter-spacing:1px;fill:#052015}
+      .badgeOutlineText{font-size:11.5px;font-weight:700;letter-spacing:1px;fill:#8cffc6}
+      .footer{font-size:21px;font-weight:700;fill:#effff7}
+      .panel{fill:#061710;fill-opacity:.48;stroke:#70ffb4;stroke-opacity:.14;stroke-width:1}
+      .hostBox{fill:#092218;fill-opacity:.62;stroke:#8cffc6;stroke-opacity:.18;stroke-width:1}
+      .autoStage{fill:url(#autoCard);stroke:#9dffd0;stroke-opacity:.26;stroke-width:1.2}
+      .classicStage{fill:url(#classicCard);stroke:#8cffc6;stroke-opacity:.16;stroke-width:1}
+      .feature{fill:#0b261b;fill-opacity:.64;stroke:#a4ffd0;stroke-opacity:.14;stroke-width:1}
+      .badgeFill{fill:#78fbb7}
+      .badgeOutline{fill:#103927;stroke:#78fbb7;stroke-opacity:.45;stroke-width:1}
+      .rail{stroke:#78fbb7;stroke-opacity:.5;stroke-width:2;fill:none}
+      .divider{stroke:#a4ffd0;stroke-opacity:.16;stroke-width:1}
+      .chev{fill:none;stroke:#9dffd0;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
     </style>
   </defs>
-  <rect width="1920" height="1080" fill="url(#bg)"/><rect width="1920" height="1080" fill="url(#heroLight)"/><rect width="1920" height="1080" fill="url(#grid)"/>
-  <path d="M1080 56H1812" stroke="url(#beam)" stroke-width="2"/><path d="M108 264H1812" stroke="url(#beam)" stroke-width="2"/>
+
+  <rect width="1920" height="1080" fill="url(#bg)"/>
+  <rect width="1920" height="1080" fill="url(#hero)"/>
+  <rect width="1920" height="1080" fill="url(#grid)"/>
+  <path d="M96 226H1824" stroke="url(#beam)" stroke-width="1.5"/>
+
   <g class="zh">
-    <text x="108" y="94" class="eyebrow">&#x5F00;&#x6E90; &#xB7; AI &#x5DE5;&#x7A0B;&#x5DE5;&#x4F5C;&#x6D41;</text><text x="108" y="181" class="title">Matrix &#x5DE5;&#x4F5C;&#x6D41;</text><text x="108" y="226" class="subtitle">&#x9762;&#x5411; Claude Code / Codex &#x7684;&#x8BC1;&#x636E;&#x9A71;&#x52A8;&#x5F00;&#x53D1;&#x5DE5;&#x4F5C;&#x6D41;</text><text x="108" y="261" class="copy">&#x8BA9;&#x9700;&#x6C42;&#x3001;&#x8BBE;&#x8BA1;&#x3001;&#x6784;&#x5EFA;&#x3001;&#x9A8C;&#x8BC1;&#x4E0E;&#x5F52;&#x6863;&#xFF0C;&#x59CB;&#x7EC8;&#x6CBF;&#x7740;&#x53EF;&#x6062;&#x590D;&#x3001;&#x53EF;&#x5BA1;&#x8BA1;&#x7684;&#x8DEF;&#x5F84;&#x63A8;&#x8FDB;&#x3002;</text>
-    <g transform="translate(1280 92)"><text x="0" y="22" class="label">FOR MATT POCOCK SKILLS POWER USERS</text><path d="M0 38H504" class="soft"/><text x="0" y="66" class="copy">&#x6DF1;&#x5EA6;&#x4F7F;&#x7528; mattpocock/skills</text><text x="0" y="92" class="tiny">Matrix &#x5C06;&#x539F;&#x5B50;&#x6280;&#x80FD;&#x7F16;&#x6392;&#x4E3A;&#x53EF;&#x5BA1;&#x8BA1;&#x5DE5;&#x4F5C;&#x6D41;</text></g>
+    <!-- Header -->
+    <text x="96" y="84" class="eyebrow">开源 · 证据驱动的 AI Agent 工作流</text>
+    <text x="96" y="162" class="title">Matrix 工作流</text>
+    <text x="96" y="202" class="subtitle">单一 $matrix 入口：Auto 自主定案并实跑真实检查，Classic 提供五阶段软件契约门禁。</text>
 
-    <rect x="108" y="316" width="1704" height="438" rx="18" class="panel"/>
-    <text x="148" y="360" class="label">&#x5F00;&#x53D1;&#x63A7;&#x5236;&#x5E73;&#x9762; &#xB7; &#x4E94;&#x9636;&#x6BB5;&#x8BC1;&#x636E;&#x94FE;</text><text x="1772" y="360" class="tiny" text-anchor="end">OPEN &#x2192; DESIGN &#x2192; BUILD &#x2192; VERIFY &#x2192; ARCHIVE</text>
-    <path d="M174 404H1746" class="rail" filter="url(#glow)"/>
-    <g>
-      <g transform="translate(148 386)"><rect width="296" height="190" rx="10" class="stage"/><text x="28" y="35" class="stageEn">01 &#xB7; OPEN</text><text x="28" y="77" class="stageCn">&#x6F84;&#x6E05;</text><text x="28" y="111" class="stageBody">&#x6F84;&#x6E05;&#x9700;&#x6C42;</text><text x="28" y="145" class="stageMeta">&#x76EE;&#x6807; &#xB7; &#x8303;&#x56F4; &#xB7; &#x9A8C;&#x6536;</text></g>
-      <g transform="translate(466 386)"><rect width="296" height="190" rx="10" class="stage"/><text x="28" y="35" class="stageEn">02 &#xB7; DESIGN</text><text x="28" y="77" class="stageCn">&#x8BBE;&#x8BA1;</text><text x="28" y="111" class="stageBody">&#x8BBE;&#x5B9A;&#x8FB9;&#x754C;</text><text x="28" y="145" class="stageMeta">&#x51B3;&#x7B56; &#xB7; &#x8BA1;&#x5212; &#xB7; &#x6D4B;&#x8BD5;&#x70B9;</text></g>
-      <g transform="translate(784 386)"><rect width="296" height="190" rx="10" class="stage"/><text x="28" y="35" class="stageEn">03 &#xB7; BUILD</text><text x="28" y="77" class="stageCn">&#x6784;&#x5EFA;</text><text x="28" y="111" class="stageBody">&#x6784;&#x5EFA;&#x5B9E;&#x73B0;</text><text x="28" y="145" class="stageMeta">TDD &#xB7; &#x6784;&#x5EFA;&#x8BC1;&#x636E;</text></g>
-      <g transform="translate(1102 386)"><rect width="296" height="190" rx="10" class="stage"/><text x="28" y="35" class="stageEn">04 &#xB7; VERIFY</text><text x="28" y="77" class="stageCn">&#x9A8C;&#x8BC1;</text><text x="28" y="111" class="stageBody">&#x9A8C;&#x8BC1;&#x8D28;&#x91CF;</text><text x="28" y="145" class="stageMeta">&#x6D4B;&#x8BD5; &#xB7; &#x89C4;&#x683C;&#x5BA1;&#x67E5;</text></g>
-      <g transform="translate(1420 386)"><rect width="296" height="190" rx="10" class="stage"/><text x="28" y="35" class="stageEn">05 &#xB7; ARCHIVE</text><text x="28" y="77" class="stageCn">&#x5F52;&#x6863;</text><text x="28" y="111" class="stageBody">&#x63D0;&#x4EA4;&#x5F52;&#x6863;</text><text x="28" y="145" class="stageMeta">&#x63D0;&#x4EA4; &#xB7; &#x65E5;&#x5FD7; &#xB7; &#x8FFD;&#x6EAF;</text></g>
-    </g>
-    <path d="M451 473l8 8-8 8M769 473l8 8-8 8M1087 473l8 8-8 8M1405 473l8 8-8 8" class="chev"/>
-    <path d="M148 614H1772" class="soft"/>
-    <text x="148" y="647" class="label">&#x8DE8;&#x5DE5;&#x5177;&#x4EA4;&#x63A5;&#xFF1A;&#x4FDD;&#x7559;&#x8BBE;&#x8BA1;&#x4E0A;&#x4E0B;&#x6587;&#x4E0E;&#x9A8C;&#x8BC1;&#x8D23;&#x4EFB;</text>
-    <g transform="translate(108 669)">
-      <rect width="420" height="56" rx="8" class="handoff"/><text x="24" y="24" class="label">CODEX</text><text x="24" y="46" class="tiny">&#x8BBE;&#x8BA1;&#x4E0E;&#x89C4;&#x5212;</text>
-      <path d="M432 28H586" class="rail"/><path d="M586 28l-12-7v14z" class="arrow"/>
-      <rect x="598" width="508" height="56" rx="8" class="handoff"/><text x="622" y="24" class="label">FROZEN DESIGN PACKAGE</text><text x="622" y="46" class="tiny">artifacts/claude-task.md</text>
-      <path d="M1118 28H1272" class="rail"/><path d="M1272 28l-12-7v14z" class="arrow"/>
-      <rect x="1284" width="420" height="56" rx="8" class="handoff"/><text x="1308" y="24" class="label">CLAUDE CODE</text><text x="1308" y="46" class="tiny">&#x5B9E;&#x73B0;&#x4E0E;&#x9A8C;&#x8BC1;&#x56DE;&#x586B;</text>
+    <!-- Platform & Token Efficiency Box -->
+    <g transform="translate(1216 58)">
+      <rect width="608" height="148" rx="14" class="hostBox"/>
+      <text x="24" y="32" class="label">宿主平台覆盖与省 TOKEN 协同纪律</text>
+      <path d="M24 44H584" class="divider"/>
+      <text x="24" y="72" class="hostPrimary">原生宿主入口：Claude Code · Codex · ZCode</text>
+      <text x="24" y="98" class="hostSub">共享 .agents/skills 开放标准：opencode · Kimi Code 等兼容工具</text>
+      <text x="24" y="126" class="tiny">brief.md / plan.md 锁定文件坐标 + 轻量模型子代理切片施工，免去全仓重扫</text>
     </g>
 
-    <g>
-      <g transform="translate(108 790)"><rect width="398" height="114" rx="10" class="feature"/><text x="26" y="38" class="featureTitle">&#x9636;&#x6BB5;&#x5B88;&#x536B;</text><text x="26" y="73" class="featureText">&#x53EA;&#x6709;&#x6EE1;&#x8DB3;&#x4EA7;&#x7269;&#x5B88;&#x536B;&#xFF0C;&#x6D41;&#x7A0B;&#x624D;&#x4F1A;&#x5411;&#x524D;&#x63A8;&#x8FDB;&#x3002;</text></g>
-      <g transform="translate(540 790)"><rect width="398" height="114" rx="10" class="feature"/><text x="26" y="38" class="featureTitle">&#x6301;&#x4E45;&#x5316;&#x72B6;&#x6001;</text><text x="26" y="73" class="featureText">&#x53D8;&#x66F4;&#x4E0E;&#x8BC1;&#x636E;&#x843D;&#x76D8;&#xFF0C;&#x968F;&#x65F6;&#x6062;&#x590D;&#x4E0A;&#x4E0B;&#x6587;&#x3002;</text></g>
-      <g transform="translate(972 790)"><rect width="398" height="114" rx="10" class="feature"/><text x="26" y="38" class="featureTitle">&#x6280;&#x80FD;&#x7F16;&#x6392;</text><text x="26" y="73" class="featureText">&#x628A;&#x9700;&#x6C42;&#x3001;&#x8BBE;&#x8BA1;&#x3001;TDD&#x3001;&#x5BA1;&#x67E5;&#x63A5;&#x6210;&#x5B8C;&#x6574;&#x8DEF;&#x5F84;&#x3002;</text></g>
-      <g transform="translate(1404 790)"><rect width="408" height="114" rx="10" class="feature"/><text x="26" y="38" class="featureTitle">&#x534F;&#x4F5C;&#x6A21;&#x5F0F;</text><text x="26" y="73" class="featureText">full / hotfix / tweak &#xB7; Codex &#x2194; Claude Code</text></g>
+    <!-- Main Dual-Workflow Control Plane -->
+    <rect x="96" y="242" width="1728" height="524" rx="20" class="panel"/>
+
+    <!-- AUTO Track Header -->
+    <g transform="translate(132 268)">
+      <rect width="88" height="24" rx="6" class="badgeFill"/>
+      <text x="44" y="16" text-anchor="middle" class="badgeText">默认推荐</text>
+      <text x="102" y="17" class="label">AUTO 工作流 · 面向任意目标的通用自主 RUN</text>
+      <text x="1656" y="17" text-anchor="end" class="tiny mono">UNDERSTAND → EXECUTE → VERIFY → CLOSE</text>
     </g>
-    <path d="M108 960H1812" class="divider"/><text x="108" y="1021" class="footer">&#x8BA9;&#x9AD8;&#x5F3A;&#x5EA6; AI &#x8F85;&#x52A9;&#x5F00;&#x53D1;&#xFF0C;&#x6210;&#x4E3A;&#x53EF;&#x91CD;&#x590D;&#x7684;&#x4EA4;&#x4ED8;&#x7CFB;&#x7EDF;&#x3002;</text><text x="1812" y="994" class="label" text-anchor="end">&#x9879;&#x76EE;&#x4ED3;&#x5E93;</text><text x="1812" y="1034" class="mono" font-size="27" font-weight="700" fill="#effff6" text-anchor="end">github.com/Rosenfan/Matrix</text>
+
+    <path d="M160 424H1760" class="rail" filter="url(#glow)"/>
+
+    <!-- AUTO 4 Stages: 4 * 390 + 3 * 32 = 1656 -->
+    <g transform="translate(132 308)">
+      <rect width="390" height="228" rx="14" class="autoStage"/>
+      <text x="26" y="36" class="stageStep mono">01 · UNDERSTAND</text>
+      <text x="26" y="74" class="stageTitle">调查与框定</text>
+      <text x="26" y="108" class="stageLead">先查代码与 Git 历史，仅在边界提问</text>
+      <text x="26" y="144" class="stageBullet">• 冻结目标、可观测验收 A1..An 与检查 C1..Cn</text>
+      <text x="26" y="170" class="stageBullet">• 携带字面量凭据的检查命令直接拒绝</text>
+      <text x="26" y="196" class="stageBullet">• brief.md 记录精确目标文件与接缝坐标</text>
+    </g>
+
+    <g transform="translate(554 308)">
+      <rect width="390" height="228" rx="14" class="autoStage"/>
+      <text x="26" y="36" class="stageStep mono">02 · EXECUTE</text>
+      <text x="26" y="74" class="stageTitle">切片执行与实跑提交</text>
+      <text x="26" y="108" class="stageLead">自主切片推进，Runtime 实跑检查</text>
+      <text x="26" y="144" class="stageBullet">• 方案调整经 run pivot 记录并重置本轮结论</text>
+      <text x="26" y="170" class="stageBullet">• 支持派生轻量模型子代理按坐标低耗施工</text>
+      <text x="26" y="196" class="stageBullet">• run submit 锁外实跑检查，只按退出码裁定</text>
+    </g>
+
+    <g transform="translate(976 308)">
+      <rect width="390" height="228" rx="14" class="autoStage"/>
+      <text x="26" y="36" class="stageStep mono">03 · VERIFY</text>
+      <text x="26" y="74" class="stageTitle">逐项诚实验收</text>
+      <text x="26" y="108" class="stageLead">逐一覆盖全部验收项并声明审查来源</text>
+      <text x="26" y="144" class="stageBullet">• 如实声明来源：self | subagent | external</text>
+      <text x="26" y="170" class="stageBullet">• 未通过项退回 execute 并统计连续停滞</text>
+      <text x="26" y="196" class="stageBullet">• 提交通过后工作区若有改动则自动打回</text>
+    </g>
+
+    <g transform="translate(1398 308)">
+      <rect width="390" height="228" rx="14" class="autoStage"/>
+      <text x="26" y="36" class="stageStep mono">04 · CLOSE</text>
+      <text x="26" y="74" class="stageTitle">原子归档与沉淀</text>
+      <text x="26" y="108" class="stageLead">渲染只读报告并释放工作区租约</text>
+      <text x="26" y="144" class="stageBullet">• Runtime 从账本状态渲染 verification.md</text>
+      <text x="26" y="170" class="stageBullet">• 原子归档至 .matrix/archive/runs/&lt;id&gt;/</text>
+      <text x="26" y="196" class="stageBullet">• 将已验证工程事实沉淀至 AGENTS.md / ADR</text>
+    </g>
+
+    <path d="M534 415l9 9-9 9M956 415l9 9-9 9M1378 415l9 9-9 9" class="chev"/>
+
+    <text x="132" y="568" class="tiny">适用任何目标：代码开发 · 技术调研 · 架构审视 · 运维排查 · 文档工程</text>
+    <text x="1788" y="568" text-anchor="end" class="tiny mono">精简安装：matrix + matrix-status</text>
+
+    <!-- Track Divider -->
+    <path d="M132 590H1788" class="divider"/>
+
+    <!-- CLASSIC Compact Track: 5 * 312 + 4 * 24 = 1656 -->
+    <g transform="translate(132 608)">
+      <rect width="94" height="22" rx="6" class="badgeOutline"/>
+      <text x="47" y="15" text-anchor="middle" class="badgeOutlineText mono">CLASSIC</text>
+      <text x="108" y="16" class="label">五阶段软件开发证据链（FULL · HOTFIX · TWEAK）</text>
+      <text x="1656" y="16" text-anchor="end" class="tiny">字节级冻结 Contract · 阶段守卫 · 可选 Arch 编排 · Return / Abort 受控恢复</text>
+    </g>
+
+    <g transform="translate(132 644)">
+      <g transform="translate(0 0)">
+        <rect width="312" height="94" rx="10" class="classicStage"/>
+        <text x="20" y="28" class="classicStep mono">01 · OPEN</text>
+        <text x="20" y="56" class="classicTitle">澄清提案</text>
+        <text x="20" y="78" class="classicMeta">proposal.md · 目标、范围与风险</text>
+      </g>
+      <g transform="translate(336 0)">
+        <rect width="312" height="94" rx="10" class="classicStage"/>
+        <text x="20" y="28" class="classicStep mono">02 · DESIGN</text>
+        <text x="20" y="56" class="classicTitle">冻结契约</text>
+        <text x="20" y="78" class="classicMeta">design · plan · 执行主体门禁</text>
+      </g>
+      <g transform="translate(672 0)">
+        <rect width="312" height="94" rx="10" class="classicStage"/>
+        <text x="20" y="28" class="classicStep mono">03 · BUILD</text>
+        <text x="20" y="56" class="classicTitle">纵向切片构建</text>
+        <text x="20" y="78" class="classicMeta">TDD · 按文件坐标直达实现</text>
+      </g>
+      <g transform="translate(1008 0)">
+        <rect width="312" height="94" rx="10" class="classicStage"/>
+        <text x="20" y="28" class="classicStep mono">04 · VERIFY</text>
+        <text x="20" y="56" class="classicTitle">双轴审查验证</text>
+        <text x="20" y="78" class="classicMeta">Standards &amp; Spec · Arch 回执</text>
+      </g>
+      <g transform="translate(1344 0)">
+        <rect width="312" height="94" rx="10" class="classicStage"/>
+        <text x="20" y="28" class="classicStep mono">05 · ARCHIVE</text>
+        <text x="20" y="56" class="classicTitle">两步乐观归档</text>
+        <text x="20" y="78" class="classicMeta">dry-run 预演 · sha256 哈希提交</text>
+      </g>
+      <path d="M320 40l7 7-7 7M656 40l7 7-7 7M992 40l7 7-7 7M1328 40l7 7-7 7" class="chev"/>
+    </g>
+
+    <!-- Bottom 4 Feature Cards: 4 * 414 + 3 * 24 = 1728 -->
+    <g transform="translate(96 792)">
+      <g transform="translate(0 0)">
+        <rect width="414" height="142" rx="14" class="feature"/>
+        <rect x="24" y="20" width="58" height="22" rx="5" class="badgeFill"/>
+        <text x="53" y="35" text-anchor="middle" class="badgeText mono">AUTO</text>
+        <text x="24" y="70" class="featureTitle">Runtime 锁外实跑门禁</text>
+        <text x="24" y="98" class="featureText">由 Runtime 亲自实跑冻结检查并按退出码裁定；</text>
+        <text x="24" y="120" class="featureText">验收后若工作区发生变动则自动打回重审。</text>
+      </g>
+
+      <g transform="translate(438 0)">
+        <rect width="414" height="142" rx="14" class="feature"/>
+        <rect x="24" y="20" width="82" height="22" rx="5" class="badgeOutline"/>
+        <text x="65" y="35" text-anchor="middle" class="badgeOutlineText mono">CLASSIC</text>
+        <text x="24" y="70" class="featureTitle">双轴审查与回执绑定</text>
+        <text x="24" y="98" class="featureText">Runtime 强制校验 Standards 与 Spec 双轴证据；</text>
+        <text x="24" y="120" class="featureText">Arch 进一步将契约、diff 与工作区哈希绑定为回执。</text>
+      </g>
+
+      <g transform="translate(876 0)">
+        <rect width="414" height="142" rx="14" class="feature"/>
+        <rect x="24" y="20" width="132" height="22" rx="5" class="badgeOutline"/>
+        <text x="90" y="35" text-anchor="middle" class="badgeOutlineText mono">AUTO · CLASSIC</text>
+        <text x="24" y="70" class="featureTitle">磁盘账本与低耗接续</text>
+        <text x="24" y="98" class="featureText">.matrix/ 预写日志、revision 与 continuation</text>
+        <text x="24" y="120" class="featureText">让任意 Agent 按坐标直接接续，免去全仓重扫。</text>
+      </g>
+
+      <g transform="translate(1314 0)">
+        <rect width="414" height="142" rx="14" class="feature"/>
+        <rect x="24" y="20" width="58" height="22" rx="5" class="badgeFill"/>
+        <text x="53" y="35" text-anchor="middle" class="badgeText mono">AUTO</text>
+        <text x="24" y="70" class="featureTitle">单租约隔离与停滞熔断</text>
+        <text x="24" y="98" class="featureText">单工作区唯一活动租约；连续检查失败或同一批</text>
+        <text x="24" y="120" class="featureText">未决项停滞满 2 轮即自动暂停交由人类拍板。</text>
+      </g>
+    </g>
+
+    <!-- Footer -->
+    <path d="M96 962H1824" class="divider"/>
+    <text x="96" y="1018" class="footer">让自主 AI 协作成为有账可查、随时可续、低 Token 损耗的工程交付系统。</text>
+    <text x="1824" y="994" text-anchor="end" class="label">项目仓库</text>
+    <text x="1824" y="1030" text-anchor="end" class="mono" font-size="25" font-weight="700" fill="#effff6">github.com/Rosenfan/Matrix</text>
   </g>
 </svg>
