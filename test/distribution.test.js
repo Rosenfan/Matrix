@@ -749,12 +749,12 @@ test("switching auto -> classic backfills the cohort and switching back keeps ev
   const switched = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none", workflow: "classic", workflowExplicit: true, autonomy: "balanced", nonInteractive: true });
   assert.equal(distribution.commit(switched.plan).ok, true);
   const cohort = fs.readdirSync(skillRoot).filter((name) => name.startsWith("matrix"));
-  assert.equal(cohort.length, 10, JSON.stringify(cohort));
+  assert.equal(cohort.length, 9, JSON.stringify(cohort));
   assert.match(fs.readFileSync(path.join(project, ".matrix", "config.yaml"), "utf8"), /^default_workflow: classic$/m);
 
   const back = distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], matt: "none", workflow: "auto", workflowExplicit: true, nonInteractive: true });
   assert.equal(distribution.commit(back.plan).ok, true);
-  assert.equal(fs.readdirSync(skillRoot).filter((name) => name.startsWith("matrix")).length, 10);
+  assert.equal(fs.readdirSync(skillRoot).filter((name) => name.startsWith("matrix")).length, 9);
   assert.match(fs.readFileSync(path.join(project, ".matrix", "config.yaml"), "utf8"), /^default_workflow: auto$/m);
 });
 
@@ -858,4 +858,19 @@ test("runtime tampering is diagnosed as a managed Matrix modification", (t) => {
   fs.appendFileSync(path.join(project, ".agents", "skills", "matrix", "scripts", "matrix-runtime.mjs"), "\n// tampered");
   const diagnosis = distribution.diagnose({ projectRoot: project, home, platforms: ["codex"] });
   assert.equal(diagnosis.observations[0].matrix, "user-modified"); assert.ok(diagnosis.diagnosis.some((item) => item.code === "MATRIX_USER_MODIFIED"));
+});
+
+test("diagnose reports retired Matrix Skill directories as read-only advisories without deleting them", (t) => {
+  const { project, home } = fixture(t); const distribution = createDistribution();
+  assert.equal(distribution.commit(distribution.evaluate({ projectRoot: project, home, platforms: ["codex"], workflow: "auto" }).plan).ok, true);
+  const claudeOrphan = path.join(project, ".agents", "skills", "matrix-claude");
+  const handoffOrphan = path.join(project, ".agents", "skills", "matrix-handoff");
+  fs.mkdirSync(claudeOrphan, { recursive: true }); fs.writeFileSync(path.join(claudeOrphan, "SKILL.md"), "legacy claude");
+  fs.mkdirSync(handoffOrphan, { recursive: true }); fs.writeFileSync(path.join(handoffOrphan, "SKILL.md"), "legacy handoff");
+  const diagnosis = distribution.diagnose({ projectRoot: project, home, platforms: ["codex"], workflow: "auto" });
+  const retiredFinding = diagnosis.diagnosis.find((item) => item.code === "RETIRED_SKILL_PRESENT");
+  assert.ok(retiredFinding);
+  assert.deepEqual(retiredFinding.skills, ["matrix-claude", "matrix-handoff"]);
+  assert.equal(fs.existsSync(path.join(claudeOrphan, "SKILL.md")), true);
+  assert.equal(fs.existsSync(path.join(handoffOrphan, "SKILL.md")), true);
 });

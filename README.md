@@ -1,6 +1,6 @@
 # Matrix Workflow
 
-A general-purpose autonomous agent workflow inspired by [Comet](https://github.com/rpamis/comet), with two tiers behind one entrypoint. **Auto** lets the Agent understand a goal, decide the approach itself, and prove the result with checks the Runtime executes. **Classic** is the evidence-driven development workflow with Prim and Arch orchestration: it can work with its own capabilities or conditionally invoke a verified cohort of [Matt Pocock's agent skills](https://github.com/mattpocock/skills) without giving up lifecycle ownership.
+A general-purpose autonomous agent workflow inspired by [Comet](https://github.com/rpamis/comet), with two tiers behind one entrypoint. **Auto** lets the Agent understand a goal, decide the approach itself, and prove the result with checks the Runtime executes. **Classic** is the five-phase evidence-driven development workflow: it works out of the box with Matrix's built-in baseline or conditionally invokes a verified cohort of [Matt Pocock's agent skills](https://github.com/mattpocock/skills) under **Arch** without giving up lifecycle ownership.
 
 English | **[中文](./README.zh-CN.md)**
 
@@ -51,7 +51,7 @@ classic hotfix/tweak lightweight:  open ─────────→ build →
 ```
 
 - **Auto** works for any goal, in code or outside it. The Agent investigates before asking, decides the technical approach itself, and proves the result with check commands that the Runtime executes.
-- **Classic** is the evidence-driven development workflow. It has two capability-orchestration modes: **Prim**, where Matrix performs phase work itself, and **Arch**, where Matrix invokes verified atomic Skills only when task facts trigger them.
+- **Classic** is the five-phase development workflow. It runs with Matrix's built-in baseline (`prim`) when Matt Skills are absent, or **Arch** when the verified Matt Skills cohort is installed to invoke atomic Skills only when task facts trigger them.
 
 Recovery paths are controlled Runtime intents:
 
@@ -97,11 +97,10 @@ matrix init
 The interactive setup lets you:
 
 - Choose English or Chinese, project or global Matrix discovery scope, and any combination of Claude Code, Codex, and ZCode
-- Default to the **Auto** workflow with `balanced` autonomy, or choose **Classic** to keep the five-phase development workflow. The Matt Skills and Prim/Arch questions appear only for Classic
+- Default to the **Auto** workflow with `balanced` autonomy, or choose **Classic** to keep the five-phase development workflow. The Matt Skills question appears only for Classic
 - Copy skills (recommended) or symlink them for local development
 - Safely reconfigure an existing installation with an automatic backup
-- Classic only: review all 27 official Matt Skills v1.3.1 roles and install the 25 compatible Skills into the target project
-- Classic only: choose **Prim** or **Arch** as the project default without disabling the other available mode
+- Classic only: review all 27 official Matt Skills v1.3.1 roles and install the 25 compatible Skills into the target project (automatically enabling **Arch**; skipping Matt Skills keeps Classic on its built-in baseline)
 
 For automation and CI:
 
@@ -112,11 +111,11 @@ matrix init --yes --platform claude-code --platform codex
 # Auto, waiting for your confirmation before every Run starts executing
 matrix init --yes --autonomy strict
 
-# Classic workflow with Prim, the five phases, and all ten Matrix Skills
-matrix init --yes --default-workflow classic
+# Classic workflow without Matt Skills: the five phases and all nine Matrix Skills
+matrix init --yes --default-workflow classic --without-mattpocock
 
-# Classic with the reviewed Matt Skills and Arch as the project default
-matrix init --yes --default-workflow classic --with-mattpocock --default-orchestration arch
+# Classic with the reviewed Matt Skills and Arch orchestration
+matrix init --yes --default-workflow classic --with-mattpocock
 
 # Replace locally modified Matt Skills only after an explicit backup authorization
 matrix init --yes --default-workflow classic --with-mattpocock --force-matt
@@ -157,7 +156,7 @@ To install directly from GitHub instead of npm:
 npm install --global github:Rosenfan/Matrix
 ```
 
-An Auto installation installs only `matrix` and `matrix-status`; a Classic installation installs all ten:
+An Auto installation installs only `matrix` and `matrix-status`; a Classic installation installs all nine:
 - `matrix/` — Entry point: routes to the Auto or Classic workflow and manages state
 - `matrix-open/` — Classic open phase and canonical proposal
 - `matrix-design/` — Classic design, plan, and Contract approval
@@ -167,7 +166,6 @@ An Auto installation installs only `matrix` and `matrix-status`; a Classic insta
 - `matrix-hotfix/` — Classic shortcut for small bugs
 - `matrix-tweak/` — Classic shortcut for bounded changes
 - `matrix-status/` — Check current state
-- `matrix-handoff/` — Classic only, optional: export to any implementation agent (Claude Code, opencode, ...)
 
 ---
 
@@ -202,8 +200,8 @@ In a project on the Classic workflow, Matrix will:
 | Phases | `understand → execute → verify → close` | `full`: `open → design → build → verify → archive`; `hotfix` and `tweak` skip design |
 | Default for | new installations | projects initialized before 0.2.0 |
 | Scope | any goal: code, research, architecture review, operations, documents | software development changes |
-| Skills installed | `matrix`, `matrix-status` | all ten Matrix Skills |
-| Matt Skills | optional; not required and not hash-checked | optional under Prim; a frozen v1.3.1 cohort under Arch |
+| Skills installed | `matrix`, `matrix-status` | all nine Matrix Skills |
+| Matt Skills | optional; not required and not hash-checked | optional (built-in `prim` baseline); a frozen v1.3.1 cohort under `Arch` |
 | Proof of done | checks executed by the Runtime at `run submit`, plus a declared review source | guard conditions, Contract identity, review receipts |
 
 In Auto, the Agent interrupts you for only three reasons: different readings of the request lead to materially different results, a fact only you hold is missing, or an irreversible or high-risk outward action comes next. Everything else — structure, libraries, test strategy — is decided by the Agent and recorded in the Run's brief.
@@ -282,7 +280,7 @@ matrix workflow guard open
 matrix workflow transition design
 
 # Lightweight: approve the compact proposal and enter Build (executor choice merged into the same pause)
-matrix workflow transition build --confirmed --executor <current|model|handoff:<agent-id>>
+matrix workflow transition build --confirmed --executor <current|model|subagent|handoff:<agent-id>>
 
 # Return from verification failure; stale evidence is retained in history
 matrix workflow return build --reason verification-failed
@@ -321,32 +319,13 @@ Hotfix and tweak reference the same internal `lightweight` transition profile. T
 
 ---
 
-## Special Feature: matrix-handoff
+## Token-Lean Multi-Model & Multi-Agent Collaboration
 
-**Default usage**: Just use the main workflow (`$matrix`). Whether you're using Codex, Claude Code, zcode, or opencode, the standard flow works for all of them:
+Matrix treats `.matrix/` on disk as the single source of truth so switching models, delegating to subagents, or resuming in another agent never requires re-scanning the entire repository:
 
-```
-$matrix → open → design → build → verify → archive
-```
-
-**When to use `$matrix-handoff`**: Only in a Classic project, and only when you want to **split the work across tools** — design in one agent, implement in another.
-
-| Scenario | What to Do |
-|----------|------------|
-| Use one tool for everything (default) | Just use `$matrix`, no extra steps |
-| Same agent designs and implements | Standard flow: design → build → verify |
-| Codex designs + Claude Code implements | design → `$matrix-handoff` → `export --agent claude-code` → Claude Code → verify |
-| zcode designs + opencode implements | design → `$matrix-handoff` → `export --agent opencode` → opencode → verify |
-
-### How matrix-handoff Works
-
-1. Design phase completes, guard passes, and you choose the implementation agent at the Design -> Build decision point
-2. Run `$matrix-handoff` → exports the frozen contract as `artifacts/handoff-task-<task-id>.md` (`export --agent <agent-id>`; `--target generic` remains as the legacy Claude Code form, `artifacts/claude-task.md`)
-3. The implementation agent reads the task package and implements
-4. The implementation agent produces evidence in `artifacts/verification.md`
-5. Return to Matrix: build guard → verify → archive
-
-The sidecar does NOT change Matrix state. It's a pure export — like taking a snapshot of the design for another tool to consume.
+- **Context-pinned coordinates**: Auto records exact target file paths, seam invariants, and focused check commands in `.matrix/runs/<id>/brief.md`; Classic pins them in `artifacts/design.md` and `artifacts/plan.md`.
+- **Lightweight subagent coding**: When the host supports write subagents on a fast, cost-effective model (e.g. `flash`, `haiku`, `sonnet`), the lead agent can delegate bounded implementation slices (`--executor subagent` in Classic, or slice delegation during `execute` in Auto) while keeping exclusive ownership of Runtime state transitions, check execution, and verification.
+- **Direct cross-agent resume**: Because Claude Code, Codex, ZCode, opencode, and Kimi Code share the workspace `.matrix/` ledger, another agent can take over simply by running `$matrix` (`--executor handoff:<agent-id>` records the actor in Classic) and reading the minimal resume set (`inspect` + `brief.md` or `design.md`/`plan.md`).
 
 ---
 

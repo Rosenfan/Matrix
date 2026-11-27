@@ -1,6 +1,6 @@
 # Matrix Workflow
 
-一个受 [Comet](https://github.com/rpamis/comet) 启发的通用自主 Agent 工作流，同一入口下提供两档。**Auto** 让 Agent 理解目标、自主决定方案，并用由 Runtime 实际执行的检查来证明结果。**Classic** 是提供 Prim 与 Arch 编排的证据驱动开发工作流：可以使用自身能力，也可以按事实调用已验证的 [Matt Pocock agent skills](https://github.com/mattpocock/skills)，但生命周期所有权始终由 Matrix 保持。
+一个受 [Comet](https://github.com/rpamis/comet) 启发的通用自主 Agent 工作流，同一入口下提供两档。**Auto** 让 Agent 理解目标、自主决定方案，并用由 Runtime 实际执行的检查来证明结果。**Classic** 是五阶段证据驱动开发工作流：默认可直接使用 Matrix 内置基线能力，也可在启用 **Arch** 时按事实调用已验证的 [Matt Pocock agent skills](https://github.com/mattpocock/skills)，生命周期所有权始终由 Matrix 保持。
 
 **[English](./README.md)** | 中文
 
@@ -51,7 +51,7 @@ classic hotfix/tweak lightweight： open ─────────→ build �
 ```
 
 - **Auto** 适用于任何目标，改代码或不改代码都行。Agent 先调查再提问，自主决定技术方案，并用由 Runtime 实际执行的检查命令来证明结果。
-- **Classic** 是证据驱动的开发工作流，提供两种能力编排：**Prim**（各阶段由 Matrix 使用自身能力）与 **Arch**（仅在任务事实满足触发条件时调用已验证的原子 Skill）。
+- **Classic** 是五阶段软件开发工作流：未安装 Matt Skills 时使用内置基线能力（`prim`），安装受验证集合后自动启用 **Arch**（仅在任务事实满足触发条件时调用已验证的原子 Skill）。
 
 恢复路径由 Runtime 受控执行：
 
@@ -97,11 +97,10 @@ matrix init
 交互式初始化支持：
 
 - 选择 Matrix Skill 发现入口安装到当前项目或全局
-- 默认使用 **Auto** 工作流与 `balanced` 自治级别；也可以选择 **Classic** 保留五阶段开发工作流。Matt Skills 与 Prim/Arch 的提问只在 Classic 下出现
+- 默认使用 **Auto** 工作流与 `balanced` 自治级别；也可以选择 **Classic** 保留五阶段开发工作流。Matt Skills 的提问只在 Classic 下出现
 - 复制 skills（推荐）或为本地开发创建符号链接
 - 安全地重新配置已有安装，并自动备份被替换的 Matrix 文件
-- 仅 Classic：审查 Matt Skills v1.3.1 官方 27 项角色，并在目标项目安装其中 25 项兼容 Skill
-- 仅 Classic：选择 Prim 或 Arch 作为项目默认值，且不禁用另一种可用模式
+- 仅 Classic：审查 Matt Skills v1.3.1 官方 27 项角色并在目标项目安装其中 25 项兼容 Skill（安装后自动启用 **Arch**；不安装则使用内置基线能力）
 
 自动化或 CI 环境可以使用：
 
@@ -112,11 +111,11 @@ matrix init --yes
 # Auto，并在每个 Run 开始执行前等待你的确认
 matrix init --yes --autonomy strict
 
-# Classic 工作流（Prim），包含五个阶段与全部十个 Matrix 技能
-matrix init --yes --default-workflow classic
+# Classic 工作流（不安装 Matt Skills），包含五个阶段与全部九个 Matrix 技能
+matrix init --yes --default-workflow classic --without-mattpocock
 
-# Classic，安装经过审查的 Matt Skills，并以 Arch 作为项目默认编排
-matrix init --yes --default-workflow classic --with-mattpocock --default-orchestration arch
+# Classic，安装经过审查的 Matt Skills 并启用 Arch 编排
+matrix init --yes --default-workflow classic --with-mattpocock
 
 # 只有明确授权备份后才替换被本地修改的 Matt Skills
 matrix init --yes --default-workflow classic --with-mattpocock --force-matt
@@ -154,7 +153,7 @@ Matrix 只为拥有独立 skill 目录约定的 agent 内置平台条目：Claud
 npm install --global github:Rosenfan/Matrix
 ```
 
-Auto 安装只装 `matrix` 与 `matrix-status`；Classic 安装全部十个：
+Auto 安装只装 `matrix` 与 `matrix-status`；Classic 安装全部九个：
 - `matrix/` — 入口：路由到 Auto 或 Classic 工作流并管理状态
 - `matrix-open/` — Classic 的 Open 阶段与 canonical proposal
 - `matrix-design/` — Classic 的 Design、plan 与 Contract 批准
@@ -164,7 +163,6 @@ Auto 安装只装 `matrix` 与 `matrix-status`；Classic 安装全部十个：
 - `matrix-hotfix/` — Classic 的小型 Bug 快捷方式
 - `matrix-tweak/` — Classic 的有界变更快捷方式
 - `matrix-status/` — 检查当前状态
-- `matrix-handoff/` — 仅 Classic，可选：导出给任意实现 agent（Claude Code、opencode 等）
 
 ---
 
@@ -199,8 +197,8 @@ $matrix 我想给 API 添加用户认证
 | 阶段 | `understand → execute → verify → close` | `full`：`open → design → build → verify → archive`；`hotfix` 与 `tweak` 跳过 design |
 | 默认 | 新安装 | 0.2.0 之前初始化的项目 |
 | 范围 | 任何目标：代码、调研、架构审视、运维、文档 | 软件开发变更 |
-| 安装的技能 | `matrix`、`matrix-status` | 全部十个 Matrix 技能 |
-| Matt Skills | 可选；不要求，也不做哈希校验 | Prim 下可选；Arch 下为冻结的 v1.3.1 能力集 |
+| 安装的技能 | `matrix`、`matrix-status` | 全部九个 Matrix 技能 |
+| Matt Skills | 可选；不要求，也不做哈希校验 | 可选（内置 `prim` 基线）；`Arch` 下为冻结的 v1.3.1 能力集 |
 | "完成"的依据 | Runtime 在 `run submit` 实跑检查，加上声明的评审来源 | 守卫条件、Contract 身份、审查回执 |
 
 在 Auto 下，Agent 只因三种原因打断你：对请求的不同理解会导致实质不同的结果、缺少只有你掌握的事实、下一步是不可逆或高危的对外动作。其余一切——结构、库、测试策略——由 Agent 决定并记入 Run 的 brief。
@@ -279,7 +277,7 @@ matrix workflow guard open
 matrix workflow transition design
 
 # lightweight：确认紧凑 proposal 后进入 Build（执行主体选择并入同一次暂停）
-matrix workflow transition build --confirmed --executor <current|model|handoff:<agent-id>>
+matrix workflow transition build --confirmed --executor <current|model|subagent|handoff:<agent-id>>
 
 # 验证失败时返回 Build；旧证据保留在历史目录
 matrix workflow return build --reason verification-failed
@@ -318,32 +316,13 @@ hotfix 与 tweak 引用同一个内部 `lightweight` 迁移 profile，只在入�
 
 ---
 
-## 特别功能：matrix-handoff
+## 低 Token 损耗的多模型与跨 Agent 协同
 
-**默认用法**：直接使用主流程即可。无论你用 Codex、Claude Code、zcode 还是 opencode，标准流程都适用：
+Matrix 将磁盘上的 `.matrix/` 作为唯一事实来源，使切换模型、派生子代理或跨工具接续都无需重新全仓摸排：
 
-```
-$matrix → open → design → build → verify → archive
-```
-
-**何时使用 `$matrix-handoff`**：仅在 Classic 项目中，且仅当你想**跨工具拆分工作**时 —— 用一个 agent 设计，交给另一个 agent 实现。
-
-| 场景 | 操作 |
-|------|------|
-| 一个工具完成所有工作（默认） | 直接用 `$matrix`，无需额外步骤 |
-| 同一 agent 设计 + 实现 | 标准流程：design → build → verify |
-| Codex 设计 + Claude Code 实现 | design → build（批准 Contract）→ `$matrix-handoff` → `export --agent claude-code` → Claude Code → verify |
-| zcode 设计 + opencode 实现 | design → build（批准 Contract）→ `$matrix-handoff` → `export --agent opencode` → opencode → verify |
-
-### matrix-handoff 工作原理
-
-1. 设计阶段完成，守卫通过，并在 design→build 决策点选择实现 agent
-2. 运行 `$matrix-handoff` → 导出冻结 Contract 为 `artifacts/handoff-task-<task-id>.md`（`export --agent <agent-id>`；`--target generic` 为兼容的 Claude Code 旧形态，产出 `artifacts/claude-task.md`）
-3. 实现 agent 读取任务包并实现
-4. 实现 agent 在 `artifacts/verification.md` 中产生证据
-5. 返回 Matrix：构建守卫 → 验证 → 归档
-
-此 sidecar 不会改变 Matrix 状态。它只是纯粹的导出 —— 就像为另一个工具拍一张设计快照。
+- **精确坐标锁定（Context Pinning）**：Auto 在 `.matrix/runs/<id>/brief.md` 中记录精确的目标文件路径、关键接缝不变量与聚焦检查命令；Classic 在 `artifacts/design.md` 与 `artifacts/plan.md` 中锁定同样信息。
+- **轻量模型子代理切片施工**：当宿主支持拉起指定轻量高性价比模型（如 `flash`、`haiku`、`sonnet`）的写权限子代理时，主代理可将有界代码切片委派给子代理实现（Classic 使用 `--executor subagent`，Auto 在 `execute` 阶段委派），主代理独占所有 Runtime 状态推进、检查实跑与验收控制权。
+- **直接跨 Agent 接续**：Claude Code、Codex、ZCode、opencode 与 Kimi Code 共享工作区 `.matrix/` 账本；切换执行 Agent 时（Classic 以 `--executor handoff:<agent-id>` 记录执行者），新工具直接运行 `$matrix` 读取最小恢复集（`inspect` + `brief.md` 或 `design.md`/`plan.md`）即可直达目标文件施工。
 
 ---
 

@@ -20,7 +20,7 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs inspect
 按返回的 `default_workflow` 路由：
 
 - `auto` → 执行下文的自主 Run 协议。
-- `classic` → 执行 [references/classic-compat.md](references/classic-compat.md)（原有 `full` / `hotfix` / `tweak` 五阶段流程与 Prim/Arch 编排）。
+- `classic` → 执行 [references/classic-compat.md](references/classic-compat.md)（原有 `full` / `hotfix` / `tweak` 五阶段流程，支持可选 Arch 编排）。
 - `NO_ACTIVE_CHANGE` 同样携带这两个字段；按同样方式路由。
 
 ## No-Run 快速路径
@@ -48,11 +48,15 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs run frame --goal "<一�
 - `--check` 必须是真实可执行的验证命令（测试、构建、lint、脚本）。Matrix 会在提交时自行运行它们；不要传入你未验证过存在的命令。`--no-checks-reason "<文本>"` 只用于确实没有可执行检查的任务。
 - 验收项必须能被你之外的人观察验证。
 - 请求模糊、探索性强或改动面大时，传 `--require-confirmation`（或 `--wait "<问题>"`），Run 会暂停一次，只确认 goal + acceptance + checks。请求明确且有界时，不带这些参数调用 frame，并按返回的 `frame` 摘要向用户回显后继续。
+- 通过 `--brief-file` 将已查明的精确目标文件路径/函数坐标、关键接口不变量与聚焦检查命令记入 `brief.md`，避免后续接续会话或子代理重新全仓摸排浪费 Token。
 - execute 开始后，重新 frame 一律需要用户确认。
 
 ### 3. 执行与调整
 
-自主推进。可以使用任何已装技能、MCP 工具或你自己的判断；任何外部技能都不得写 Matrix 状态、跳过 `run submit` 检查或自行宣布完成。方案变化但目标与验收不变时，记录而不是重来：
+自主推进。可以使用任何已装技能、MCP 工具或你自己的判断；任何外部技能都不得写 Matrix 状态、跳过 `run submit` 检查或自行宣布完成。
+- **最小恢复集接续**：在新会话或切换 Agent 接续在途 Run 时，只读取 `run inspect` + `.matrix/runs/<id>/brief.md`（若刚失败过再看最新 `logs/` 尾部），直接按坐标定位文件施工，禁止盲目重扫全仓。
+- **轻量模型子代理切片施工**：多切片编码任务且宿主支持指定轻量高性价比模型（如 `flash`、`haiku`、`sonnet`）拉起具备写权限的子代理时，可将有界代码修改与单测运行委派给指向 `brief.md` 的子代理；主代理独占 `run frame`、`run pivot`、`run submit`、`run verify` 与 `run close` 所有权，若同一切片连续两次受阻则由主代理直接接手。
+- 方案变化但目标与验收不变时，记录而不是重来：
 
 ```powershell
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs run pivot --reason "<原因>" [--scope "<新方案>"] --expect-revision <n>

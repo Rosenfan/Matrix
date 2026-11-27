@@ -22,15 +22,15 @@
 When no change is active, classify the request and initialize it with a short kebab-case id and an accurate title. Start with `full` unless a shortcut clearly applies:
 
 ```powershell
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs init <change-id> --workflow <full|hotfix|tweak> --orchestration <prim|arch> --title "<title>"
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs init <change-id> --workflow <full|hotfix|tweak> --title "<title>"
 ```
 
-An explicit mode wins; otherwise Runtime uses the project default. The resolved mode is frozen for the change and cannot be switched later. When a change is active, report its phase and frozen `orchestration`, then enter the returned `next_skill` only when Runtime permits continuation.
+Runtime resolves `orchestration` from the project default (`arch` when the verified Matt cohort is installed, otherwise the built-in `prim` baseline; pass `--orchestration <prim|arch>` only when explicitly overriding). The resolved mode is frozen for the change and cannot be switched later. When a change is active, report its phase and frozen `orchestration`, then enter the returned `next_skill` only when Runtime permits continuation.
 
-## Prim and Arch
+## Baseline (`prim`) and Arch
 
-- **Prim**: every phase uses Matrix's own capability. Matt Skills are not required.
-- **Arch**: Matrix conditionally invokes, only when task facts trigger them, the ten reviewed automatic capabilities of the cohort frozen by the change. Arch is bound to Matt Skills v1.3.1 (commit `24fe0ef`): Matrix reviews all 27 official roles and installs the 25 compatible Skills project-locally, each verified against the Matt installation receipt.
+- **Prim (`prim` baseline)**: the always-available built-in orchestration value used when Matt Skills are not installed; every phase uses Matrix's own capability.
+- **Arch (`arch`)**: Matrix conditionally invokes, only when task facts trigger them, the ten reviewed automatic capabilities of the cohort frozen by the change. Arch is bound to Matt Skills v1.3.1 (commit `24fe0ef`): Matrix reviews all 27 official roles and installs the 25 compatible Skills project-locally, each verified against the Matt installation receipt.
 - `implement` and `implement-spec` are incompatible. Matrix neither installs nor calls them; keep pre-existing copies (including any legacy `resolving-merge-conflicts`) as unmanaged extras and never suggest them inside an active change.
 - A correctly installed Arch capability that fails gets at most one Matrix-owned fallback for the same capability, with the failure and evidence recorded. A missing, modified, or incomplete Arch installation must be repaired with `matrix init --with-mattpocock`; never switch an active change to Prim to get past it.
 - Under Arch, `matrix-verify` binds the review to the current revision: `review --source code-review --fixed-point <ref> --standards <passed|failed> --spec <passed|failed>`. Never label a fallback as a successful `code-review` run.
@@ -47,10 +47,9 @@ An explicit mode wins; otherwise Runtime uses the project default. The resolved 
 | `matrix-verify` | Run the Contract's validation commands and produce the Standards and Spec review evidence |
 | `matrix-archive` | Two-step archive of the verified change |
 | `matrix-hotfix`, `matrix-tweak` | Guidance for the `lightweight` profile; no separate state machine, started through `matrix` |
-| `matrix-handoff` | Optional sidecar: export an approved Contract as a task package for another implementation agent; never changes a phase or state |
 | `matrix-status` | Read-only report of phase, guard result, and recovery command |
 
-Companion Skills never write Matrix state, transition, commit, archive, or create competing workflow artifacts. `matrix-handoff` serves classic changes only (`export --task-id <ID> --agent <agent-id>`, used in Build after the approved Design → Build transition), and only a full or legacy-full three-artifact Contract; it is not part of `auto`.
+Companion Skills never write Matrix state, transition, commit, archive, or create competing workflow artifacts.
 
 ## Forward transitions and the executor gate
 
@@ -58,7 +57,7 @@ Companion Skills never write Matrix state, transition, commit, archive, or creat
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs guard open
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition design
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs guard design
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build --executor <current|model|handoff:<agent-id>>
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build --executor <current|model|subagent|handoff:<agent-id>>
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build --confirmed --executor <choice>
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs guard build
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition verify
@@ -67,7 +66,7 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition archive
 ```
 
 - A phase advances only through `transition`, and only after its `guard` passes.
-- The `--executor` gate stays in classic. Before Build, present the implementation-actor choice: continue with the current agent, switch the model in the user's client, or hand off to another agent. `full` takes the choice after the design guard (`transition build --executor ...`); `lightweight` merges it into the `transition build --confirmed` pause. Runtime rejects Build entry without it (`EXECUTOR_CONFIRMATION_REQUIRED`) and stores the choice as `implementation_actor`.
+- The `--executor` gate stays in classic. Before Build, present the implementation-actor choice: continue with the current agent, delegate slices to a lightweight subagent, switch the model in the user's client, or hand off to another agent reading `.matrix/`. `full` takes the choice after the design guard (`transition build --executor ...`); `lightweight` merges it into the `transition build --confirmed` pause. Runtime rejects Build entry without it (`EXECUTOR_CONFIRMATION_REQUIRED`) and stores the choice as `implementation_actor`.
 - Archive is a mandatory two-step optimistic commit; bare archive is rejected:
 
 ```powershell

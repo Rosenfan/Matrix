@@ -5,7 +5,7 @@ description: Implement the frozen active Matrix plan with test-first vertical sl
 
 # Matrix Build
 
-Run `node <matrix-skill-directory>/scripts/matrix-runtime.mjs inspect` and implement only its approved Contract. Full and `legacy-full` read proposal/design/plan. `lightweight` reads the approved compact proposal and must not backfill Design artifacts.
+Run `node <matrix-skill-directory>/scripts/matrix-runtime.mjs inspect` and implement only its approved Contract. Full and `legacy-full` read proposal/design/plan. `lightweight` reads the approved compact proposal and must not backfill Design artifacts. Treat the approved `design.md` + `plan.md` (or compact `proposal.md`) as your navigation map: jump directly to the pinned target files instead of re-scanning the whole repository.
 
 Write build evidence and user-facing explanations in `artifact_language`; preserve any Runtime-required English heading tokens.
 

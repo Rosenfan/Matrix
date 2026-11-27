@@ -1,6 +1,6 @@
 export const messages = {
   en: {
-    title: "Evidence-driven workflow with Prim and Arch orchestration",
+    title: "Evidence-driven workflow — Auto runs & Classic gates",
     recommended: "Recommended setup", apply: "Apply", customize: "Customize", cancel: "Cancel",
     project: "Project (current directory)", global: "Global Matrix Skills",
     copy: "Copy (recommended)", symlink: "Symlink (advanced)",
@@ -16,13 +16,19 @@ export const messages = {
     updateScopeQuestion: "Update scope", updateScopeCurrent: "Current project only", updateScopeAll: "All indexed projects",
     yes: "Yes", no: "No", stateMissing: "missing", stateMatching: "up to date", stateComplete: "complete", stateUserModified: "user-modified", statePartial: "partial", stateOutdated: "outdated", stateSafeUpdate: "safe update", stateAdoptable: "adoptable", stateUnreadable: "unreadable", stateCompatible: "compatible", stateUpdateRequired: "update required", stateUnsupportedNewer: "unsupported newer", stateUnverified: "unverified", stateUnknown: "unknown",
     actionInstall: "install", actionKeep: "keep", actionBackupReplace: "back up and replace", actionRepair: "repair", actionBlocked: "requires approval",
-    dryRunComplete: "Dry run complete.", defaultOrchestration: "Default orchestration", mattCompatibilityStatus: "Matt {release}: {status}",
+    dryRunComplete: "Dry run complete.", defaultOrchestration: "Default orchestration", workflowLabel: "Workflow", mattCompatibilityStatus: "Matt {release}: {status}",
+    hintSelect: "↑/↓ Navigate · Enter Confirm · Ctrl+C Cancel",
+    hintMulti: "↑/↓ Move · Space Toggle · A All · Enter Confirm",
+    hintConfirm: "←/→ Switch · Y/N Quick · Enter Confirm",
+    hintRequireOne: "Select at least one option with Space before confirming.",
+    checkingRegistry: "Checking npm registry for Matrix CLI updates...",
+    applyingPlan: "Synchronizing Matrix skills & runtime assets...",
     workflowQuestion: "Default workflow", workflowAutoLabel: "Auto (recommended)", workflowClassicLabel: "Classic (five-phase software workflow)",
     workflowAutoDetail: "General autonomous workflow for any goal: the agent investigates, decides, executes, and verifies with real runtime checks.",
-    workflowClassicDetail: "The original five-phase software development workflow (full/hotfix/tweak with Prim/Arch orchestration).",
+    workflowClassicDetail: "The five-phase software development workflow (full/hotfix/tweak, optional Arch orchestration).",
     classicUpgradeHint: "This project keeps Classic mode. Run `matrix init --default-workflow auto` to switch to the autonomous workflow.",
     manifestMissing: "No Matrix installation manifest was found for this scope.", transactionPending: "An interrupted Matrix transaction is awaiting recovery. Run matrix init again before applying a new plan.", runtimeMissing: "Bundled Matrix runtime is missing.", brokenLink: "Broken Matrix link detected.", mattGlobalIgnored: "global Matt Skills are present but ignored by the project compatibility contract.", mattSetupHint: "Matt {release} is installed for this project. Optionally run $setup-matt-pocock-skills once to configure its user-owned integrations.",
-    matrixModifiedDiagnostic: "{platform}: existing Matrix assets are not proven managed.", mattModifiedDiagnostic: "{platform}: Matt Skills contain local or unreadable content that requires separate replacement approval.", archIncompleteDiagnostic: "Arch requires the exact reviewed cohort and trusted project receipt. Retry with --with-mattpocock.", matrixStateDiagnostic: "{platform}: Matrix is {state}.", mattStateDiagnostic: "{platform}: Matt Pocock skills are {state}.", codexLegacyDiagnostic: "Codex legacy .codex/skills was detected; Matrix will not write there.", unmanagedExtraDiagnostic: "{platform}: unmanaged extra Skills are preserved and will not be invoked: {skills}."
+    matrixModifiedDiagnostic: "{platform}: existing Matrix assets are not proven managed.", mattModifiedDiagnostic: "{platform}: Matt Skills contain local or unreadable content that requires separate replacement approval.", archIncompleteDiagnostic: "Arch requires the exact reviewed cohort and trusted project receipt. Retry with --with-mattpocock.", matrixStateDiagnostic: "{platform}: Matrix is {state}.", mattStateDiagnostic: "{platform}: Matt Pocock skills are {state}.", codexLegacyDiagnostic: "Codex legacy .codex/skills was detected; Matrix will not write there.", unmanagedExtraDiagnostic: "{platform}: unmanaged extra Skills are preserved and will not be invoked: {skills}.", retiredSkillDiagnostic: "{platform}: retired Matrix Skill directories are still present and ignored ({skills}); remove them manually so hosts stop listing stale Skills."
   },
   "zh-CN": {
     manifestMissing: "当前安装范围没有 Matrix 安装清单。", transactionPending: "发现中断的 Matrix 安装事务。请再次运行 matrix init 后再应用新计划。", runtimeMissing: "缺少随附的 Matrix runtime。", brokenLink: "检测到断开的 Matrix 链接。", mattGlobalIgnored: "检测到全局 Matt Skills，但项目兼容性契约不会采用它们。", mattSetupHint: "已为当前项目安装 Matt {release}。如需配置由用户拥有的集成，可显式运行一次 $setup-matt-pocock-skills。",
@@ -35,19 +41,25 @@ export const messages = {
     updateScopeQuestion: "更新范围", updateScopeCurrent: "仅当前项目", updateScopeAll: "全部已索引项目",
     yes: "是", no: "否", stateMissing: "未安装", stateMatching: "已是最新", stateComplete: "完整", stateUserModified: "已被用户修改", statePartial: "不完整", stateOutdated: "可更新", stateSafeUpdate: "可安全更新", stateAdoptable: "可接管", stateUnreadable: "不可读", stateCompatible: "兼容", stateUpdateRequired: "需要更新", stateUnsupportedNewer: "版本过新且不受支持", stateUnverified: "未验证", stateUnknown: "未知",
     actionInstall: "安装", actionKeep: "保留", actionBackupReplace: "备份并替换", actionRepair: "修复", actionBlocked: "需要确认",
-    dryRunComplete: "预览完成。", defaultOrchestration: "默认编排", mattCompatibilityStatus: "Matt {release}：{status}",
+    dryRunComplete: "预览完成。", defaultOrchestration: "默认编排", workflowLabel: "工作流模式", mattCompatibilityStatus: "Matt {release}：{status}",
+    hintSelect: "↑/↓ 切换 · Enter 确认 · Ctrl+C 取消",
+    hintMulti: "↑/↓ 移动 · Space 勾选 · A 全选 · Enter 确认",
+    hintConfirm: "←/→ 切换 · Y/N 快捷选择 · Enter 确认",
+    hintRequireOne: "请至少勾选一项（按 Space 勾选后再按 Enter）。",
+    checkingRegistry: "正在连接 npm 检查 Matrix CLI 更新...",
+    applyingPlan: "正在同步 Matrix 技能与 Runtime 资产...",
     workflowQuestion: "默认工作流", workflowAutoLabel: "Auto（推荐）", workflowClassicLabel: "Classic（传统软件五阶段）",
     workflowAutoDetail: "面向任意目标的通用自主工作流：Agent 自主调查、定案、执行，并由 Runtime 实跑真实检查。",
-    workflowClassicDetail: "原有的软件开发五阶段工作流（full/hotfix/tweak 与 Prim/Arch 编排）。",
+    workflowClassicDetail: "原有的软件开发五阶段工作流（full/hotfix/tweak，支持可选 Arch 编排）。",
     classicUpgradeHint: "当前项目沿用 Classic 模式。运行 `matrix init --default-workflow auto` 可切换为自主工作流。",
-    title: "提供 Prim 与 Arch 编排的证据驱动工作流",
+    title: "证据驱动工作流 —— Auto 自主运行与 Classic 契约门禁",
     recommended: "推荐配置", apply: "开始安装", customize: "自定义", cancel: "取消",
     project: "项目（当前目录）", global: "全局 Matrix Skills",
     copy: "复制（推荐）", symlink: "符号链接（高级）",
     matrix: "Matrix", matt: "Matt Pocock skills", installed: "已安装", ready: "Matrix 已就绪。",
     noPlatform: "未检测到已验证的平台。请选择 Claude Code、Codex 或 ZCode。",
     preview: "计划变更", confirm: "确认应用这些变更？", doctor: "安装诊断",
-    matrixModifiedDiagnostic: "{platform}：现有 Matrix 资产无法确认由 Matrix 管理。", mattModifiedDiagnostic: "{platform}：Matt Skills 存在本地修改或不可读内容，需要单独授权替换。", archIncompleteDiagnostic: "Arch 需要精确匹配已审查集合和可信项目 receipt。请使用 --with-mattpocock 重试。", matrixStateDiagnostic: "{platform}：Matrix 状态为 {state}。", mattStateDiagnostic: "{platform}：Matt Pocock Skills 状态为 {state}。", codexLegacyDiagnostic: "检测到 Codex 旧版 .codex/skills；Matrix 不会写入该目录。", unmanagedExtraDiagnostic: "{platform}：将保留但不会调用这些非托管附加 Skills：{skills}。"
+    matrixModifiedDiagnostic: "{platform}：现有 Matrix 资产无法确认由 Matrix 管理。", mattModifiedDiagnostic: "{platform}：Matt Skills 存在本地修改或不可读内容，需要单独授权替换。", archIncompleteDiagnostic: "Arch 需要精确匹配已审查集合和可信项目 receipt。请使用 --with-mattpocock 重试。", matrixStateDiagnostic: "{platform}：Matrix 状态为 {state}。", mattStateDiagnostic: "{platform}：Matt Pocock Skills 状态为 {state}。", codexLegacyDiagnostic: "检测到 Codex 旧版 .codex/skills；Matrix 不会写入该目录。", unmanagedExtraDiagnostic: "{platform}：将保留但不会调用这些非托管附加 Skills：{skills}。", retiredSkillDiagnostic: "{platform}：检测到已退役的旧版 Matrix Skill 目录（{skills}），请手动删除以免宿主继续加载过期脚本。"
   }
 };
 

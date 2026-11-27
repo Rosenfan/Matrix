@@ -282,16 +282,6 @@ function archIntegrity(cwd, flow = null, contentHashes = MATT_CONTENT_HASHES) {
     manifest: legacy ? manifestFile : mattReceiptFile, findings, recovery_command: "matrix init --with-mattpocock"
   } : { ok: true, code: "OK", manifest: legacy ? manifestFile : mattReceiptFile, platforms: platforms.map(([platform]) => platform), cohort: legacy ? "legacy-v0.1.3" : MATT_CATALOG_DIGEST, matt_release: legacy ? null : MATT_COMPATIBILITY.release };
 }
-function taskContent(change, taskId, proposal, design, plan, resultPath, contractHash, approvalRevision, actor = {}) {
-  const agent = actor.agent ?? "Claude Code";
-  const owner = actor.owner ?? "Codex";
-  const statusToken = actor.statusToken ?? "CLAUDE_QUEUED";
-  const reviewer = actor.reviewer ?? "Codex";
-  return `# ${agent} task: ${taskId}\n\n## Metadata\n\n| Field | Value |\n| --- | --- |\n| Status | ${statusToken} |\n| Matrix change | ${change} |\n| Decision owner | ${owner} |\n| Implementation actor | ${agent} |\n| Approved contract | ${contractHash} |\n| Approval revision | ${approvalRevision} |\n| Result | ${resultPath} |\n\n## Objective\n\nThe frozen Matrix artifacts below are authoritative. Do not expand their scope.\n\n## Proposal\n\n${proposal}\n\n## Frozen design\n\n${design}\n\n## Ordered plan\n\n${plan}\n\n## Allowed work\n\n- Read repository instructions and existing tests before implementing.\n- Change only files required by the frozen design and plan.\n\n## Prohibited work\n\n- Do not edit Matrix state, transition its phase, archive it, or alter the frozen design.\n- Do not add unrelated features, public APIs, dependencies, or external side effects.\n- Do not claim completion without recording verifiable evidence.\n\n## Stop and report\n\nStop with \`NEEDS_DECISION\` if the scope must expand, the design conflicts with the repository, validation cannot pass within scope, or an authorization/safety issue arises.\n\n## Required result\n\nCreate \`${resultPath}\` with metadata, changed files and reasons, commands and outcomes, test results, boundary confirmation, residual risks, and any \`NEEDS_DECISION\` items. ${reviewer} reviews the result and the actual diff.\n`;
-}
-function activeBoard(taskId, taskPath, resultPath, change) {
-  return `# Active task board\n\n## Current objective\n\n| Field | Value |\n| --- | --- |\n| ID | ${taskId} |\n| Status | CLAUDE_QUEUED |\n| Matrix change | ${change} |\n| Task | ${taskPath} |\n| Result | ${resultPath} |\n`;
-}
 function paths(cwd, id, archived = false) {
   const root = rootFor(cwd);
   const change = path.join(root, archived ? "archive" : "changes", id);
@@ -741,6 +731,9 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null, m
     }
     return workflowDoctor(cwd, parsed);
   }
+  if (!["inspect", "guard", "review", "transition", "return", "abort", "archive"].includes(command)) {
+    return fail("INVALID_INTENT", `Unknown workflow command: ${command ?? ""}.`);
+  }
   const selected = active(cwd);
   const requested = command === "inspect" ? (option(args, "--change") ?? args.find((arg) => !arg.startsWith("--"))) : null;
   const id = requested ?? selected;
@@ -803,7 +796,7 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null, m
   }
   if (command === "review") {
     if (flow.status !== "active" || flow.phase !== "verify") return fail("ILLEGAL_PHASE", "Review receipts can only be recorded during Verify.");
-    if (flow.orchestration !== "arch") return fail("REVIEW_RECEIPT_UNAVAILABLE", "Prim performs Matrix-owned review without an Arch companion receipt.");
+    if (flow.orchestration !== "arch") return fail("REVIEW_RECEIPT_UNAVAILABLE", "Matrix-owned review does not use an Arch companion receipt.");
     if (fs.existsSync(p.reviewReceipt)) return fail("REVIEW_RECEIPT_EXISTS", "This revision already has a review receipt. Use a controlled Return before recording another review.");
     const source = option(args, "--source");
     const standards = option(args, "--standards");
@@ -900,11 +893,11 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null, m
     // The implementation-actor gate is runtime-enforced, not prompt-level: Build
     // may not be entered until the actor choice is recorded explicitly.
     if (to === "build") {
-      if (executor != null && !/^(current|model|handoff:[a-z0-9]+(?:-[a-z0-9]+)*)$/.test(executor)) {
-        return fail("INVALID_INTENT", "Executor choice must be current, model, or handoff:<agent-id>.");
+      if (executor != null && !/^(current|model|subagent|handoff:[a-z0-9]+(?:-[a-z0-9]+)*)$/.test(executor)) {
+        return fail("INVALID_INTENT", "Executor choice must be current, model, subagent, or handoff:<agent-id>.");
       }
       if (!executor) {
-        return fail("EXECUTOR_CONFIRMATION_REQUIRED", "Present the implementation-actor choice to the user before Build: continue with the current agent/model, switch the model in the user's client, or hand off to another agent. Then rerun with --executor <current|model|handoff:<agent-id>>.");
+        return fail("EXECUTOR_CONFIRMATION_REQUIRED", "Present the implementation-actor choice to the user before Build: continue with the current agent/model, switch the model in the user's client, delegate slices to a lightweight subagent, or hand off to another agent. Then rerun with --executor <current|model|subagent|handoff:<agent-id>>.");
       }
     }
     const before = flow.phase;
@@ -1066,50 +1059,6 @@ export function invoke(argv, { cwd = process.cwd(), failAfterOperation = null, m
         ...contractFields(next, contract)
       }
     });
-  }
-  if (command === "handoff") { const destination = path.join(p.artifacts, "handoff.md"); fs.writeFileSync(destination, `# Matrix handoff: ${id}\n\n- Workflow: ${flow.workflow}\n- Current phase: ${flow.phase}\n- Resume with: \`${skill(flow.phase)}\`\n- Guard passes: ${guard(p, flow, flow.phase).ok}\n`); return { ok: true, code: "OK", path: destination }; }
-  if (command === "export") {
-    if (flow.phase !== "build") return fail("ILLEGAL_PHASE", "Export requires the build phase.");
-    if (workflowProfile(p, flow).id === "lightweight") return fail("EXPORT_UNSUPPORTED_WORKFLOW", "Claude export requires the full three-artifact workflow contract.");
-    const contract = contractState(p, flow); const failure = contractFailure(flow, contract); if (failure) return failure;
-    const taskId = args.includes("--task-id") ? args[args.indexOf("--task-id") + 1] : args[0];
-    const agent = args.includes("--agent") ? args[args.indexOf("--agent") + 1] : null;
-    const from = args.includes("--from") ? args[args.indexOf("--from") + 1] : null;
-    if (agent && args.includes("--target")) return fail("INVALID_INTENT", "export --agent and --target are mutually exclusive.");
-    if (agent && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(agent)) return fail("INVALID_INTENT", "export --agent requires a kebab-case agent identifier.");
-    if (from && !agent) return fail("INVALID_INTENT", "export --from requires --agent.");
-    if (from && !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(from)) return fail("INVALID_INTENT", "export --from requires a kebab-case agent identifier.");
-    if (agent && (!args.includes("--task-id") || !/^[A-Za-z0-9][A-Za-z0-9-]*$/.test(taskId ?? ""))) return fail("INVALID_INTENT", "export --agent requires --task-id.");
-    const target = args.includes("--target") ? args[args.indexOf("--target") + 1] : "generic";
-    const applyBoard = args.includes("--apply-fnsec-board");
-    if (!/^[A-Za-z0-9][A-Za-z0-9-]*$/.test(taskId ?? "") || !["generic", "fnsec"].includes(target)) return fail("INVALID_INTENT", "export requires a task id and target generic or fnsec.");
-    const { proposal, design, plan } = contract.snapshot.contents;
-    if (agent) {
-      const destination = path.join(p.artifacts, `handoff-task-${taskId}.md`);
-      const result = path.join(p.artifacts, `handoff-result-${taskId}.md`);
-      const content = taskContent(id, taskId, proposal, design, plan, path.relative(cwd, result).replaceAll("\\", "/"), flow.approved_contract_hash, flow.contract_approved_revision, {
-        agent,
-        owner: from ?? "Matrix change owner",
-        statusToken: `${agent.replaceAll("-", "_").toUpperCase()}_QUEUED`,
-        reviewer: from ?? "Matrix change owner"
-      });
-      fs.writeFileSync(destination, content);
-      return { ok: true, code: "OK", path: destination };
-    }
-    if (target === "generic") {
-      const destination = path.join(p.artifacts, "claude-task.md"); const result = path.join(p.artifacts, "claude-result.md");
-      fs.writeFileSync(destination, taskContent(id, taskId, proposal, design, plan, path.relative(cwd, result).replaceAll("\\", "/"), flow.approved_contract_hash, flow.contract_approved_revision));
-      return { ok: true, code: "OK", path: destination };
-    }
-    const tasks = path.join(cwd, "docs", "tasks"); const board = path.join(tasks, "active.md");
-    if (!exists(tasks) || !exists(board)) return fail("FNSEC_TARGET_UNAVAILABLE", "FnSec target requires docs/tasks/active.md in the current project.");
-    const destination = path.join(tasks, `claude-task-${taskId}.md`); const result = path.join(tasks, `claude-result-${taskId}.md`);
-    if (exists(destination) || exists(result)) return fail("FNSEC_TASK_EXISTS", `FnSec task or result path already exists for ${taskId}.`);
-    const currentBoard = fs.readFileSync(board, "utf8");
-    if (applyBoard && !currentBoard.includes("NO_ACTIVE_OBJECTIVE")) return fail("FNSEC_BOARD_OCCUPIED", "FnSec active.md already has an objective; refused to overwrite it.");
-    fs.writeFileSync(destination, taskContent(id, taskId, proposal, design, plan, path.relative(cwd, result).replaceAll("\\", "/"), flow.approved_contract_hash, flow.contract_approved_revision));
-    if (applyBoard) fs.writeFileSync(board, activeBoard(taskId, path.relative(cwd, destination).replaceAll("\\", "/"), path.relative(cwd, result).replaceAll("\\", "/"), id));
-    return { ok: true, code: "OK", path: destination, board: applyBoard ? board : null };
   }
   return fail("INVALID_INTENT", `Unknown workflow command: ${command}.`);
 }

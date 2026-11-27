@@ -1,4 +1,0 @@
-interface:
-  display_name: "Matrix Implementation Handoff"
-  short_description: "Export an approved Matrix Contract as a bounded task package"
-  default_prompt: "Use $matrix-handoff to export the approved Contract to an implementation agent."

@@ -20,7 +20,7 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs inspect
 Route on the returned `default_workflow`:
 
 - `auto` → follow the Autonomous Run protocol below.
-- `classic` → follow [references/classic-compat.md](references/classic-compat.md) (the original `full` / `hotfix` / `tweak` five-phase workflow with Prim/Arch orchestration).
+- `classic` → follow [references/classic-compat.md](references/classic-compat.md) (the five-phase `full` / `hotfix` / `tweak` workflow, with optional Arch orchestration).
 - `NO_ACTIVE_CHANGE` still carries both fields; route the same way.
 
 ## No-Run fast path
@@ -48,11 +48,15 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs run frame --goal "<one 
 - `--check` commands must be real, executable verifications (tests, builds, linters, scripts). Matrix runs them itself at submit time; never pass a command you have not verified exists. `--no-checks-reason "<text>"` is only for tasks with genuinely no executable check.
 - Acceptance items must be observable by someone other than you.
 - Pass `--require-confirmation` (or `--wait "<question>"`) when the request is vague, exploratory, or the change is broad — the run pauses for a single confirmation of goal + acceptance + checks. With a clear, bounded request, call frame without those flags and echo the returned `frame` summary to the user as you proceed.
+- Record a context-pinned `brief.md` (`--brief-file`) naming the exact target files/functions, seam invariants, and focused check commands you already located so resumed sessions or subagents never re-scan the whole repository.
 - After execute has started, re-framing always requires user confirmation.
 
 ### 3. Execute and adapt
 
-Work autonomously. You may use any installed skill, MCP tool, or your own judgment; no external skill may write Matrix state, skip `run submit` checks, or declare the run complete. If the approach changes but the goal and acceptance do not, record it instead of restarting:
+Work autonomously. You may use any installed skill, MCP tool, or your own judgment; no external skill may write Matrix state, skip `run submit` checks, or declare the run complete.
+- **Minimal resume**: when resuming an active run in a new session or another agent, read `run inspect` + `.matrix/runs/<id>/brief.md` (and the latest failing `logs/` tail if any) and navigate directly to the pinned files instead of re-scanning the codebase.
+- **Lightweight subagent slices**: for multi-slice coding when the host supports write subagents on a fast/cost-effective model (e.g. `flash`, `haiku`, `sonnet`), you may delegate bounded code edits and local unit test runs to a subagent pointed at `brief.md`. The lead agent retains exclusive ownership of `run frame`, `run pivot`, `run submit`, `run verify`, and `run close`, and steps in directly if a slice fails twice.
+- If the approach changes but the goal and acceptance do not, record it instead of restarting:
 
 ```powershell
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs run pivot --reason "<why>" [--scope "<new approach>"] --expect-revision <n>

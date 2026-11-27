@@ -47,6 +47,7 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs run frame --goal "<text
 ```
 
 - `run frame` freezes `goal`, `acceptance[]`, and `required_checks[]` (or `no_checks_reason`). It needs at least one `--accept` and either `--check` or `--no-checks-reason`, never both. Frame once, after understanding. `--goal` and the short flags go through argv; long text goes through `--brief-file`.
+- Pin investigation coordinates in `brief.md` (`--brief-file`): list the exact files/seams to touch, upstream/downstream contract invariants, and focused check commands so a resumed session, another agent, or a subagent never pays to re-scan the repository.
 - Clear, bounded request: frame without `--wait` or `--require-confirmation`. Runtime goes straight to `execute` and returns a summary; echo it to the user and continue.
 - Vague, exploratory, or wide request: investigate first, then add `--require-confirmation`. The confirmation covers only goal, acceptance, and checks, never technical options.
 - `--wait "<question>"` holds the Run in `await-user` when one of the boundaries above forces a question. A project with `autonomy_level: strict` always waits for confirmation.
@@ -61,6 +62,7 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs run resolve --answer "<
 ## Execute, pivot, submit
 
 - Use any installed Skill the task needs; none is mandatory. Work in the smallest slice that produces observable evidence.
+- **Minimal resume & lightweight subagent slices**: when resuming an active Run across sessions or agents, read `run inspect` + `.matrix/runs/<run-id>/brief.md` (plus the latest failing `logs/` tail if applicable) and go straight to the pinned files. When the host supports write subagents with selectable lightweight models (such as `flash`, `haiku`, or `sonnet`) and the task spans multiple bounded slices, the lead agent may delegate slice edits and local test runs to a fresh subagent fed `brief.md` while keeping exclusive ownership of every `run *` state command (taking over directly if a slice stalls twice).
 - A change of method is a pivot, allowed while the Run is in `execute` or `verify`. It keeps the goal and the acceptance items and voids this round's submission and review conclusions, so `run submit` must run again:
 
 ```powershell

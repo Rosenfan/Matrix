@@ -59,7 +59,7 @@ The immutable per-change choice of which capability provider performs work insid
 _Avoid_: Workflow type, alternate lifecycle
 
 **Prim**:
-The orchestration mode in which Matrix uses its own capabilities and does not depend on the Matt Pocock Skill cohort.
+The always-available baseline orchestration value (`prim`) in which Matrix uses its own built-in capabilities when Matt Pocock Skills are not installed; kept as a canonical state identifier rather than a separate promoted workflow tier.
 _Avoid_: Basic mode, fallback mode
 
 **Arch**:
@@ -115,5 +115,5 @@ Confirmation that a specific Workflow contract is authorized to enter Build; it 
 _Avoid_: Guard pass, phase approval
 
 **Implementation handoff**:
-An optional export of an approved Workflow contract to another implementation actor; it does not own workflow phase changes or acceptance of the returned work.
-_Avoid_: Alternate workflow, delegated approval
+Recording another implementation actor (`handoff:<agent-id>` or `subagent` in `implementation_actor`) to execute an approved Workflow contract directly from `.matrix/` coordinates; it does not transfer lifecycle ownership or acceptance of the returned work.
+_Avoid_: Alternate workflow, delegated approval, duplicate task-package export

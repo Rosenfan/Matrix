@@ -47,6 +47,7 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs run frame --goal "<text
 ```
 
 - `run frame` 冻结 `goal`、`acceptance[]` 与 `required_checks[]`（或 `no_checks_reason`）。它至少需要一条 `--accept`，以及 `--check` 或 `--no-checks-reason` 二者之一，不能同时给。理解之后只框定一次。`--goal` 和短 flag 走 argv，长文本走 `--brief-file`。
+- 在 `brief.md`（`--brief-file`）中锁定探索坐标：写明精确目标文件/函数位置、上下游契约不变量与聚焦检查命令，使后续接续会话、切换 Agent 或施工子代理无需重新全仓扫描。
 - 请求明确且有界：框定时不带 `--wait` 或 `--require-confirmation`。Runtime 直接进入 `execute` 并返回摘要；把它回显给用户，然后继续。
 - 请求模糊、带探索性质或范围很大：先调查，再加 `--require-confirmation`。确认只针对目标、验收项和检查，从不涉及技术选项。
 - 当上述边界迫使你提问时，用 `--wait "<question>"` 让 Run 停在 `await-user`。`autonomy_level: strict` 的项目一律等待确认。
@@ -61,6 +62,7 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs run resolve --answer "<
 ## 执行、转向与提交
 
 - 任务需要哪个已安装的 Skill 就用哪个，没有任何一个是必须的。按能产生可观察证据的最小切片推进。
+- **最小恢复集与轻量子代理切片**：跨会话或跨 Agent 接续在途 Run 时，只读 `run inspect` + `.matrix/runs/<run-id>/brief.md`（若有失败再看最新 `logs/` 尾部），直接定位目标文件。多切片任务且宿主支持拉起轻量高性价比模型（如 `flash`、`haiku`、`sonnet`）写权限子代理时，主代理可将有界代码修改与单测运行委派给读取 `brief.md` 的干净子代理，但所有 `run *` 状态命令由主代理独占（同一切片连续两次受阻时由主代理直接接手）。
 - 方法变更用 pivot，Run 处于 `execute` 或 `verify` 时可用。它保留目标与验收项，并使本轮已有的提交与评审结论失效，因此必须重新 `run submit`：
 
 ```powershell

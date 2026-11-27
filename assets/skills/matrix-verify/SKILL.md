@@ -14,7 +14,7 @@ Write verification prose in `artifact_language` from inspect while preserving th
 This phase can receive implementation from two sources:
 
 1. **Direct implementation** — from the `$matrix-build` phase in this session
-2. **Handed-off implementation** — from a `$matrix-handoff` task package executed by another implementation agent
+2. **Delegated or handed-off implementation** — produced by a subagent or another agent working directly against the approved Contract in `.matrix/`
 
 Regardless of source, the verification process is the same: check that implementation evidence meets the plan's requirements.
 

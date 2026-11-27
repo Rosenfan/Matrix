@@ -22,15 +22,15 @@
 没有活动变更时，为请求分类，并以简短的 kebab-case ID 与准确的标题初始化。除非明确适用快捷方式，否则从 `full` 开始：
 
 ```powershell
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs init <change-id> --workflow <full|hotfix|tweak> --orchestration <prim|arch> --title "<title>"
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs init <change-id> --workflow <full|hotfix|tweak> --title "<title>"
 ```
 
-显式模式优先，否则使用项目默认值。解析出的模式在该变更内冻结，之后不可切换。有活动变更时，报告其 phase 与冻结的 `orchestration`，并仅在 Runtime 允许继续时进入返回的 `next_skill`。
+Runtime 按项目默认配置解析 `orchestration`（安装了受验证 Matt 集合时为 `arch`，否则为始终可用的内置基线 `prim`；仅在显式覆盖时传 `--orchestration <prim|arch>`）。解析出的模式在该变更内冻结，之后不可切换。有活动变更时，报告其 phase 与冻结的 `orchestration`，并仅在 Runtime 允许继续时进入返回的 `next_skill`。
 
-## Prim 与 Arch
+## 默认基线（`prim`）与 Arch
 
-- **Prim**：各阶段都使用 Matrix 自身能力，不依赖 Matt Skills。
-- **Arch**：仅在任务事实满足触发条件时，Matrix 才调用该变更冻结的能力集中的十项经过审查的自动能力。Arch 绑定 Matt Skills v1.3.1（commit `24fe0ef`）：Matrix 审查全部 27 项官方角色，只在项目本地安装其中 25 项兼容 Skill，并逐一对照 Matt 安装回执校验。
+- **Prim（`prim` 基线）**：未安装 Matt Skills 时始终可用的内置编排状态值，各阶段使用 Matrix 自身能力完成。
+- **Arch（`arch`）**：仅在任务事实满足触发条件时，Matrix 才调用该变更冻结的能力集中的十项经过审查的自动能力。Arch 绑定 Matt Skills v1.3.1（commit `24fe0ef`）：Matrix 审查全部 27 项官方角色，只在项目本地安装其中 25 项兼容 Skill，并逐一对照 Matt 安装回执校验。
 - `implement` 与 `implement-spec` 不兼容。Matrix 既不安装也不调用它们；已有副本（含遗留的 `resolving-merge-conflicts`）保留为未管理额外项，活动变更内不得建议使用。
 - 正确安装的 Arch 能力执行失败时，最多允许一次同能力的 Matrix 自有 fallback，并记录失败与证据。Arch 安装缺失、被修改或不完整时，必须用 `matrix init --with-mattpocock` 修复；绝不为了绕过它而把活动变更切到 Prim。
 - Arch 下由 `matrix-verify` 把审查绑定到当前 revision：`review --source code-review --fixed-point <ref> --standards <passed|failed> --spec <passed|failed>`。绝不把 fallback 标成成功的 `code-review`。
@@ -47,10 +47,9 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs init <change-id> --work
 | `matrix-verify` | 运行 Contract 的验证命令，产出 Standards 与 Spec 双轴审查证据 |
 | `matrix-archive` | 对已验证的变更执行两步归档 |
 | `matrix-hotfix`、`matrix-tweak` | `lightweight` profile 的指引；没有独立状态机，经 `matrix` 启动 |
-| `matrix-handoff` | 可选 sidecar：把已批准的 Contract 导出为交给其他实现 agent 的任务包；从不改变阶段或状态 |
 | `matrix-status` | 只读报告 phase、守卫结果与恢复命令 |
 
-companion Skill 不得写 Matrix 状态、推进阶段、提交、归档或创建竞争的工作流产物。`matrix-handoff` 只服务 classic 变更（`export --task-id <ID> --agent <agent-id>`，在 Build 阶段、Design → Build 转换批准之后使用），且只支持 full 或 legacy-full 的三件套 Contract；它不属于 `auto`。
+companion Skill 不得写 Matrix 状态、推进阶段、提交、归档或创建竞争的工作流产物。
 
 ## 正向推进与执行主体门禁
 
@@ -58,7 +57,7 @@ companion Skill 不得写 Matrix 状态、推进阶段、提交、归档或创�
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs guard open
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition design
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs guard design
-node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build --executor <current|model|handoff:<agent-id>>
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build --executor <current|model|subagent|handoff:<agent-id>>
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build --confirmed --executor <choice>
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs guard build
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition verify
@@ -67,7 +66,7 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition archive
 ```
 
 - 阶段只能经 `transition` 正向推进，且必须先通过对应的 `guard`。
-- `--executor` 门禁在 classic 下保持。进入 Build 之前呈现执行主体选择：由当前 agent 继续、在用户客户端切换模型、或移交给另一个 agent。`full` 在 design guard 之后作出选择（`transition build --executor ...`）；`lightweight` 把它并入 `transition build --confirmed` 的暂停。缺少该选择时 Runtime 拒绝进入 Build（`EXECUTOR_CONFIRMATION_REQUIRED`），并把选择存为 `implementation_actor`。
+- `--executor` 门禁在 classic 下保持。进入 Build 之前呈现执行主体选择：由当前 agent 继续、派生轻量模型子代理施工、在用户客户端切换模型、或移交给读取 `.matrix/` 的另一个 agent。`full` 在 design guard 之后作出选择（`transition build --executor ...`）；`lightweight` 把它并入 `transition build --confirmed` 的暂停。缺少该选择时 Runtime 拒绝进入 Build（`EXECUTOR_CONFIRMATION_REQUIRED`），并把选择存为 `implementation_actor`。
 - 归档必须使用两步乐观提交；裸 Archive 会被拒绝：
 
 ```powershell

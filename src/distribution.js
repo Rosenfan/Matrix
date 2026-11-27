@@ -3,7 +3,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import {
-  MATRIX_SKILLS, MATRIX_AUTO_SKILLS, MATT_SKILLS, UNMANAGED_MATT_SKILLS, PLATFORM_IDS, PLATFORMS, hashDirectory,
+  MATRIX_SKILLS, MATRIX_AUTO_SKILLS, RETIRED_MATRIX_SKILLS, MATT_SKILLS, UNMANAGED_MATT_SKILLS, PLATFORM_IDS, PLATFORMS, hashDirectory,
   installationRoot, manifestPath, mattCatalogSource, matrixConfigSource, releaseCatalog, runEngineSource, scopeBase, sourceSkillsRoot, workflowRuntimeSource, workflowTransactionSource
 } from "./catalog.js";
 import { createMattAdapter, mattReceiptPath } from "./matt.js";
@@ -266,7 +266,7 @@ export function createDistribution({ failAt, mattAdapter = createMattAdapter(), 
     const existingDefault = ["prim", "arch"].includes(existingConfig.default_orchestration) ? existingConfig.default_orchestration
       : ["prim", "arch"].includes(manifest?.orchestration?.default) ? manifest.orchestration.default : null;
     intent.defaultOrchestration = intent.defaultOrchestration ?? existingDefault ?? (intent.matt === "missing" && intent.nonInteractive ? "arch" : "prim");
-    // Auto runs never orchestrate a Matt cohort; keep the legacy dimension at prim.
+    // Auto runs never orchestrate a Matt cohort; prim remains the always-available baseline state value.
     if (intent.workflow === "auto") intent.defaultOrchestration = "prim";
     const actions = observations.map((item) => ({ platform: item.id, matrix: actionFor(item, intent.matrixPolicy), matt: intent.matt === "missing" ? { kind: "reconcile", skills: [...MATT_SKILLS] } : { kind: "keep", skills: [] } }));
     const blocked = actions.filter((item) => item.matrix === "blocked");
@@ -300,6 +300,8 @@ export function createDistribution({ failAt, mattAdapter = createMattAdapter(), 
         const matrixRoot = path.join(observation.root, "matrix");
         if (pathExists(matrixRoot) && (!exists(matrixRoot) || !exists(path.join(matrixRoot, "scripts", "matrix-runtime.mjs")) || !exists(path.join(matrixRoot, "scripts", "workflow-transaction.js")))) diagnostics.push({ code: "RUNTIME_MISSING", platform: observation.id, message: `${observation.name}: ${text(evaluation.intent.language, "runtimeMissing")}` });
         for (const skill of observation.skills.filter((entry) => isBrokenLink(entry.target))) diagnostics.push({ code: "BROKEN_LINK", platform: observation.id, path: skill.target, message: `${observation.name}: ${text(evaluation.intent.language, "brokenLink")} ${skill.target}` });
+        const retired = RETIRED_MATRIX_SKILLS.filter((skill) => pathExists(path.join(observation.root, skill)));
+        if (retired.length) diagnostics.push({ code: "RETIRED_SKILL_PRESENT", platform: observation.id, skills: retired, message: text(evaluation.intent.language, "retiredSkillDiagnostic").replace("{platform}", observation.name).replace("{skills}", retired.join(", ")) });
         if (observation.id === "codex" && PLATFORMS.codex.legacyRoots(scopeBase(evaluation.intent.scope, evaluation.intent.projectRoot, evaluation.intent.home)).some(exists)) diagnostics.push({ code: "CODEX_LEGACY_DETECTED", platform: observation.id, message: text(evaluation.intent.language, "codexLegacyDiagnostic") });
         // Auto projects treat Matt Skills as unmanaged external tools: no Matt state
         // diagnostics, no global-ignore or extra-skill advisories.

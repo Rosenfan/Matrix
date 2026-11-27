@@ -533,14 +533,15 @@ test("Abort is available without contract input from every active phase", (t) =>
   }
 });
 
-test("Claude export is a read-only matching-Build handoff with approval metadata", (t) => {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-export-contract-")); t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
-  const { base, result } = build(cwd, "handoff"); const before = fs.readFileSync(statePath(cwd, "handoff"), "utf8"); const count = events(cwd, "handoff").length;
-  const exported = invoke(["export", "--task-id", "TASK-1"], { cwd });
-  assert.equal(exported.ok, true); assert.equal(fs.readFileSync(statePath(cwd, "handoff"), "utf8"), before); assert.equal(events(cwd, "handoff").length, count);
-  assert.match(fs.readFileSync(path.join(base, "claude-task.md"), "utf8"), new RegExp(result.approved_contract_hash));
-  fs.appendFileSync(path.join(base, "proposal.md"), "\nchanged");
-  assert.equal(invoke(["export", "--task-id", "TASK-2"], { cwd }).code, "CONTRACT_CHANGED");
+test("retired export and handoff commands are rejected without mutating state", (t) => {
+  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-retired-commands-")); t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
+  assert.equal(invoke(["export", "--task-id", "TASK-0"], { cwd }).code, "INVALID_INTENT");
+  assert.equal(invoke(["handoff"], { cwd }).code, "INVALID_INTENT");
+  build(cwd, "handoff"); const before = fs.readFileSync(statePath(cwd, "handoff"), "utf8"); const count = events(cwd, "handoff").length;
+  assert.equal(invoke(["export", "--task-id", "TASK-1"], { cwd }).code, "INVALID_INTENT");
+  assert.equal(invoke(["handoff"], { cwd }).code, "INVALID_INTENT");
+  assert.equal(fs.readFileSync(statePath(cwd, "handoff"), "utf8"), before);
+  assert.equal(events(cwd, "handoff").length, count);
 });
 
 test("direct lifecycle archives with matching approval and terminal records remain inspectable", (t) => {
@@ -763,28 +764,8 @@ test("CLI, bundled Runtime, and Python adapters preserve the final contract enve
   assert.deepEqual(JSON.parse(cli.stdout), JSON.parse(bundled.stdout));
   const pythonResult = adapter(stateAdapter, ["inspect"], nodeCwd); assert.equal(pythonResult.status, 0, pythonResult.stderr);
   assert.equal(JSON.parse(pythonResult.stdout).contract_status, "approved-and-matching");
-  const pythonExport = adapter(claudeAdapter, ["export", "--task-id", "PY-1"], nodeCwd); assert.equal(pythonExport.status, 0, pythonExport.stderr);
-});
-
-test("generic agent handoff exports a parameterized task package", (t) => {
-  const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-export-agent-")); t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
-  const { base, result } = build(cwd, "agents");
-  const exported = invoke(["export", "--task-id", "TASK-9", "--agent", "opencode", "--from", "codex"], { cwd });
-  assert.equal(exported.ok, true, exported.message);
-  const content = fs.readFileSync(path.join(base, "handoff-task-TASK-9.md"), "utf8");
-  assert.match(content, /# opencode task: TASK-9/);
-  assert.match(content, /\| Implementation actor \| opencode \|/);
-  assert.match(content, /\| Decision owner \| codex \|/);
-  assert.match(content, /\| Status \| OPENCODE_QUEUED \|/);
-  assert.match(content, new RegExp(result.approved_contract_hash));
-  assert.equal(fs.readFileSync(path.join(cwd, ".matrix", "changes", "agents", "matrix.yaml"), "utf8").includes("phase: build"), true);
-  assert.equal(invoke(["export", "--task-id", "T", "--agent", "opencode", "--target", "generic"], { cwd }).code, "INVALID_INTENT");
-  assert.equal(invoke(["export", "--task-id", "T", "--agent", "Bad Agent"], { cwd }).code, "INVALID_INTENT");
-  assert.equal(invoke(["export", "--agent", "opencode"], { cwd }).code, "INVALID_INTENT");
-  assert.equal(invoke(["export", "--task-id", "T", "--from", "codex"], { cwd }).code, "INVALID_INTENT");
-  const defaulted = invoke(["export", "--task-id", "TASK-10", "--agent", "claude-code"], { cwd });
-  assert.equal(defaulted.ok, true, defaulted.message);
-  assert.match(fs.readFileSync(path.join(base, "handoff-task-TASK-10.md"), "utf8"), /\| Decision owner \| Matrix change owner \|/);
+  const pythonClaudeShim = adapter(claudeAdapter, ["inspect"], nodeCwd); assert.equal(pythonClaudeShim.status, 0, pythonClaudeShim.stderr);
+  assert.equal(JSON.parse(pythonClaudeShim.stdout).contract_status, "approved-and-matching");
 });
 
 test("Build entry is gated on an explicit runtime-enforced executor choice", (t) => {
@@ -802,14 +783,14 @@ test("Build entry is gated on an explicit runtime-enforced executor choice", (t)
   assert.equal(invoke(["inspect"], { cwd }).phase, "build");
 });
 
-test("lightweight Build entry keeps confirmation and requires the executor choice", (t) => {
+test("lightweight Build entry keeps confirmation and accepts subagent or model executor choices", (t) => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "matrix-executor-lightweight-"));
   t.after(() => fs.rmSync(cwd, { recursive: true, force: true }));
   assert.equal(invoke(["init", "tweak-executor", "--title", "Executor tweak", "--workflow", "tweak"], { cwd }).ok, true);
   writeShortcutProposal(artifacts(cwd, "tweak-executor"), "tweak");
   assert.equal(invoke(["transition", "build", "--confirmed"], { cwd }).code, "EXECUTOR_CONFIRMATION_REQUIRED");
   assert.equal(invoke(["transition", "build", "--executor", "current"], { cwd }).code, "CONFIRMATION_REQUIRED");
-  const entered = invoke(["transition", "build", "--confirmed", "--executor", "model"], { cwd });
+  const entered = invoke(["transition", "build", "--confirmed", "--executor", "subagent"], { cwd });
   assert.equal(entered.ok, true, entered.message);
-  assert.match(fs.readFileSync(statePath(cwd, "tweak-executor"), "utf8"), /^implementation_actor: model$/m);
+  assert.match(fs.readFileSync(statePath(cwd, "tweak-executor"), "utf8"), /^implementation_actor: subagent$/m);
 });

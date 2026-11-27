@@ -67,42 +67,70 @@ function localizedAction(language, action) {
   return text(language, ({ install: "actionInstall", keep: "actionKeep", "backup-replace": "actionBackupReplace", repair: "actionRepair", blocked: "actionBlocked" })[action] ?? action);
 }
 
+const PLATFORM_HINTS = {
+  "claude-code": ".claude/skills",
+  codex: ".agents/skills · opencode / Kimi Code",
+  zcode: ".zcode/skills"
+};
+
 async function intentFrom(options, ui) {
   const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY && !options.json);
-  const language = options.language ?? (options.yes ? "en" : await ui.select("Language / 语言", [{ label: "English", value: "en" }, { label: "中文", value: "zh-CN" }]));
-  const scope = options.scope ?? (options.yes ? "project" : await ui.select(text(language, "scopeQuestion"), [{ label: text(language, "project"), value: "project" }, { label: text(language, "global"), value: "global" }]));
+  if (interactive && !options.yes) ui.section("MATRIX INIT", `v${version}`);
+  const language = options.language ?? (options.yes ? "en" : await ui.select("Language / 语言", [
+    { label: "English", value: "en", badge: "EN" },
+    { label: "中文", value: "zh-CN", badge: "ZH" }
+  ], 0, { hint: "↑/↓ Navigate / 切换 · Enter Confirm / 确认" }));
+  const selectOpts = { hint: text(language, "hintSelect") };
+  const confirmOpts = { hint: text(language, "hintConfirm") };
+  const scope = options.scope ?? (options.yes ? "project" : await ui.select(text(language, "scopeQuestion"), [
+    { label: text(language, "project"), value: "project" },
+    { label: text(language, "global"), value: "global" }
+  ], 0, selectOpts));
   let platforms = options.platforms;
-  if (!platforms.length && interactive && !options.yes) platforms = await ui.selectMany(text(language, "platformsQuestion"), PLATFORM_IDS.map((id) => ({ label: PLATFORMS[id].name, value: id })));
+  if (!platforms.length && interactive && !options.yes) {
+    platforms = await ui.selectMany(
+      text(language, "platformsQuestion"),
+      PLATFORM_IDS.map((id) => ({ label: PLATFORMS[id].name, value: id, hint: PLATFORM_HINTS[id] })),
+      { hint: text(language, "hintMulti"), emptyHint: text(language, "hintRequireOne") }
+    );
+  }
   // The workflow choice leads everything else: auto never asks about Matt cohorts or
-  // orchestration; classic keeps the original questions and their original defaults.
+  // orchestration; classic keeps the Matt cohort question and auto-resolves orchestration.
   const workflow = options.defaultWorkflow ?? (interactive && !options.yes
     ? await ui.select(text(language, "workflowQuestion"), [
-        { label: text(language, "workflowAutoLabel"), value: "auto", detail: text(language, "workflowAutoDetail") },
-        { label: text(language, "workflowClassicLabel"), value: "classic", detail: text(language, "workflowClassicDetail") }
-      ])
+        { label: text(language, "workflowAutoLabel"), value: "auto", badge: "AUTO", detail: text(language, "workflowAutoDetail") },
+        { label: text(language, "workflowClassicLabel"), value: "classic", badge: "CLASSIC", detail: text(language, "workflowClassicDetail") }
+      ], 0, selectOpts)
     : "auto");
   const autonomy = options.autonomy ?? (workflow === "auto" ? "balanced" : null);
-  const matt = options.matt ?? (workflow === "classic" && interactive && !options.yes ? (await ui.confirm(text(language, "mattQuestion"), true, labelsFor(language)) ? "missing" : "none") : workflow === "classic" ? "missing" : "none");
-  const defaultOrchestration = options.defaultOrchestration ?? (workflow === "classic" && interactive && !options.yes && matt === "missing"
-    ? await ui.select(text(language, "orchestrationQuestion"), [
-        { label: "Arch", value: "arch", detail: text(language, "orchestrationArchDetail") },
-        { label: "Prim", value: "prim", detail: text(language, "orchestrationPrimDetail") }
-      ])
-    : null);
+  const matt = options.matt ?? (workflow === "classic" && interactive && !options.yes ? (await ui.confirm(text(language, "mattQuestion"), true, labelsFor(language), confirmOpts) ? "missing" : "none") : workflow === "classic" ? "missing" : "none");
+  const defaultOrchestration = options.defaultOrchestration ?? (workflow === "classic" && matt === "missing" ? "arch" : null);
+  if (interactive && !options.yes) ui.endSection();
   return { projectRoot: projectRoot(options.directory), language, scope, platforms, mode: options.mode, matt, mattPolicy: options.mattPolicy, defaultOrchestration, workflow, workflowExplicit: true, autonomy, nonInteractive: options.yes || !interactive, matrixPolicy: options.matrixPolicy, dryRun: options.dryRun };
 }
 
 function render(ui, evaluation) {
   const language = evaluation.intent?.language ?? "en";
-  const actions = (evaluation.actions ?? []).map((item) => `${item.platform}: ${localizedAction(language, item.matrix)}`).join(", ");
-  ui.info(actions ? `${text(language, "preview")}: ${actions}` : evaluation.code);
-  if (evaluation.intent?.defaultOrchestration) ui.muted(`${text(language, "defaultOrchestration")}: ${evaluation.intent.defaultOrchestration}`);
-  for (const item of evaluation.observations ?? []) {
-    const mattStates = Object.entries(item.matt.classificationCounts ?? {}).map(([state, count]) => `${localizedState(language, state)}=${count}`).join(", ");
-    ui.muted(`${item.name}: ${text(language, "matrix")} ${localizedState(language, item.matrix)}；${text(language, "matt")} ${localizedState(language, item.matt.state)}${mattStates ? ` (${mattStates})` : ""}`);
+  const workflowMode = evaluation.intent?.workflow ?? "classic";
+  const modeTag = workflowMode === "auto"
+    ? "AUTO"
+    : `CLASSIC${evaluation.intent?.defaultOrchestration ? ` · ${evaluation.intent.defaultOrchestration.toUpperCase()}` : ""}`;
+  const actions = (evaluation.actions ?? []).map((item) => `${item.platform} → ${localizedAction(language, item.matrix)}`).join("  |  ");
+  ui.section(actions ? `${text(language, "preview")}: ${actions}` : evaluation.code, modeTag);
+  if (workflowMode !== "auto" && evaluation.intent?.defaultOrchestration) {
+    ui.rail(`${text(language, "defaultOrchestration")}: ${evaluation.intent.defaultOrchestration}`);
   }
-  for (const item of evaluation.diagnostics ?? []) ui.warn(item.code === "USER_MODIFIED_BLOCKED" ? text(language, "replaceQuestion") : item.message ?? item.code);
-  for (const item of evaluation.diagnosis ?? []) (item.code === "MATT_GLOBAL_IGNORED" ? ui.muted : ui.warn)(item.message ?? item.code);
+  for (const item of evaluation.observations ?? []) {
+    if (workflowMode === "auto") {
+      ui.rail(`${item.name}: ${text(language, "matrix")} ${localizedState(language, item.matrix)}`);
+    } else {
+      const mattStates = Object.entries(item.matt.classificationCounts ?? {}).map(([state, count]) => `${localizedState(language, state)}=${count}`).join(", ");
+      ui.rail(`${item.name}: ${text(language, "matrix")} ${localizedState(language, item.matrix)}；${text(language, "matt")} ${localizedState(language, item.matt.state)}${mattStates ? ` (${mattStates})` : ""}`);
+    }
+  }
+  for (const item of evaluation.diagnostics ?? []) ui.railWarn(item.code === "USER_MODIFIED_BLOCKED" ? text(language, "replaceQuestion") : item.message ?? item.code);
+  for (const item of evaluation.diagnosis ?? []) (item.code === "MATT_GLOBAL_IGNORED" ? ui.railMuted : ui.railWarn)(item.message ?? item.code);
+  ui.endSection();
 }
 
 async function init(options) {
@@ -118,11 +146,11 @@ async function refresh(intent, options, ui) {
   const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY && !options.json);
   let reevaluated = false;
   if (!options.json) render(ui, evaluation);
-  if (!evaluation.ok && evaluation.code === "USER_MODIFIED_BLOCKED" && interactive && !options.yes && await ui.confirm(text(intent.language, "replaceQuestion"), false, labelsFor(intent.language))) {
+  if (!evaluation.ok && evaluation.code === "USER_MODIFIED_BLOCKED" && interactive && !options.yes && await ui.confirm(text(intent.language, "replaceQuestion"), false, labelsFor(intent.language), { hint: text(intent.language, "hintConfirm") })) {
     evaluation = distribution.evaluate({ ...intent, matrixPolicy: "replace" }); reevaluated = true;
   }
   if (!evaluation.ok && evaluation.code === "MATT_USER_MODIFIED" && interactive && !options.yes
-    && await ui.confirm(text(intent.language, "mattReplaceQuestion"), false, labelsFor(intent.language))) {
+    && await ui.confirm(text(intent.language, "mattReplaceQuestion"), false, labelsFor(intent.language), { hint: text(intent.language, "hintConfirm") })) {
     evaluation = distribution.evaluate({ ...intent, mattPolicy: "replace" }); reevaluated = true;
   }
   if (options.json) {
@@ -138,22 +166,23 @@ async function refresh(intent, options, ui) {
   }
   if (reevaluated) render(ui, evaluation);
   if (!evaluation.ok) return 2;
-  if (!options.yes && interactive && !options.dryRun && !await ui.confirm(text(intent.language, "confirm"), true, labelsFor(intent.language))) return 0;
-  const result = distribution.commit(evaluation.plan);
+  if (!options.yes && interactive && !options.dryRun && !await ui.confirm(text(intent.language, "confirm"), true, labelsFor(intent.language), { hint: text(intent.language, "hintConfirm") })) return 0;
+  const result = await ui.task(text(intent.language, "applyingPlan"), () => distribution.commit(evaluation.plan));
   if (!result.ok) { ui.warn(result.error ?? result.code); return 2; }
   if (intent.scope === "project" && !options.dryRun) {
     try { registerProject({ projectRoot: intent.projectRoot, scope: intent.scope, platforms: intent.platforms, language: intent.language, home: intent.home }); }
     catch { /* a broken project index must never fail an update */ }
   }
   if (result.code === "PARTIAL") { ui.warn(result.recovery); return 1; }
-  ui.success(options.dryRun ? text(intent.language, "dryRunComplete") : text(intent.language, "ready"));
-  if (!options.updateMode && intent.matt === "missing" && !options.dryRun) ui.muted(text(intent.language, "mattSetupHint").replace("{release}", MATT_COMPATIBILITY.release));
-  if (options.updateMode) {
+  const summaryLines = [];
+  if (!options.updateMode && intent.matt === "missing" && !options.dryRun) summaryLines.push(text(intent.language, "mattSetupHint").replace("{release}", MATT_COMPATIBILITY.release));
+  if (options.updateMode && intent.workflow !== "auto") {
     const matt = inspectMattInstallation({ projectRoot: intent.projectRoot, home: intent.home, platforms: intent.platforms, action: "matrix update --with-mattpocock" });
-    ui.muted(`${text(intent.language, "mattCompatibilityStatus").replace("{release}", matt.supported.release).replace("{status}", localizedState(intent.language, matt.status))}${matt.action ? `; ${matt.action}` : ""}`);
+    summaryLines.push(`${text(intent.language, "mattCompatibilityStatus").replace("{release}", matt.supported.release).replace("{status}", localizedState(intent.language, matt.status))}${matt.action ? `; ${matt.action}` : ""}`);
   }
-  ui.muted(text(intent.language, "readyHint").replace("{platform}", evaluation.intent.platforms.map((id) => PLATFORMS[id].name).join(", ")));
-  ui.muted(evaluation.intent.platforms.map((id) => `${PLATFORMS[id].name}: $matrix <request>`).join("\n"));
+  summaryLines.push(text(intent.language, "readyHint").replace("{platform}", evaluation.intent.platforms.map((id) => PLATFORMS[id].name).join(", ")));
+  for (const id of evaluation.intent.platforms) summaryLines.push(`▸ ${PLATFORMS[id].name}: ${ui.paint("cyan", "$matrix <request>")}`);
+  ui.box(`OK · ${options.dryRun ? text(intent.language, "dryRunComplete") : text(intent.language, "ready")}`, summaryLines);
   return 0;
 }
 
@@ -207,10 +236,12 @@ async function update(options) {
   if (forbidden) throw new Error("matrix update inherits installation settings. Use matrix init to change language, scope, platform, mode, or orchestration.");
   const interactive = Boolean(process.stdin.isTTY && process.stdout.isTTY && !options.json);
   const intent = { ...installed.intent, dryRun: options.dryRun };
+  if (!options.json) await ui.banner();
   let npm = { status: "skipped", current: version, target: version, reason: options.skipSelfUpdate ? "disabled by --skip-self-update" : null };
   if (!options.skipSelfUpdate && !options.reexec) {
     try {
-      const target = await latestVersion(); const comparison = compareVersions(target, version);
+      const target = options.json ? await latestVersion() : await ui.task(text(intent.language, "checkingRegistry"), () => latestVersion());
+      const comparison = compareVersions(target, version);
       if (comparison === null) throw new Error("unable to compare registry version");
       npm = comparison > 0 ? { status: "available", current: version, target } : { status: "skipped", current: version, target, reason: comparison === 0 ? "already latest" : "registry version is older" };
     } catch (error) {
@@ -225,22 +256,22 @@ async function update(options) {
   // C9/E2: auto projects treat Matt Skills as external tools — never prompt for a repair
   // or a downgrade to the pinned release; only an explicit --with-mattpocock repairs.
   const mattRepair = options.matt === "missing" || (intent.workflow !== "auto" && mattNeedsRepair && interactive && !options.yes
-    && await ui.confirm(text(intent.language, "mattRepairQuestion").replace("{state}", localizedState(intent.language, mattStatus.status)).replace("{release}", MATT_COMPATIBILITY.release), true, labelsFor(intent.language)));
+    && await ui.confirm(text(intent.language, "mattRepairQuestion").replace("{state}", localizedState(intent.language, mattStatus.status)).replace("{release}", MATT_COMPATIBILITY.release), true, labelsFor(intent.language), { hint: text(intent.language, "hintConfirm") }));
   if (mattRepair) intent.matt = "missing";
   if (options.json && options.dryRun) { console.log(JSON.stringify({ ok: true, code: "DRY_RUN", npm, intent, matt: mattStatus })); return 0; }
   const scope = options.all ? "all" : options.projectOnly ? "project"
     : interactive && !options.yes ? await ui.select(text(intent.language, "updateScopeQuestion"), [
         { label: text(intent.language, "updateScopeCurrent"), value: "project" },
         { label: text(intent.language, "updateScopeAll"), value: "all" }
-      ])
+      ], 0, { hint: text(intent.language, "hintSelect") })
     : "project";
   if (!options.json) {
-    await ui.banner(); ui.info(`Matrix update: CLI ${npm.current}${npm.status === "available" ? ` → ${npm.target}` : ""}`);
-    ui.muted(`Assets: ${intent.scope}, ${intent.language}, ${intent.platforms.join(", ")}`);
+    ui.section(`MATRIX UPDATE // CLI ${npm.current}${npm.status === "available" ? ` → ${npm.target}` : ""}`, `${intent.scope} · ${intent.language} · ${intent.platforms.join(", ")}`);
+    ui.endSection();
   }
   if (npm.status === "available") {
     const repairNotice = mattRepair ? ` Matt Skills will be repaired to ${MATT_COMPATIBILITY.release} as part of the update.` : "";
-    if (!options.yes && interactive && !await ui.confirm(`Upgrade Matrix CLI ${npm.current} → ${npm.target} and then refresh these assets?${repairNotice}`, true, labelsFor(intent.language))) return 0;
+    if (!options.yes && interactive && !await ui.confirm(`Upgrade Matrix CLI ${npm.current} → ${npm.target} and then refresh these assets?${repairNotice}`, true, labelsFor(intent.language), { hint: text(intent.language, "hintConfirm") })) return 0;
     if (options.dryRun) { if (options.json) console.log(JSON.stringify({ ok: true, code: "DRY_RUN", npm, intent, matt: mattStatus })); else ui.success(text(intent.language, "dryRunComplete")); return 0; }
     const updated = selfUpdate(version, npm.target);
     if (!updated.ok) {

@@ -1,6 +1,6 @@
 {
   "name": "@rosenfan/matrix",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Single-entry autonomous workflow for agent skills: an auto run protocol with runtime-executed checks, plus the classic five-phase software workflow.",
   "license": "MIT",
   "type": "module",

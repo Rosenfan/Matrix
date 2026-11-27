@@ -5,7 +5,7 @@ description: 用测试优先的纵向切片实现冻结的 Matrix 计划。仅�
 
 # Matrix Build
 
-读取 `node <matrix-skill-directory>/scripts/matrix-runtime.mjs inspect` 与已批准 Contract。full/legacy-full 读取 proposal/design/plan；lightweight 只读取紧凑 proposal，不补写 Design 产物。
+读取 `node <matrix-skill-directory>/scripts/matrix-runtime.mjs inspect` 与已批准 Contract。full/legacy-full 读取 proposal/design/plan；lightweight 只读取紧凑 proposal，不补写 Design 产物。以已批准的 `design.md` + `plan.md`（或紧凑 `proposal.md`）作为唯一导航图，直接按锁定的目标文件坐标读取施工，不重新全仓摸排。
 
 Build 证据与面向用户的说明使用 `artifact_language`；Runtime 所需英文标题 token 保持不变。
 

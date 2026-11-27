@@ -9,8 +9,9 @@ export const LANGUAGE_IDS = ["en", "zh-CN"];
 export const PLATFORM_IDS = ["claude-code", "codex", "zcode"];
 export const MATRIX_SKILLS = [
   "matrix", "matrix-open", "matrix-design", "matrix-build", "matrix-verify",
-  "matrix-archive", "matrix-hotfix", "matrix-tweak", "matrix-status", "matrix-handoff"
+  "matrix-archive", "matrix-hotfix", "matrix-tweak", "matrix-status"
 ];
+export const RETIRED_MATRIX_SKILLS = ["matrix-claude", "matrix-handoff"];
 // The autonomous workflow ships two entry Skills only; classic keeps the full cohort.
 export const MATRIX_AUTO_SKILLS = ["matrix", "matrix-status"];
 export const MATRIX_CLASSIC_SKILLS = MATRIX_SKILLS;

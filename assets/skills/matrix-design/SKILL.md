@@ -34,7 +34,7 @@ Long-lived domain, ADR, or research artifacts follow repository conventions, and
 ## Process
 
 1. Establish repository facts and resolve only triggered design questions.
-2. Write and synchronize the canonical Matrix design and plan.
+2. Write and synchronize the canonical Matrix design and plan. Pin exact target file paths, seam invariants, and focused validation commands in `plan.md` so Build never needs to re-scan the repository.
 3. Confirm material architecture choices with the user before freezing.
 4. Run the guard, then choose the implementation actor.
 
@@ -56,24 +56,27 @@ node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build --exec
 
 Then enter `$matrix-build` to implement directly in this session.
 
-### Option B: Switch the model, keep this agent
+### Option B: Delegate Build slices to a lightweight subagent
+
+When the host supports write subagents on a fast/cost-effective model (for example `flash`, `haiku`, or `sonnet`), approve the Contract with `--executor subagent`:
+
+```powershell
+node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition build --executor subagent
+```
+
+Delegate bounded slice edits, unit tests, and drafting `## Build evidence` in `artifacts/verification.md` to the subagent pointed directly at `artifacts/design.md` and `artifacts/plan.md`. The lead agent retains exclusive ownership of `guard build`, `transition verify`, and `$matrix-verify`.
+
+### Option C: Switch the model, keep this agent
 
 The user switches the model in their own client (for example, a stronger model for design, an efficient one for implementation), returns to this session, and confirms. Then run the transition with `--executor model`. Matrix cannot see the client-side model; it provides the mandatory pause point only.
 
-### Option C: Switch the implementation agent
+### Option D: Hand off to another agent in this workspace
 
-First approve the frozen contract by transitioning to Build with the chosen agent recorded (`--executor handoff:<agent-id>`), then run `$matrix-handoff` to export a bounded task package for that agent (for example Codex designs, Claude Code implements; or zcode designs, opencode implements). This:
-- Does not change the Build phase or state beyond the preceding transition
-- Creates `artifacts/handoff-task-<task-id>.md` with all implementation details
-- Includes acceptance criteria, test seams, and required commands
-
-After the implementation agent completes and returns results, run the Build guard and enter `$matrix-verify`:
+Approve the frozen Contract by transitioning to Build with the chosen agent recorded (`--executor handoff:<agent-id>`). The implementation agent opens this repository, runs `$matrix`, and implements directly from the pinned coordinates in `artifacts/design.md` and `artifacts/plan.md` without re-scanning the codebase. After it records `## Build evidence` in `artifacts/verification.md`, run the Build guard and enter `$matrix-verify`:
 
 ```powershell
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs guard build
 node <matrix-skill-directory>/scripts/matrix-runtime.mjs transition verify
 ```
-
-Then enter `$matrix-verify` to verify the implementation.
 
 Record the chosen option in `design.md` under `## Decisions` so it freezes with the Contract.
